@@ -19,25 +19,69 @@ glm::vec2 Window::oldMousePos(0.0f, 0.0f);
 bool Window::mousePressed0;
 bool Window::mousePressed1;
 
+std::unordered_map<int, std::function<void()>> Window::PressKeyCallbacks;
+
 PointLight pointLight;
 SpotLight spotLight;
 DirLight dirLight;
 DirLight dirLight2;
+
+// OpenGL Setup
+namespace
+{
+	void setup_glew()
+	{
+		glewExperimental = GL_TRUE;
+		// Initialize GLEW
+		GLenum err = glewInit();
+		if (GLEW_OK != err)
+		{
+			/* Problem: glewInit failed, something is seriously wrong. */
+			fprintf(stderr, "Error: %s\n", glewGetErrorString(err));
+			glfwTerminate();
+		}
+		fprintf(stdout, "Status: Using GLEW %s\n", glewGetString(GLEW_VERSION));
+	}
+
+	void setup_opengl_settings()
+	{
+		// Setup GLEW
+		setup_glew();
+		// Enable depth buffering
+		glEnable(GL_DEPTH_TEST);
+		// Related to shaders and z value comparisons for the depth buffer
+		glDepthFunc(GL_LEQUAL);
+		// Set polygon drawing mode to fill front and back of each polygon
+		// You can also use the paramter of GL_LINE instead of GL_FILL to see wireframes
+		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+		// Disable backface culling to render both sides of polygons
+		glDisable(GL_CULL_FACE);
+		// Set clear color
+		glClearColor(0.2f, 0.2f, 0.5f, 1.0f);
+	}
+
+	void print_versions()
+	{
+		// Get info of GPU and supported OpenGL version
+		printf("Renderer: %s\n", glGetString(GL_RENDERER));
+		printf("OpenGL version supported %s\n", glGetString(GL_VERSION));
+
+		//If the shading language symbol is defined
+#ifdef GL_SHADING_LANGUAGE_VERSION
+		std::printf("Supported GLSL version is %s.\n", (char *)glGetString(GL_SHADING_LANGUAGE_VERSION));
+#endif
+	}
+}
 
 void Window::initialize_objects()
 {
     triangleShader = LoadShaders("../../Shaders/TriangleShader.vert", "../../Shaders/TriangleShader.frag");
     regularShader = LoadShaders("../../Shaders/shader.vert", "../../Shaders/shader.frag");
     
-    cam = new Camera();
-
-    
-    V = glm::lookAt(cam->getPos(), cam->getLookAt(), cam->getUp());
-    
     dirLight.on = 1;
     dirLight2.on = 1;
     glUseProgram(regularShader);
-    glUniform3f(glGetUniformLocation(regularShader, "viewPos"), cam->getPos().x, cam->getPos().y, cam->getPos().z);
+    glUniform3f(glGetUniformLocation(regularShader, "viewPos"), camera->getPos().x, camera->getPos().y, camera->getPos().z);
     glUniform1i(glGetUniformLocation(regularShader, "dirLight.on"), dirLight.on);
     glUniform1i(glGetUniformLocation(regularShader, "dirLight2.on"), dirLight2.on);
     
@@ -104,12 +148,6 @@ void Window::resize_callback(GLFWwindow* window, int width, int height)
     }
 }
 
-void Window::idle_callback(GLFWwindow* window)
-{
-    
-    
-}
-
 void Window::key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
     
@@ -120,7 +158,10 @@ void Window::key_callback(GLFWwindow* window, int key, int scancode, int action,
             // Close the window. This causes the program to also terminate.
             glfwSetWindowShouldClose(window, GL_TRUE);
         }
-        
+
+		auto iter = PressKeyCallbacks.find(key);
+		if (iter != PressKeyCallbacks.end())
+			(iter->second)();
     }
 }
 
@@ -139,6 +180,29 @@ void Window::mouse_button_callback(GLFWwindow* window, int button, int action, i
 void Window::scroll_callback(GLFWwindow *window, double xoffset, double yoffset)
 {
 
+}
+
+Window::Window(std::shared_ptr<Camera> cam, int width, int height)
+	: camera(cam)
+	, glfwWindow(create_window(width, height))
+{
+	// Print OpenGL and GLSL versions
+	print_versions();
+	// Setup callbacks
+	setup_callbacks();
+
+	setup_camera_controls();
+	// Setup OpenGL settings, including lighting, materials, etc.
+	setup_opengl_settings();
+
+	glEnable(GL_PROGRAM_POINT_SIZE);
+	glEnable(GL_LINE_SMOOTH);
+
+	V = glm::lookAt(camera->getPos(), camera->getLookAt(), camera->getUp());
+
+	initialize_objects();
+
+	Window::cam = camera.get();
 }
 
 void Window::shaderInit()
@@ -242,11 +306,59 @@ void Window::cursor_position_callback(GLFWwindow* window, double xpos, double yp
     oldMousePos.y = ypos;
 }
 
-void Window::char_callback(GLFWwindow* window, unsigned codepoint)
+void error_callback(int error, const char* description)
 {
+	// Print error
+	fputs(description, stderr);
+};
 
+////////////////////////////////////////////////////////////////////////////////
+
+void Window::register_key_callback(int key, int action, std::function<void()> callback)
+{
+	if (action == GLFW_PRESS)
+		PressKeyCallbacks.insert({ key, callback });
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
+void Window::setup_callbacks()
+{
+	// Set the error callback
+	glfwSetErrorCallback(error_callback);
+	// Set the key callback
+	glfwSetKeyCallback(glfwWindow, Window::key_callback);
+	// Set the window resize callback
+	glfwSetFramebufferSizeCallback(glfwWindow, Window::resize_callback);
+	glfwSetMouseButtonCallback(glfwWindow, Window::mouse_button_callback);
+	glfwSetCursorPosCallback(glfwWindow, Window::cursor_position_callback);
+	glfwSetScrollCallback(glfwWindow, Window::scroll_callback);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+void Window::setup_camera_controls()
+{
+	register_key_callback(GLFW_KEY_A, GLFW_PRESS, [this]() {
+		const auto & right = glm::normalize(glm::cross(glm::normalize((camera->getLookAt() - camera->getPos())), camera->getUp()));
+		camera->translate(-1.0f*right * camera->getSpeed() * SecondsSinceLastUpdate);
+	});
+
+	register_key_callback(GLFW_KEY_S, GLFW_PRESS, [this]() {
+		camera->translate(-1.0f*glm::normalize((camera->getLookAt() - camera->getPos())) * camera->getSpeed() * SecondsSinceLastUpdate);
+	});
+
+	register_key_callback(GLFW_KEY_D, GLFW_PRESS, [this]() {
+		const auto & right = glm::normalize(glm::cross(glm::normalize((camera->getLookAt() - camera->getPos())), camera->getUp()));
+		camera->translate(right * camera->getSpeed() * SecondsSinceLastUpdate);
+	});
+
+	register_key_callback(GLFW_KEY_W, GLFW_PRESS, [this]() {
+		camera->translate(glm::normalize((camera->getLookAt() - camera->getPos())) * SecondsSinceLastUpdate * camera->getSpeed());
+	});
+}
+
+////////////////////////////////////////////////////////////////////////////////
 
 void Window::display_callback(GLFWwindow* window)
 {
@@ -254,3 +366,5 @@ void Window::display_callback(GLFWwindow* window)
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     
 }
+
+////////////////////////////////////////////////////////////////////////////////

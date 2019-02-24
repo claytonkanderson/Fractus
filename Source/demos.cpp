@@ -17,9 +17,9 @@ void init(int demo, TetraGroupInits &inits)
             inits.y_width = 1.0f;
             inits.z_width = 1.0f;
             inits.height = 18.0f;
-            inits.elastic = 1.00e+09;
+            inits.elastic = 12.00e+09;
             inits.poisson = 0.47f;
-            inits.toughness = 2.17e+07;
+            inits.toughness = 5.17e+07;
             inits.div = ivec3(32,2,2);
             inits.center_pos = vec3(0,inits.height,0);
             inits.angular_vel = vec3(0, 1, 4);

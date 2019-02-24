@@ -18,5 +18,5 @@
 #include <GLFW/glfw3.h>
 
 GLFWwindow* window;
-void cameraControls();
-void TetraGroupControls(TetraGroup &group, bool &pause);
+void cameraControls(Window & window);
+void TetraGroupControls(TetraGroup &group, GLFWwindow* window, bool pause);

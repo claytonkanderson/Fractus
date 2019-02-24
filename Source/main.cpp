@@ -14,106 +14,27 @@
 using namespace std;
 using namespace std::chrono;
 
-void error_callback(int error, const char* description)
-{
-    // Print error
-    fputs(description, stderr);
-}
-
-void setup_callbacks()
-{
-    // Set the error callback
-    glfwSetErrorCallback(error_callback);
-    // Set the key callback
-    glfwSetKeyCallback(window, Window::key_callback);
-    // Set the window resize callback
-    glfwSetFramebufferSizeCallback(window, Window::resize_callback);
-    glfwSetMouseButtonCallback(window, Window::mouse_button_callback);
-    glfwSetCursorPosCallback(window, Window::cursor_position_callback);
-    glfwSetCharCallback(window, Window::char_callback);
-    //    glfwSetScrollCallback(window, Window::GLFWscrollfun);
-    glfwSetScrollCallback(window, Window::scroll_callback);
-    //    glfwSetMouseWheelCallback(window, Window::GLFWscrollfun);
-}
-
-void setup_glew()
-{
-    glewExperimental = GL_TRUE;
-    // Initialize GLEW
-    GLenum err = glewInit();
-    if (GLEW_OK != err)
-    {
-        /* Problem: glewInit failed, something is seriously wrong. */
-        fprintf(stderr, "Error: %s\n", glewGetErrorString(err));
-        glfwTerminate();
-    }
-    fprintf(stdout, "Status: Using GLEW %s\n", glewGetString(GLEW_VERSION));
-}
-
-void setup_opengl_settings()
-{
-    // Setup GLEW
-    setup_glew();
-    // Enable depth buffering
-    glEnable(GL_DEPTH_TEST);
-    // Related to shaders and z value comparisons for the depth buffer
-    glDepthFunc(GL_LEQUAL);
-    // Set polygon drawing mode to fill front and back of each polygon
-    // You can also use the paramter of GL_LINE instead of GL_FILL to see wireframes
-    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-    // Disable backface culling to render both sides of polygons
-    glDisable(GL_CULL_FACE);
-    // Set clear color
-    glClearColor(0.2f, 0.2f, 0.5f, 1.0f);
-}
-
-void print_versions()
-{
-    // Get info of GPU and supported OpenGL version
-    printf("Renderer: %s\n", glGetString(GL_RENDERER));
-    printf("OpenGL version supported %s\n", glGetString(GL_VERSION));
-    
-    //If the shading language symbol is defined
-#ifdef GL_SHADING_LANGUAGE_VERSION
-    std::printf("Supported GLSL version is %s.\n", (char *)glGetString(GL_SHADING_LANGUAGE_VERSION));
-#endif
-}
+////////////////////////////////////////////////////////////////////////////////
 
 int main(int argc, const char * argv[]) {
     
+	auto camera = std::make_shared<Camera>();
+
     // Create the GLFW window
-    window = Window::create_window((int)(1.5*640), (int)(1.5*480));
-    // Print OpenGL and GLSL versions
-    print_versions();
-    // Setup callbacks
-    setup_callbacks();
-    // Setup OpenGL settings, including lighting, materials, etc.
-    setup_opengl_settings();
-    // Initialize objects/pointers for rendering
-    
-    // Resolves faces clipping ontop of one another
-    //    glEnable(GL_CULL_FACE);
-    glEnable(GL_PROGRAM_POINT_SIZE);
-    glEnable(GL_LINE_SMOOTH);
-    
+    auto window = Window(camera, (int)(1.5*640), (int)(1.5*480));
     
     // TIMER1 START
     high_resolution_clock::time_point t1 = high_resolution_clock::now();
     high_resolution_clock::time_point t2,t3,t4;
     
-    Window::initialize_objects();
-
-    Scene scn;
-    
+    Scene scene;
     TetraGroup group;
     
-    ///////////////////////////////////
-    
-    float timestep = 0.0001f;
-    int physPerDraw = 15;
+    float timestep = 0.01667 / 1000.0;
+    int physPerDraw = 25;
     bool pause = false;
     
-    int demoNum = 3;
+    int demoNum = 0;
     group.meshView = false;
     TetraGroupInits inits;
     
@@ -121,39 +42,36 @@ int main(int argc, const char * argv[]) {
     
     group.Init(inits); // Creates Grid
     group.SetShader(*Window::getRegularShader());
-    scn.AddObject(group);
+	scene.AddObject(group);
     
     // Create ground
     PlaneObject * plane = new PlaneObject(100.0f, vec3(0,0,0), vec3(0,1,0));
     plane->SetShader(*Window::getRegularShader());
-    scn.AddObject(*plane);
+	scene.AddObject(*plane);
     
     // Want to make sure that each vertex is in each of it's neighboring tetrahedra
     
-    while (!glfwWindowShouldClose(window))
+    while (!glfwWindowShouldClose(window.glfwWindow))
     {
         // Main render display callback. Rendering of objects is done here.
-        Window::display_callback(window);
+        Window::display_callback(window.glfwWindow);
 
         glm::mat4 PV = Window::getPV();
         if (!pause)
-        {
             group.UpdateVertices(timestep, physPerDraw);
-        }
         
-        scn.Draw(PV);
+		scene.Draw(PV);
         
-        glfwSwapBuffers(window);
+        glfwSwapBuffers(window.glfwWindow);
         glfwPollEvents();
         
-        TetraGroupControls(group, pause);
-        cameraControls();
-        Window::idle_callback(window);
+        TetraGroupControls(group, window.glfwWindow, pause);
+        cameraControls(window);
     }
     
     Window::clean_up();
     // Destroy the window
-    glfwDestroyWindow(window);
+    glfwDestroyWindow(window.glfwWindow);
     // Terminate GLFW
     glfwTerminate();
     
@@ -178,7 +96,7 @@ int main(int argc, const char * argv[]) {
     return 0;
 }
 
-void TetraGroupControls(TetraGroup &group, bool &pause)
+void TetraGroupControls(TetraGroup &group, GLFWwindow* window, bool pause)
 {
     int shift = 1;
     if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT)) shift = -1;
@@ -282,33 +200,18 @@ void TetraGroupControls(TetraGroup &group, bool &pause)
     
 }
 
-void cameraControls()
+void cameraControls(Window & window)
 {
     static double lastTime = glfwGetTime();
     double currentTime = glfwGetTime();
     float deltaTime = float(currentTime - lastTime);
     
-    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-    {
-        glm::vec3 right = glm::normalize(glm::cross(glm::normalize((Window::cam->getLookAt() - Window::cam->getPos())), Window::cam->getUp()));
-        Window::cam->translate(-1.0f*right * Window::cam->getSpeed() * deltaTime);
-    }
-    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-    {
-        Window::cam->translate(-1.0f*glm::normalize((Window::cam->getLookAt() - Window::cam->getPos())) * deltaTime * Window::cam->getSpeed());
-    }
-    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
-    {
-        glm::vec3 right = glm::normalize(glm::cross(glm::normalize((Window::cam->getLookAt() - Window::cam->getPos())), Window::cam->getUp()));
-        Window::cam->translate(right * Window::cam->getSpeed() * deltaTime);
-    }
-    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-    {
-        Window::cam->translate(glm::normalize((Window::cam->getLookAt() - Window::cam->getPos())) *deltaTime * Window::cam->getSpeed());
-    }
+	window.SecondsSinceLastUpdate = deltaTime;
     
-    glUniform3f(glGetUniformLocation(Window::regularShader, "viewPos"), Window::cam->getPos().x, Window::cam->getPos().y, Window::cam->getPos().z);
-    Window::V = glm::lookAt(Window::cam->getPos(), Window::cam->getLookAt(), Window::cam->getUp());
+	auto & camera = window.camera;
+
+    glUniform3f(glGetUniformLocation(Window::regularShader, "viewPos"), camera->getPos().x, camera->getPos().y, camera->getPos().z);
+    Window::V = glm::lookAt(camera->getPos(), camera->getLookAt(), camera->getUp());
     
     lastTime = currentTime;
 }

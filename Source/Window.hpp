@@ -14,10 +14,17 @@
 #include "Camera.hpp"
 #include "Shader.hpp"
 
+#include <functional>
+#include <unordered_map>
+
+////////////////////////////////////////////////////////////////////////////////
+
 class Window
 {
     
 public:
+	Window(std::shared_ptr<Camera> cam, int width, int height);
+
     static Camera * cam;
     static glm::mat4 P;
     static glm::mat4 V;
@@ -31,19 +38,30 @@ public:
     
     static void shaderInit();
     static void clean_up();
-    static void initialize_objects(); // Loads Shaders
+    void initialize_objects(); // Loads Shaders
     static GLFWwindow* create_window(int width, int height);
     static void resize_callback(GLFWwindow* window, int width, int height);
-    static void idle_callback(GLFWwindow*);
     static void display_callback(GLFWwindow*);
     static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
     static void mouse_button_callback(GLFWwindow* window, int button, int action, int mods);
     static void cursor_position_callback(GLFWwindow* window, double xpos, double ypos);
     static void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
-    static void char_callback(GLFWwindow* window, unsigned codepoint);
     static glm::mat4 getPV() {return P*V;};
     static GLuint * getTriangleShader() {return &triangleShader;}
     static GLuint * getRegularShader() {return &regularShader;}
+
+	void register_key_callback(int key, int action, std::function<void()> callback);
+
+	float SecondsSinceLastUpdate = 0.0;
+
+public:
+	void setup_callbacks();
+	void setup_camera_controls();
+
+	GLFWwindow* glfwWindow = nullptr;
+	std::shared_ptr<Camera> camera;
+	// Map from key to callback
+	static std::unordered_map<int, std::function<void()>> PressKeyCallbacks;
 };
 
 struct DirLight {

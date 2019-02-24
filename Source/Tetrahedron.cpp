@@ -10,6 +10,7 @@
 #include "dsyevq3.h"
 #include "dsyevh3.h"
 #include <algorithm>
+#include <array>
 
 using namespace std;
 using namespace glm;
@@ -138,31 +139,19 @@ void Tetrahedron::ComputeDeformationForces()
     vec3 dx_u2 = PBeta * vec4(0,1,0,0);
     vec3 dx_u3 = PBeta * vec4(0,0,1,0);
     
-//    SHOWVEC(dx_u1);
-//    SHOWVEC(dx_u2);
-//    SHOWVEC(dx_u3);
-    
-    std::vector<vec3> dx;
-    dx.push_back(dx_u1);
-    dx.push_back(dx_u2);
-    dx.push_back(dx_u3);
+	std::array<vec3, 3> dx{ dx_u1, dx_u2, dx_u3 };
     
     mat3x4 VBeta = Vmat * beta;
     vec3 dxd_u1 = VBeta * vec4(1,0,0,0);
     vec3 dxd_u2 = VBeta * vec4(0,1,0,0);
     vec3 dxd_u3 = VBeta * vec4(0,0,1,0);
     
-    std::vector<vec3> dxd;
-    dxd.push_back(dxd_u1);
-    dxd.push_back(dxd_u2);
-    dxd.push_back(dxd_u3);
+	std::array<vec3, 3 > dxd{ dxd_u1, dxd_u2, dxd_u3 };
     
     mat3 strainTensor = mat3(1.0f);
     for (int i = 0; i < 3; i++)
         for (int j = 0 ; j < 3; j++)
             strainTensor[i][j] = dot(dx[i],dx[j]) - (i == j ? 1 : 0);
-    
-//    SHOWMAT3(strainTensor);
     
     mat3 rateOfStrainTensor = mat3(1.0f);
     for (int i = 0; i < 3; i++)
@@ -180,10 +169,6 @@ void Tetrahedron::ComputeDeformationForces()
     for (int i = 0; i < 3; i++)
         for (int j = 0 ; j < 3; j++)
             viscousStress[i][j] = phi * rateTrace * (i == j ? 1 : 0) + 2 * psi * rateOfStrainTensor[i][j];
-    
-//    SHOWVEC(Vertices[0]->Force);
-//    SHOWMAT3(elasticStress);
-//    SHOWMAT3(viscousStress);
     
     totalStress = mat3(1.0f);
     for (int i = 0; i < 3; i++)
@@ -223,7 +208,6 @@ void Tetrahedron::ComputeDeformationForces()
 
 void Tetrahedron::ComputeFractureForces()
 {
-    //    Matrix3f sigma;
     double sigma[3][3];
     double eigenVectors[3][3];
     double eigenValues[3];
@@ -259,8 +243,8 @@ void Tetrahedron::ComputeFractureForces()
     // Need to add a deformation force vector to vertex class instead of just one total force vec
     // Need to store compressive
     vec3 zero(0);
-    vector<vec3> fPlus {zero,zero,zero,zero};
-    vector<vec3> fMinus {zero,zero,zero,zero};
+    std::array<vec3, 4> fPlus {zero,zero,zero,zero};
+    std::array<vec3, 4> fMinus {zero,zero,zero,zero};
     
     for (int i = 0; i < Vertices.size(); i++)
     {
