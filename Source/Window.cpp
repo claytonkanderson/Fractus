@@ -73,6 +73,8 @@ namespace
 	}
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
 void Window::initialize_objects()
 {
     triangleShader = LoadShaders("../../Shaders/TriangleShader.vert", "../../Shaders/TriangleShader.frag");
@@ -88,11 +90,15 @@ void Window::initialize_objects()
     shaderInit();
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
 void Window::clean_up()
 {
     glDeleteProgram(triangleShader);
     glDeleteProgram(regularShader);
 }
+
+////////////////////////////////////////////////////////////////////////////////
 
 GLFWwindow* Window::create_window(int width, int height)
 {
@@ -135,6 +141,8 @@ GLFWwindow* Window::create_window(int width, int height)
     return window;
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
 void Window::resize_callback(GLFWwindow* window, int width, int height)
 {
     // Frame buffer is 2x size of window for mac retina graphics
@@ -147,6 +155,8 @@ void Window::resize_callback(GLFWwindow* window, int width, int height)
         P = glm::perspective(45.0f, (float)width / (float)height, 0.1f, 800.0f);
     }
 }
+
+////////////////////////////////////////////////////////////////////////////////
 
 void Window::key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
@@ -165,6 +175,8 @@ void Window::key_callback(GLFWwindow* window, int key, int scancode, int action,
     }
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
 void Window::mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 {
     if (action == 1 && button == 0)
@@ -177,10 +189,14 @@ void Window::mouse_button_callback(GLFWwindow* window, int button, int action, i
     }
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
 void Window::scroll_callback(GLFWwindow *window, double xoffset, double yoffset)
 {
 
 }
+
+////////////////////////////////////////////////////////////////////////////////
 
 Window::Window(std::shared_ptr<Camera> cam, int width, int height)
 	: camera(cam)
@@ -204,6 +220,8 @@ Window::Window(std::shared_ptr<Camera> cam, int width, int height)
 
 	Window::cam = camera.get();
 }
+
+////////////////////////////////////////////////////////////////////////////////
 
 void Window::shaderInit()
 {
@@ -230,13 +248,9 @@ void Window::shaderInit()
     dirLight2.diffuse = glm::vec3(.6f,.6f,.6f);
     dirLight2.specular = glm::vec3(.85f,.85f,.85f);
     
-    //    glClearColor(0.13f, 0.54f, 0.54f, 0.13f); // Decent like tealish green
-//    glClearColor(0.0f, 206.0f/255.f, 209.0f/255.f, 0.5f);
     glm::vec3 pointLightColors[] = {
         10.0f*glm::vec3(0.75f, 0.75f, 0.75f)
     };
-    
-    
     
     // ***************************************************
     // Directional light 1
@@ -281,6 +295,8 @@ void Window::shaderInit()
     glUniform1f(glGetUniformLocation(regularShader, "spotLight.spot_exponent"), spotLight.spot_exponent);
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
 void Window::cursor_position_callback(GLFWwindow* window, double xpos, double ypos)
 {
     glm::vec2 newPos = glm::vec2(xpos, ypos);
@@ -305,6 +321,8 @@ void Window::cursor_position_callback(GLFWwindow* window, double xpos, double yp
     oldMousePos.x = xpos;
     oldMousePos.y = ypos;
 }
+
+////////////////////////////////////////////////////////////////////////////////
 
 void error_callback(int error, const char* description)
 {

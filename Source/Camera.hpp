@@ -29,10 +29,11 @@ public:
         std::cout << "Camera looking at ";
         SHOWVEC(look_at);
     }
-    glm::vec3 getPos() {return pos;}
-    glm::vec3 getLookAt() {return look_at;}
-    glm::vec3 getUp() {return up;}
-    float getSpeed() {return this->speed;}
+    const glm::vec3 & getPos() const {return pos;}
+    const glm::vec3 & getLookAt() const {return look_at;}
+    const glm::vec3 & getUp() const {return up;}
+    float getSpeed() const {return this->speed;}
+
     void translate(glm::vec3 vec);
     void setAngles(float theta, float phi);
     void rotateView(float xDir, float yDir);

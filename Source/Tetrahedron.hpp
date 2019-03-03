@@ -15,6 +15,7 @@
 #include <glm/mat4x4.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <GL/glew.h>
+#include <array>
 
 class Tetrahedron
 {
@@ -22,12 +23,7 @@ public:
     Tetrahedron() {}
     Tetrahedron(Vertex *v0, Vertex *v1, Vertex *v2, Vertex *v3);
     Tetrahedron(glm::vec3 a, glm::vec3 b, glm::vec3 c, glm::vec3 d) {MakeTetrahedron(a,b,c,d);}
-    ~Tetrahedron() {
-        delete Triangles;
-        std::vector<Vertex *>().swap(Vertices);
-    }
-//    void Draw(mat4 &PV);
-    
+  
     void MakeTetrahedron(glm::vec3 a, glm::vec3 b, glm::vec3 c, glm::vec3 d);
     void UpdateTriangles();
     
@@ -45,18 +41,10 @@ public:
     
     void ComputeMMat(glm::vec3 eigenVector, glm::mat3 &outputMat);
     int NetConnectivity();
-    Triangle * Triangles;
     
     float ComputeSignedDistance(glm::vec3 normal, glm::vec3 planePoint);
-    bool VertexInTriangle(int triIndex, Vertex * v) { return Triangles[triIndex].VertexInTriangle(v); }
-    bool VertexInTetrahedron(Vertex * v) {
-        bool success = false;
-        if (Vertices[0] == v) success = true;
-        if (Vertices[1] == v) success = true;
-        if (Vertices[2] == v) success = true;
-        if (Vertices[3] == v) success = true;
-        return success;
-    }
+	bool VertexInTriangle(int triIndex, Vertex * v);
+	bool VertexInTetrahedron(Vertex * v);
     
     bool TriangleInTetrahedron(Triangle * tri);
     void ReplaceVertex(Vertex * oldVertex, Vertex * newVertex);
@@ -64,15 +52,21 @@ public:
     void UpdateBeta();
     
     bool drawFlag = true;
-    std::vector<Vertex *> Vertices;
     
+	float GetVolume() const { return volume; }
+
+	static constexpr int NumTriangles = 4;
+	static constexpr int NumVertices = 4;
+
+	std::array<Vertex *, NumVertices> Vertices;
+	std::array<Triangle, NumTriangles> Triangles;
+
 private:
-    int NumTriangles = 4;
-    int NumVertices = 4;
-    
+	void ComputeVolume();
+
     float volume;
     float mass;
-    float density;
+    float density = 1000.0f;
     float phi, psi, lambda, mu;
     float elasticit_modulus;
     float poisson_ratio;
@@ -81,6 +75,4 @@ private:
 	glm::mat4x3 Pmat; // World coordinate positions
 	glm::mat4x3 Vmat; // World coordinate velocities
 	glm::mat3 totalStress;
-    
-    void ComputeVolume();
 };

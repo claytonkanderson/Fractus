@@ -11,6 +11,8 @@
 #include <GLFW/glfw3.h>
 #include <glm/gtc/matrix_transform.hpp>
 
+////////////////////////////////////////////////////////////////////////////////
+
 void Camera::translate(glm::vec3 vec)
 {
     center = glm::vec3(glm::translate(glm::mat4(1.0f), vec) * glm::vec4(center,1.0f));
@@ -18,7 +20,7 @@ void Camera::translate(glm::vec3 vec)
     look_at = glm::vec3(glm::translate(glm::mat4(1.0f), vec) * glm::vec4(look_at,1.0f));
 }
 
-
+////////////////////////////////////////////////////////////////////////////////
 // Once Center has been updated, call this to update x, y, z from theta & phi
 // theta measured from the z-axis to point (rotation about y-axis)
 // phi measured from y-axis to point (rotation about z-axis)
@@ -31,6 +33,7 @@ void Camera::updatePosition()
     pos = glm::vec3 (x, y, z);
 }
 
+////////////////////////////////////////////////////////////////////////////////
 
 void Camera::rotate(glm::vec3 rotAxis, float deg)
 {
@@ -40,8 +43,9 @@ void Camera::rotate(glm::vec3 rotAxis, float deg)
         look_at = glm::vec3((glm::rotate(glm::mat4(1.0f), deg / 180.0f * glm::pi<float>(), rotAxis))*glm::vec4(look_at,0));
         up = glm::vec3((glm::rotate(glm::mat4(1.0f), deg / 180.0f * glm::pi<float>(), rotAxis))*glm::vec4(up,0));
     }
-    
 }
+
+////////////////////////////////////////////////////////////////////////////////
 
 void Camera::rotateView(float xDir, float yDir)
 {
@@ -57,14 +61,17 @@ void Camera::rotateView(float xDir, float yDir)
     updatePosition();
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
 void Camera::setAngles(float theta, float phi)
 {
     this->theta = fmodf(theta, 2*M_PI);
-    //    this->theta = theta;
-    
+   
     const float phi1 = phi;
     const float min1 = 0.0001f;
     const float max1 = M_PI;
     this->phi = glm::clamp(phi1, min1, max1);
     updatePosition();
 }
+
+////////////////////////////////////////////////////////////////////////////////

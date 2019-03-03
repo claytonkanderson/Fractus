@@ -108,6 +108,27 @@ void init(int demo, TetraGroupInits &inits)
             inits.model = translate(mat4(1.0f), inits.center_pos) * inits.model;
             break;
             
+		case 5:
+
+			inits.x_width = 0.20f;
+			inits.y_width = 0.20f;
+			inits.z_width = 0.20f;
+			inits.height = 1.0f;
+			// Concrete
+			inits.elastic = 2e10f;
+			inits.poisson = 0.45f;
+			inits.toughness = 1.4e+6;
+			inits.div = ivec3(8, 8, 8);
+			inits.center_pos = vec3(0, inits.height, 0);
+			inits.angular_vel = vec3(0, 0, 0);
+			inits.com_vel = vec3(0, 0, 0);
+			inits.theta = 0.0f;
+			inits.phi = 0.0f;
+			inits.model = rotate(mat4(1.0f), inits.theta, glm::vec3(0, 0, 1));
+			inits.model = rotate(mat4(1.0f), inits.phi, glm::vec3(0, 1, 0)) * inits.model;
+			inits.model = translate(mat4(1.0f), inits.center_pos) * inits.model;
+			break;
+
         default:
             break;
     }

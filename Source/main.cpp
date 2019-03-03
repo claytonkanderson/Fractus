@@ -6,10 +6,21 @@
 //  Copyright © 2017 Clayton Anderson. All rights reserved.
 //
 
-#include "main.hpp"
+#include "core.hpp"
+#include "Scene.hpp"
+#include "Window.hpp"
+#include "TetraGroup.hpp"
+#include "PlaneObject.hpp"
+#include "IOUtil.hpp"
+#include "demos.hpp"
 
+#include <GLFW/glfw3.h>
 #include <GL/glew.h>
 #include <chrono>
+
+GLFWwindow* window;
+void cameraControls(Window & window);
+void TetraGroupControls(TetraGroup &group, GLFWwindow* window, bool pause);
 
 using namespace std;
 using namespace std::chrono;
@@ -34,13 +45,20 @@ int main(int argc, const char * argv[]) {
     int physPerDraw = 25;
     bool pause = false;
     
-    int demoNum = 0;
+    int demoNum = 5;
     group.meshView = false;
     TetraGroupInits inits;
     
-    init(demoNum, inits);
+    //init(demoNum, inits);
     
-    group.Init(inits); // Creates Grid
+    //group.Init(inits); // Creates Grid
+
+	IOUtil::LoadTetrahedronObj(group, "BowlTetrahedra.obj");
+
+	for (auto & tet : group.GetTetrahedra())
+		tet->SetConstants(0.0f, 5.29e7f, 0, 198);
+	group.Toughness = 106;
+
     group.SetShader(*Window::getRegularShader());
 	scene.AddObject(group);
     
@@ -95,6 +113,8 @@ int main(int argc, const char * argv[]) {
     
     return 0;
 }
+
+////////////////////////////////////////////////////////////////////////////////
 
 void TetraGroupControls(TetraGroup &group, GLFWwindow* window, bool pause)
 {
@@ -200,6 +220,8 @@ void TetraGroupControls(TetraGroup &group, GLFWwindow* window, bool pause)
     
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
 void cameraControls(Window & window)
 {
     static double lastTime = glfwGetTime();
@@ -215,3 +237,5 @@ void cameraControls(Window & window)
     
     lastTime = currentTime;
 }
+
+////////////////////////////////////////////////////////////////////////////////

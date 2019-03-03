@@ -17,8 +17,6 @@ using namespace glm;
 
 void Tetrahedron::MakeTetrahedron(vec3 a, vec3 b, vec3 c, vec3 d)
 {
-    Triangles=new Triangle[NumTriangles];
-    
     Vertices[0]->Set(a, vec3(0,0,0), vec3(0,0,0));
     Vertices[1]->Set(b, vec3(0,0,0), vec3(0,0,0));
     Vertices[2]->Set(c, vec3(0,0,0), vec3(0,0,0));
@@ -43,6 +41,8 @@ void Tetrahedron::MakeTetrahedron(vec3 a, vec3 b, vec3 c, vec3 d)
     UpdateTriangles();
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
 void Tetrahedron::UpdateTriangles()
 {
     for(int i = 0; i < NumTriangles; i++)
@@ -58,26 +58,27 @@ void Tetrahedron::UpdateTriangles()
     if (dot(Triangles[3].Normal, TetCenter-Vertices[0]->getPos()) > 0) Triangles[3].Normal *= -1;
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
 Tetrahedron::Tetrahedron(Vertex *v0, Vertex *v1, Vertex *v2, Vertex *v3)
 {
-    //    Vertices=new Vertex[NumVertices];
-    Triangles=new Triangle[NumTriangles];
+    Vertices[0] = v0;
+	Vertices[1] = v1;
+	Vertices[2] = v2;
+	Vertices[3] = v3;
     
-    Vertices.push_back(v0);
-    Vertices.push_back(v1);
-    Vertices.push_back(v2);
-    Vertices.push_back(v3);
-    
+	v0->AddConnectedTetrahedron(this);
+	v1->AddConnectedTetrahedron(this);
+	v2->AddConnectedTetrahedron(this);
+	v3->AddConnectedTetrahedron(this);
+
     Triangles[0].Init(Vertices[0], Vertices[3], Vertices[1]);
     Triangles[1].Init(Vertices[2], Vertices[1], Vertices[3]);
     Triangles[2].Init(Vertices[0], Vertices[3], Vertices[2]);
     Triangles[3].Init(Vertices[0], Vertices[2], Vertices[1]);
     
     UpdateBeta();
-    
-    
-    density = 1000.0f;
-    
+ 
     ComputeVolume();
     
     mass = density * volume;
@@ -90,12 +91,16 @@ Tetrahedron::Tetrahedron(Vertex *v0, Vertex *v1, Vertex *v2, Vertex *v3)
     UpdateTriangles();
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
 void Tetrahedron::UpdateBeta()
 {
-    mat4 m = mat4(vec4(Vertices[0]->getPos(),1), vec4(Vertices[1]->getPos(),1),
+    glm::mat4 m = glm::mat4(vec4(Vertices[0]->getPos(),1), vec4(Vertices[1]->getPos(),1),
                   vec4(Vertices[2]->getPos(),1), vec4(Vertices[3]->getPos(),1));
-    beta = inverse(m);
+    beta = glm::inverse(m);
 }
+
+////////////////////////////////////////////////////////////////////////////////
 
 void Tetrahedron::ComputeVolume()
 {
@@ -104,7 +109,7 @@ void Tetrahedron::ComputeVolume()
                                      Vertices[3]->getPos()-Vertices[0]->getPos()));
 }
 
-
+////////////////////////////////////////////////////////////////////////////////
 // Uncertainities
 // Don't know why traction based method doesn't yield forces that sum to zero
 // Don't know why I have to multiply force by -1
@@ -175,6 +180,11 @@ void Tetrahedron::ComputeDeformationForces()
         for (int j = 0 ; j < 3; j++)
             totalStress[i][j] = elasticStress[i][j] + viscousStress[i][j];
     
+	for (int i = 0; i < 3; i++)
+		for (int j = 0; j < 3; j++)
+			if (isnan(totalStress[i][j]))
+				std::cout << "stress nan" << std::endl;
+
     for (int i = 0; i < Vertices.size(); i++)
     {
         vec3 forceOnNode_i = vec3(0,0,0);
@@ -186,13 +196,15 @@ void Tetrahedron::ComputeDeformationForces()
                 for (int l = 0; l < 3; l++)
                 {
                     innerProduct += beta[k][i]*beta[l][j]*totalStress[k][l];
+					if (isnan(innerProduct))
+						std::cout << "innerProduct nan" << std::endl;
                 }
             }
             forceOnNode_i += Pmat[j] * innerProduct;
         }
         
         forceOnNode_i *= -volume * 0.5f;
-//        SHOWVEC(forceOnNode_i);
+        // SHOWVEC(forceOnNode_i);
         // Apply force to node
         Vertices[i]->ApplyForce(forceOnNode_i);
     }
@@ -205,6 +217,7 @@ void Tetrahedron::ComputeDeformationForces()
     //    SHOWVEC(totalForce);
 }
 
+////////////////////////////////////////////////////////////////////////////////
 
 void Tetrahedron::ComputeFractureForces()
 {
@@ -278,10 +291,9 @@ void Tetrahedron::ComputeFractureForces()
         Vertices[i]->TensileForces[Vertices[i]->numForces] = tempfMinus;
         Vertices[i]->numForces += 1;
     }
-    
-    
-    
 }
+
+////////////////////////////////////////////////////////////////////////////////
 
 void Tetrahedron::UpdateMasses()
 {
@@ -293,6 +305,8 @@ void Tetrahedron::UpdateMasses()
     Vertices[3]->setMass(Vertices[3]->getMass() + mass / 4.0f);
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
 bool Tetrahedron::TriangleInTetrahedron(Triangle * tri)
 {
     for (int i = 0; i < 4; i++)
@@ -300,11 +314,14 @@ bool Tetrahedron::TriangleInTetrahedron(Triangle * tri)
         bool v0 = tri->VertexInTriangle(Triangles[i].GetVertex(0));
         bool v1 = tri->VertexInTriangle(Triangles[i].GetVertex(1));
         bool v2 = tri->VertexInTriangle(Triangles[i].GetVertex(2));
-        if (v0 && v1 && v2) return true;
+        if (v0 && v1 && v2) 
+			return true;
     }
     
     return false;
 }
+
+////////////////////////////////////////////////////////////////////////////////
 
 void Tetrahedron::ComputeMMat(vec3 eigenVector, mat3 &outputMat)
 {
@@ -316,6 +333,8 @@ void Tetrahedron::ComputeMMat(vec3 eigenVector, mat3 &outputMat)
     outputMat /= std::max(l2Norm(eigenVector),1.0f); // Bit of a hack
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
 void Tetrahedron::ReplaceVertex(Vertex * oldVertex, Vertex * newVertex)
 {
     for (int i = 0; i < Vertices.size(); i++)
@@ -323,6 +342,8 @@ void Tetrahedron::ReplaceVertex(Vertex * oldVertex, Vertex * newVertex)
             Vertices[i] = newVertex;
     for (int i = 0; i < 4; i++) { Triangles[i].ReplaceVertex(oldVertex, newVertex); }
 }
+
+////////////////////////////////////////////////////////////////////////////////
 
 int Tetrahedron::NetConnectivity()
 {
@@ -333,6 +354,8 @@ int Tetrahedron::NetConnectivity()
     return i0+i1+i2+i3;
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
 float Tetrahedron::ComputeSignedDistance(vec3 normal, vec3 planePoint)
 {
     vec3 center = Vertices[0]->getPos() + Vertices[1]->getPos() + Vertices[2]->getPos() + Vertices[3]->getPos();
@@ -341,6 +364,25 @@ float Tetrahedron::ComputeSignedDistance(vec3 normal, vec3 planePoint)
     return val;
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
+bool Tetrahedron::VertexInTriangle(int triIndex, Vertex * v)
+{
+	return Triangles[triIndex].VertexInTriangle(v);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+bool Tetrahedron::VertexInTetrahedron(Vertex * v)
+{
+	bool success = false;
+	if (Vertices[0] == v) success = true;
+	if (Vertices[1] == v) success = true;
+	if (Vertices[2] == v) success = true;
+	if (Vertices[3] == v) success = true;
+	return success;
+}
+////////////////////////////////////////////////////////////////////////////////
 
 //void Tetrahedron::computeiBody()
 //{

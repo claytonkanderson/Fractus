@@ -11,6 +11,8 @@
 using namespace std;
 using namespace glm;
 
+////////////////////////////////////////////////////////////////////////////////
+
 PlaneObject::PlaneObject(float side, vec3 center, vec3 normal)
 {
     int NumTriangles = 2;
@@ -57,6 +59,8 @@ PlaneObject::PlaneObject(float side, vec3 center, vec3 normal)
     SetupGPU();
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
 void PlaneObject::SetupGPU()
 {
     std::vector<vec3> positions(6, vec3(0,0,0));
@@ -91,9 +95,9 @@ void PlaneObject::SetupGPU()
     glBindVertexArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     
-    vector<vec3>().swap(positions);
-    vector<vec3>().swap(normals);
 }
+
+////////////////////////////////////////////////////////////////////////////////
 
 void PlaneObject::Draw(mat4 &PV)
 {
@@ -119,3 +123,5 @@ void PlaneObject::Draw(mat4 &PV)
     glBindVertexArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
+
+////////////////////////////////////////////////////////////////////////////////

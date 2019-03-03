@@ -20,6 +20,8 @@
 
 using namespace std::chrono;
 
+////////////////////////////////////////////////////////////////////////////////
+
 typedef struct
 {
     float x_width, y_width, z_width, height, elastic, poisson, toughness;
@@ -29,6 +31,11 @@ typedef struct
 	glm::mat4 model;
 } TetraGroupInits;
 
+////////////////////////////////////////////////////////////////////////////////
+//
+// This class owns a vector of tetrahedron and the vertices that they reference.
+// All simulated objects in this codebase will be represented by TetraGroups.
+// 
 class TetraGroup: public Object
 {
 public:
@@ -48,11 +55,14 @@ public:
         glDeleteBuffers(1,&normalBuffer);
         glDeleteVertexArrays(1,&VAO);
     }
+
+	void Initialize();
+
 	void CreateGrid(glm::vec3 bottomLeftPos, glm::vec3 topRightPos, glm::ivec3 resolution);
-    void addCube(glm::vec3 bottomLeftPos, glm::vec3 topRightPos, int mask);
+    void AddCube(glm::vec3 bottomLeftPos, glm::vec3 topRightPos, int mask);
     
     // MANIPULATORS
-    void addTetrahedron(Tetrahedron * tet) {Tetrahedra.push_back(tet);}
+    void AddTetrahedron(Tetrahedron * tet) {Tetrahedra.push_back(tet);}
     void UpdateVertices(float deltaT, int numSteps);
     void ZeroForces();
     void ApplyGravity();
@@ -97,12 +107,13 @@ public:
     Vertex * GetVertex(int index) {return &Vertices[index];}
     Vertex * GetVertex(glm::vec3 pos, float epsilon);
     std::vector<duration<double>> GetTimers() {return timers;}
+	const std::vector<Tetrahedron *> const GetTetrahedra() { return Tetrahedra; }
     
     bool meshView = false;
     bool snapToPlane = true;
     int numVerts = 0;
     int addendumFrames = 0;
-    float TOUGHNESS = 4000.0f;
+    float Toughness = 4000.0f;
     std::vector<Vertex> Vertices;
     
     // Initial conditions
@@ -123,6 +134,4 @@ private:
     std::vector<Tetrahedron *> Tetrahedra;
     std::vector<duration<double>> timers;
     duration<double> timeSpan;
-    
-//    float largestEigenValue = 0;
 };

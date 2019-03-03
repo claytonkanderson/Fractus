@@ -9,12 +9,23 @@
 #pragma once
 
 #define GLM_ENABLE_EXPERIMENTAL
+#define _SILENCE_ALL_CXX17_DEPRECATION_WARNINGS
+#define _CRT_SECURE_NO_WARNINGS
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <iostream>
 #include <vector>
 #include <glm/mat4x4.hpp>
+
+template <typename T>
+using frSP = std::shared_ptr<T>;
+
+template <typename T>
+using frUP = std::unique_ptr<T>;
+
+template <typename T>
+using frWP = std::weak_ptr<T>;
 
 #define SHOWVAR(v) std::cout << #v << ": " << v << std::endl
 #define SHOWVEC(v) std::cout << #v << ": " << v.x << " " << v.y << " " << v.z << std::endl

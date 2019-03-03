@@ -8,11 +8,14 @@
 
 #include "TetraGroup.hpp"
 #include <algorithm>
+#include <array>
 
 #include "dsyevh3.h"
 
 using namespace glm;
 using namespace std;
+
+////////////////////////////////////////////////////////////////////////////////
 
 void TetraGroup::ComputeDeformationForces()
 {
@@ -20,14 +23,19 @@ void TetraGroup::ComputeDeformationForces()
         Tetrahedra[i]->ComputeDeformationForces();
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
 void TetraGroup::ApplyGravity()
 {
     glm::vec3 gravity(0,-9.8,0);
     for (unsigned int i = 0; i < Vertices.size(); i++)
     {
         glm::vec3 specificGravity = gravity * Vertices[i].getMass();
-        Vertices[i].ApplyForce(specificGravity);    }
+        Vertices[i].ApplyForce(specificGravity);
+	}
 }
+
+////////////////////////////////////////////////////////////////////////////////
 
 void TetraGroup::UpdateVertices(float deltaT, int numSteps)
 {
@@ -48,6 +56,12 @@ void TetraGroup::UpdateVertices(float deltaT, int numSteps)
         timeSpan = duration_cast<duration<double>>(t2-t1);
         timers[0] += timeSpan;
         
+		for (const auto & vert : Vertices)
+		{
+			if (isnan(vert.Force.x))
+				std::cout << "Nan force" << std::endl;
+		}
+
         t1 = high_resolution_clock::now();
         ComputeFracture();
         t2 = high_resolution_clock::now();
@@ -104,6 +118,8 @@ void TetraGroup::UpdateVertices(float deltaT, int numSteps)
     
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
 void TetraGroup::GroundResponse()
 {
     for (unsigned int i = 0; i < Vertices.size(); i++)
@@ -120,6 +136,17 @@ void TetraGroup::GroundResponse()
         }
     }
 }
+
+////////////////////////////////////////////////////////////////////////////////
+
+void TetraGroup::Initialize()
+{
+	UpdateBetaMatrices();
+	UpdateMasses();
+	SetupGPU();
+}
+
+////////////////////////////////////////////////////////////////////////////////
 
 void TetraGroup::CreateGrid(vec3 bottomLeftPos, vec3 topRightPos, ivec3 resolution)
 {
@@ -159,16 +186,16 @@ void TetraGroup::CreateGrid(vec3 bottomLeftPos, vec3 topRightPos, ivec3 resoluti
                 if (xCount & 0x01) mask = mask | 0x01;
                 if (yCount & 0x01) mask = mask | 0x02;
                 if (zCount & 0x01) mask = mask | 0x04;
-                addCube(vec3(x,y,z), vec3(x+deltaX, y+deltaY, z+deltaZ), mask);
+                AddCube(vec3(x,y,z), vec3(x+deltaX, y+deltaY, z+deltaZ), mask);
                 zCount++;
             }
             yCount++;
         }
         xCount++;
     }
-    //    std::cout << "Num of vertices: " << Vertices.size() << std::endl;
-    //    std::cout << "Num of tetra: " << Tetrahedra.size() << std::endl;
 }
+
+////////////////////////////////////////////////////////////////////////////////
 
 void TetraGroup::SetDrawingColors()
 {
@@ -186,6 +213,8 @@ void TetraGroup::SetDrawingColors()
     }
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
 Vertex * TetraGroup::GetVertex(vec3 pos, float epsilon)
 {
     for (unsigned int i = 0; i < Vertices.size(); i++)
@@ -197,7 +226,9 @@ Vertex * TetraGroup::GetVertex(vec3 pos, float epsilon)
     return NULL;
 }
 
-void TetraGroup::addCube(vec3 bottomLeftPos, vec3 topRightPos, int mask)
+////////////////////////////////////////////////////////////////////////////////
+
+void TetraGroup::AddCube(vec3 bottomLeftPos, vec3 topRightPos, int mask)
 {
     vec3 side = topRightPos - bottomLeftPos;
     
@@ -265,7 +296,6 @@ positions[j] = temp; \
     std::vector<Vertex *> tempVertices;
     tempVertices.resize(8);
     
-    
     for (int i = 0; i < positions.size(); i++)
     {
         if (GetVertex(positions[i],0.001f) == NULL)
@@ -281,11 +311,10 @@ positions[j] = temp; \
     for (int i = 0; i < positions.size(); i++)
     {
         pt = GetVertex(positions[i], 0.001f);
-        if (pt == NULL) assert(0);
+        if (pt == NULL) 
+			assert(0);
         else
-        {
-            tempVertices[i] = pt;
-        }
+			tempVertices[i] = pt;
     }
     
     Tetrahedron *tet1, *tet2, *tet3, *tet4, *tet5;
@@ -296,20 +325,20 @@ positions[j] = temp; \
     tet4 = new Tetrahedron(tempVertices[0],tempVertices[4],tempVertices[5],tempVertices[3]);
     tet5 = new Tetrahedron(tempVertices[0],tempVertices[5],tempVertices[4],tempVertices[6]);
     
-    tempVertices[0]->setTetrahedron(tet1); tempVertices[2]->setTetrahedron(tet1);
-    tempVertices[4]->setTetrahedron(tet1); tempVertices[6]->setTetrahedron(tet1);
-    
-    tempVertices[0]->setTetrahedron(tet2); tempVertices[5]->setTetrahedron(tet2);
-    tempVertices[6]->setTetrahedron(tet2); tempVertices[1]->setTetrahedron(tet2);
-    
-    tempVertices[7]->setTetrahedron(tet3); tempVertices[5]->setTetrahedron(tet3);
-    tempVertices[4]->setTetrahedron(tet3); tempVertices[6]->setTetrahedron(tet3);
-    
-    tempVertices[0]->setTetrahedron(tet4); tempVertices[4]->setTetrahedron(tet4);
-    tempVertices[5]->setTetrahedron(tet4); tempVertices[3]->setTetrahedron(tet4);
-    
-    tempVertices[0]->setTetrahedron(tet5); tempVertices[5]->setTetrahedron(tet5);
-    tempVertices[4]->setTetrahedron(tet5); tempVertices[6]->setTetrahedron(tet5);
+    //tempVertices[0]->AddConnectedTetrahedron(tet1); tempVertices[2]->AddConnectedTetrahedron(tet1);
+    //tempVertices[4]->AddConnectedTetrahedron(tet1); tempVertices[6]->AddConnectedTetrahedron(tet1);
+    //
+    //tempVertices[0]->AddConnectedTetrahedron(tet2); tempVertices[5]->AddConnectedTetrahedron(tet2);
+    //tempVertices[6]->AddConnectedTetrahedron(tet2); tempVertices[1]->AddConnectedTetrahedron(tet2);
+    //
+    //tempVertices[7]->AddConnectedTetrahedron(tet3); tempVertices[5]->AddConnectedTetrahedron(tet3);
+    //tempVertices[4]->AddConnectedTetrahedron(tet3); tempVertices[6]->AddConnectedTetrahedron(tet3);
+    //
+    //tempVertices[0]->AddConnectedTetrahedron(tet4); tempVertices[4]->AddConnectedTetrahedron(tet4);
+    //tempVertices[5]->AddConnectedTetrahedron(tet4); tempVertices[3]->AddConnectedTetrahedron(tet4);
+    //
+    //tempVertices[0]->AddConnectedTetrahedron(tet5); tempVertices[5]->AddConnectedTetrahedron(tet5);
+    //tempVertices[4]->AddConnectedTetrahedron(tet5); tempVertices[6]->AddConnectedTetrahedron(tet5);
     
     float lambda = 100;
     float mu = 100;
@@ -327,23 +356,26 @@ positions[j] = temp; \
     Tetrahedra.push_back(tet3);
     Tetrahedra.push_back(tet4);
     Tetrahedra.push_back(tet5);
-    
-    positions.clear();
-    tempVertices.clear();
 }
+
+////////////////////////////////////////////////////////////////////////////////
 
 void TetraGroup::SetConstants(float elasticMod, float poisson, float toughness)
 {
-    TOUGHNESS = toughness;
+    Toughness = toughness;
     for (unsigned int i = 0; i < Tetrahedra.size(); i++)
         Tetrahedra[i]->SetConstants(elasticMod, poisson);
 }
+
+////////////////////////////////////////////////////////////////////////////////
 
 void TetraGroup::ComputeFracture()
 {
     for(unsigned int i = 0; i < Tetrahedra.size(); i++)
         Tetrahedra[i]->ComputeFractureForces();
 }
+
+////////////////////////////////////////////////////////////////////////////////
 
 void TetraGroup::SetInitialConditions(const mat4 &model, const vec3 &comVel, const vec3 &angularVel)
 {
@@ -354,11 +386,15 @@ void TetraGroup::SetInitialConditions(const mat4 &model, const vec3 &comVel, con
     }
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
 void TetraGroup::UpdateBetaMatrices()
 {
     for (int i = 0; i < Tetrahedra.size(); i++)
         Tetrahedra[i]->UpdateBeta();
 }
+
+////////////////////////////////////////////////////////////////////////////////
 
 void TetraGroup::Init(const TetraGroupInits &init)
 {
@@ -381,23 +417,21 @@ void TetraGroup::Init(const TetraGroupInits &init)
     
     for (int i = 0; i < Vertices.size(); i++)
         assert(Vertices[i].numConnections != 0);
-    //    largestEigenValue = 0;
     
     SetInitialConditions(inits.model, inits.com_vel, inits.angular_vel);
-    UpdateBetaMatrices(); // Sets material frame coords to be initial world space coords
     SetConstants(inits.elastic, inits.poisson, inits.toughness);
-    UpdateMasses();
     
-    SetupGPU();
-    
+	Initialize();
+
     //    SHOWVEC(Vertices[0].getVel());
     //    SHOWVAR(inits.elastic);
     //    SHOWVAR(inits.toughness);
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
 void TetraGroup::ComputeSeparation()
 {
-    
     mat3 separationTensor;
     vec3 compressiveForce;
     vec3 tensileForce;
@@ -468,7 +502,7 @@ void TetraGroup::ComputeSeparation()
             
             
             if (largestEigenvalue < 0) continue;
-            if (largestEigenvalue > TOUGHNESS){
+            if (largestEigenvalue > Toughness){
                 wasFracture = true;
 //                std::cout << "largestEigenvalue: " << largestEigenvalue << std::endl;
                 Vertex * fracturingVertex = &Vertices[i];
@@ -561,6 +595,7 @@ void TetraGroup::ComputeSeparation()
     addendumFrames++;
 }
 
+////////////////////////////////////////////////////////////////////////////////
 
 void TetraGroup::FractureTetrahedra(Tetrahedron * tet, Vertex * oldVertex, Vertex * newVertex, const vec3 &planeNormal, bool planeSnap)
 {
@@ -725,6 +760,8 @@ void TetraGroup::FractureTetrahedra(Tetrahedron * tet, Vertex * oldVertex, Verte
     }
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
 void TetraGroup::IsolateTetrahedra(Tetrahedron * tet)
 {
     vector<Tetrahedron *> neighbors;
@@ -753,6 +790,8 @@ void TetraGroup::IsolateTetrahedra(Tetrahedron * tet)
     
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
 bool TetraGroup::IsIsolated(Tetrahedron * tet)
 {
     vector<Tetrahedron *> neighbors;
@@ -775,6 +814,8 @@ bool TetraGroup::IsIsolated(Tetrahedron * tet)
     return true;
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
 void TetraGroup::SplitTetrahedraByVertex(Tetrahedron * tet, Vertex * oldVertex, Vertex * newVertex)
 {
     assert(tet->VertexInTetrahedron(oldVertex));
@@ -788,6 +829,8 @@ void TetraGroup::SplitTetrahedraByVertex(Tetrahedron * tet, Vertex * oldVertex, 
     VertexSplit(oldVertex, newVertex, normal, planePoint);
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
 void TetraGroup::SplitTetrahedraByVertex(Tetrahedron * loneTet, Tetrahedron * otherTet)
 {
     assert(TetrahedraIdentifyConnectivity(loneTet, otherTet) == 1);
@@ -798,6 +841,8 @@ void TetraGroup::SplitTetrahedraByVertex(Tetrahedron * loneTet, Tetrahedron * ot
     newVert->AddConnection(loneTet);
     
 }
+
+////////////////////////////////////////////////////////////////////////////////
 
 void TetraGroup::SplitTetrahedraByEdge(Tetrahedron * loneTet, Tetrahedron * otherTet)
 {
@@ -819,6 +864,8 @@ void TetraGroup::SplitTetrahedraByEdge(Tetrahedron * loneTet, Tetrahedron * othe
     newV1->AddConnection(loneTet);
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
 void TetraGroup::SplitTetrahedraByEdge(Tetrahedron * tet, Vertex * oldV0, Vertex * oldV1, Vertex * newV0, Vertex * newV1)
 {
     assert(tet->VertexInTetrahedron(oldV0) && tet->VertexInTetrahedron(oldV1));
@@ -832,6 +879,8 @@ void TetraGroup::SplitTetrahedraByEdge(Tetrahedron * tet, Vertex * oldV0, Vertex
     VertexSplit(oldV0, newV0, normal, planePoint);
     VertexSplit(oldV1, newV1, normal, planePoint);
 }
+
+////////////////////////////////////////////////////////////////////////////////
 
 vec3 TetraGroup::FindBestFracturePlane(Vertex * fracturingVertex, vec3 eigenDir)
 {
@@ -871,6 +920,8 @@ vec3 TetraGroup::FindBestFracturePlane(Vertex * fracturingVertex, vec3 eigenDir)
     return planeNormal;
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
 bool TetraGroup::ValidFractureVert(Vertex * fracturingVertex)
 {
     // At least one tet should share a face to fracture upon for this vertex to be able to fracture
@@ -881,6 +932,8 @@ bool TetraGroup::ValidFractureVert(Vertex * fracturingVertex)
     
     return CheckFractureFaces(neighbors, fracturingVertex);
 }
+
+////////////////////////////////////////////////////////////////////////////////
 
 bool TetraGroup::CheckFractureFaces(const std::vector<Tetrahedron *> &tets, Vertex * vert)
 {
@@ -904,6 +957,8 @@ bool TetraGroup::CheckFractureFaces(const std::vector<Tetrahedron *> &tets, Vert
     return false;
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
 void TetraGroup::VertexSplit(Vertex * oldVert, Vertex * newVert, vec3 &planeNormal, vec3 &planePoint)
 {
     for (int k = 0; k < oldVert->numConnections; k++)
@@ -921,9 +976,11 @@ void TetraGroup::VertexSplit(Vertex * oldVert, Vertex * newVert, vec3 &planeNorm
     }
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
 bool TetraGroup::PlaneIntersectTetrahedra(Tetrahedron * tet, const vec3 &planePoint, const vec3 &planeNormal)
 {
-    float d[4];
+	std::array<float, 4> d;
     
     // Positive if point is pointed to by the normal
     for (int i = 0; i < 4; i++)
@@ -940,6 +997,8 @@ bool TetraGroup::PlaneIntersectTetrahedra(Tetrahedron * tet, const vec3 &planePo
     return false;
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
 void TetraGroup::UpdateMasses()
 {
     for (int i = 0; i < Vertices.size(); i++)
@@ -948,6 +1007,8 @@ void TetraGroup::UpdateMasses()
     for(int i = 0; i < Tetrahedra.size(); i++)
         Tetrahedra[i]->UpdateMasses();
 }
+
+////////////////////////////////////////////////////////////////////////////////
 
 void TetraGroup::ConnectivityAddendum()
 {
@@ -1102,21 +1163,31 @@ void TetraGroup::ConnectivityAddendum()
     //
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
 pair<Vertex *,Vertex *> TetraGroup::TetrahedraMutualVertices(Tetrahedron *tet0, Tetrahedron *tet1)
 {
-    vector<Vertex *> v0s = tet0->Vertices;
-    vector<Vertex *> v1s = tet1->Vertices;
-    vector<Vertex *> setIntersection; setIntersection.resize(3);
-    sort(v0s.begin(), v0s.end());
-    sort(v1s.begin(), v1s.end());
+	Vertex * firstDuplicate = nullptr;
+	Vertex * secondDuplicate = nullptr;
+
+	for (auto v0 : tet0->Vertices)
+	{
+		for (auto v1 : tet1->Vertices)
+		{
+			if (!firstDuplicate && v0 == v1)
+				firstDuplicate = v0;
+			else if (v0 == v1)
+			{
+				secondDuplicate = v0;
+				return { firstDuplicate, secondDuplicate };
+			}
+		}
+	}
     
-    auto it = set_intersection(v0s.begin(), v0s.end(), v1s.begin(), v1s.end(), setIntersection.begin());
-    setIntersection.resize(it-setIntersection.begin());
-    
-    if (setIntersection.size() != 2) assert(0);
-    
-    return pair<Vertex *,Vertex*>(setIntersection[0],setIntersection[1]);
+	return {nullptr, nullptr};
 }
+
+////////////////////////////////////////////////////////////////////////////////
 
 Vertex * TetraGroup::DuplicateVertex(Vertex * oldVert)
 {
@@ -1131,63 +1202,72 @@ Vertex * TetraGroup::DuplicateVertex(Vertex * oldVert)
     return &Vertices.back();
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
 Vertex * TetraGroup::TetrahedraMutualVertex(Tetrahedron *tet0, Tetrahedron *tet1)
 {
-    vector<Vertex *> v0s = tet0->Vertices;
-    vector<Vertex *> v1s = tet1->Vertices;
-    vector<Vertex *> setIntersection; setIntersection.resize(3);
-    sort(v0s.begin(), v0s.end());
-    sort(v1s.begin(), v1s.end());
-    
-    auto it = set_intersection(v0s.begin(), v0s.end(), v1s.begin(), v1s.end(), setIntersection.begin());
-    setIntersection.resize(it-setIntersection.begin());
-    
-    if (setIntersection.size() != 1) assert(0);
-    
-    return setIntersection[0];
+	for (auto v0 : tet0->Vertices)
+	{
+		for (auto v1 : tet1->Vertices)
+		{
+			if (v0 == v1)
+				return v0;
+		}
+	}
+
+	return nullptr;
 }
 
-Triangle * TetraGroup::TetrahedraMutualEdge(Tetrahedron *tet0, Tetrahedron *tet1)
-{
-    vector<Vertex *> v0s = tet0->Vertices;
-    vector<Vertex *> v1s = tet1->Vertices;
-    vector<Vertex *> setIntersection; setIntersection.resize(3);
-    sort(v0s.begin(), v0s.end());
-    sort(v1s.begin(), v1s.end());
-    
-    auto it = set_intersection(v0s.begin(), v0s.end(), v1s.begin(), v1s.end(), setIntersection.begin());
-    setIntersection.resize(it-setIntersection.begin());
-    
-    if (setIntersection.size() != 2) assert(0);
-    
-    Vertex * v0 = setIntersection[0];
-    Vertex * v1 = setIntersection[1];
-    
-    Triangle * tri = nullptr;
-    
-    if (tet0->VertexInTriangle(0, v0) && tet0->VertexInTriangle(0, v1))
-    {
-        tri = &tet0->Triangles[0];
-        return tri;
-    }
-    
-    if (tet0->VertexInTriangle(1, v0) && tet0->VertexInTriangle(1, v1))
-    {
-        tri = &tet0->Triangles[1];
-        return tri;
-    }
-    
-    if (tet0->VertexInTriangle(2, v0) && tet0->VertexInTriangle(2, v1))
-    {
-        tri = &tet0->Triangles[2];
-        return tri;
-    }
-    
-    // Two triangles have the edge we want, code should never reach here
-    
-    assert(0);
-    return tri;
-}
+////////////////////////////////////////////////////////////////////////////////
+
+//Triangle * TetraGroup::TetrahedraMutualEdge(Tetrahedron *tet0, Tetrahedron *tet1)
+//{
+//	auto pair = TetrahedraMutualVertices(tet0, tet1);
+//
+//	if (!pair.first || !pair.second)
+//		return nullptr;
+//
+//    vector<Vertex *> v0s = tet0->Vertices;
+//    vector<Vertex *> v1s = tet1->Vertices;
+//    vector<Vertex *> setIntersection; setIntersection.resize(3);
+//    sort(v0s.begin(), v0s.end());
+//    sort(v1s.begin(), v1s.end());
+//    
+//    auto it = set_intersection(v0s.begin(), v0s.end(), v1s.begin(), v1s.end(), setIntersection.begin());
+//    setIntersection.resize(it-setIntersection.begin());
+//    
+//    if (setIntersection.size() != 2) assert(0);
+//    
+//    Vertex * v0 = setIntersection[0];
+//    Vertex * v1 = setIntersection[1];
+//    
+//    Triangle * tri = nullptr;
+//    
+//    if (tet0->VertexInTriangle(0, v0) && tet0->VertexInTriangle(0, v1))
+//    {
+//        tri = &tet0->Triangles[0];
+//        return tri;
+//    }
+//    
+//    if (tet0->VertexInTriangle(1, v0) && tet0->VertexInTriangle(1, v1))
+//    {
+//        tri = &tet0->Triangles[1];
+//        return tri;
+//    }
+//    
+//    if (tet0->VertexInTriangle(2, v0) && tet0->VertexInTriangle(2, v1))
+//    {
+//        tri = &tet0->Triangles[2];
+//        return tri;
+//    }
+//    
+//    // Two triangles have the edge we want, code should never reach here
+//    
+//    assert(0);
+//    return tri;
+//}
+
+////////////////////////////////////////////////////////////////////////////////
 
 int TetraGroup::TetrahedraIdentifyConnectivity(Tetrahedron * tet1, Tetrahedron * tet2)
 {
@@ -1215,19 +1295,21 @@ int TetraGroup::TetrahedraIdentifyConnectivity(Tetrahedron * tet1, Tetrahedron *
     return count;
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
 void TetraGroup::ZeroForces()
 {
     for(unsigned int i = 0; i < Vertices.size(); i++)
         Vertices[i].ZeroForce();
 }
 
-////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 
 void TetraGroup::SetupGPU()
 {
-    int NumTriangles = 4* (int)Tetrahedra.size();
-    std::vector<vec3> positions(3*NumTriangles, vec3(0,0,0));
-    std::vector<vec3> normals(3*NumTriangles, vec3(0,0,0));
+    int numTriangles = 4* (int)Tetrahedra.size();
+    std::vector<vec3> positions(3* numTriangles);
+    std::vector<vec3> normals(3* numTriangles);
     
     int local_count = 0;
     
@@ -1270,18 +1352,15 @@ void TetraGroup::SetupGPU()
     
     glBindVertexArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
-    
-    vector<vec3>().swap(positions);
-    vector<vec3>().swap(normals);
 }
 
-////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 
 void TetraGroup::UpdateGPU()
 {
     int NumTriangles = 4* (int)Tetrahedra.size();
-    std::vector<vec3> positions(3*NumTriangles, vec3(0,0,0));
-    std::vector<vec3> normals(3*NumTriangles, vec3(0,0,0));
+    std::vector<vec3> positions(3*NumTriangles);
+    std::vector<vec3> normals(3*NumTriangles);
     
     int local_count = 0;
     
@@ -1325,7 +1404,7 @@ void TetraGroup::UpdateGPU()
     vector<vec3>().swap(normals);
 }
 
-////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 
 void TetraGroup::Draw(mat4 &PV)
 {
@@ -1352,3 +1431,5 @@ void TetraGroup::Draw(mat4 &PV)
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     
 }
+
+////////////////////////////////////////////////////////////////////////////////

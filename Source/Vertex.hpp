@@ -13,46 +13,24 @@
 
 class Tetrahedron;
 
-class Vertex {
+////////////////////////////////////////////////////////////////////////////////
+
+class Vertex 
+{
 public:
-    Vertex() {
-        mass = 1.0f;
-        invMass = 1.0f;
-        CompressiveForces.resize(maxConnectivity);
-        TensileForces.resize(maxConnectivity);
-        tetrahedra.resize(maxConnectivity);
-        
-        glm::vec3 zero = glm::vec3(0);
-        
-        for (int i = 0; i < maxConnectivity; i++)
-        {
-            CompressiveForces[i] = zero;
-            TensileForces[i] = zero;
-            tetrahedra[i] = nullptr;
-        }
-        
-        numForces = 0;
-        
-    }
-    void Set(const glm::vec3 &p, const glm::vec3 &v, const glm::vec3 &f)
-    {Position=p; Velocity = v; Force = f;}
-    void ApplyForce(glm::vec3 &force) {Force += force;}
-    void ZeroForce() {
-        Force = glm::vec3(0);
-        numForces = 0;
-        
-        for (int i = 0; i < maxConnectivity; i++)
-        {
-            CompressiveForces[i] = glm::vec3(0);
-            TensileForces[i] = glm::vec3(0);
-        }
-    }
+
+	Vertex();
+
+	void Set(const glm::vec3 &p, const glm::vec3 &v, const glm::vec3 &f);
+	void ApplyForce(glm::vec3 &force);
+	void ZeroForce();
+
     void Update(float deltaT);
     
-    glm::vec3 getPos() {return Position;}
-    glm::vec3 getVel() {return Velocity;}
-    glm::vec3 getForce() {return Force;}
-    float getMass() {return mass;}
+    const glm::vec3 & getPos() const { return Position; }
+	const glm::vec3 & getVel() const { return Velocity; }
+    const glm::vec3 & getForce() const { return Force; }
+    float getMass() const { return mass; }
     
     void setMass(float mass) {this->mass = mass; invMass = 1.0f / mass;}
     void setPos(glm::vec3 pos) {Position = pos;}
@@ -73,15 +51,7 @@ public:
             numConnections++;
         }
     }
-    bool setTetrahedron(Tetrahedron * tet) {
-        if (numConnections < maxConnectivity)
-        {
-            tetrahedra[numConnections] = tet;
-            numConnections++;
-            return true;
-        }
-        return false;
-    }
+	bool AddConnectedTetrahedron(Tetrahedron * tet);
     
     void RemoveConnection(Tetrahedron * tet)
     {

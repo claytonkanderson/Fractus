@@ -34,5 +34,4 @@ private:
     std::vector<Object*> Objects;
     std::vector<Light*> Lights;
     Color SkyColor;
-
 };
