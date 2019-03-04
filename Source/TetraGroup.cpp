@@ -390,8 +390,10 @@ void TetraGroup::SetInitialConditions(const mat4 &model, const vec3 &comVel, con
 
 void TetraGroup::UpdateBetaMatrices()
 {
-    for (int i = 0; i < Tetrahedra.size(); i++)
-        Tetrahedra[i]->UpdateBeta();
+
+	for (int i = 0; i < Tetrahedra.size(); i++)
+		Tetrahedra[i]->UpdateBeta();
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////

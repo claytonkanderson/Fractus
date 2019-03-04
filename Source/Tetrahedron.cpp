@@ -130,16 +130,6 @@ void Tetrahedron::ComputeDeformationForces()
     
     mat3x4 PBeta = Pmat * beta;
     
-//    SHOWVEC(Vertices[0]->getPos());
-//    SHOWVEC(Vertices[1]->getPos());
-//    SHOWVEC(Vertices[2]->getPos());
-//    SHOWVEC(Vertices[3]->getPos());
-//    
-//    SHOWMAT(inverse(beta));
-//    
-//    SHOWMAT4x3(Pmat);
-//    SHOWMAT3x4(PBeta);
-    
     vec3 dx_u1 = PBeta * vec4(1,0,0,0);
     vec3 dx_u2 = PBeta * vec4(0,1,0,0);
     vec3 dx_u3 = PBeta * vec4(0,0,1,0);
@@ -152,12 +142,12 @@ void Tetrahedron::ComputeDeformationForces()
     vec3 dxd_u3 = VBeta * vec4(0,0,1,0);
     
 	std::array<vec3, 3 > dxd{ dxd_u1, dxd_u2, dxd_u3 };
-    
+   
     mat3 strainTensor = mat3(1.0f);
     for (int i = 0; i < 3; i++)
         for (int j = 0 ; j < 3; j++)
             strainTensor[i][j] = dot(dx[i],dx[j]) - (i == j ? 1 : 0);
-    
+   
     mat3 rateOfStrainTensor = mat3(1.0f);
     for (int i = 0; i < 3; i++)
         for (int j = 0 ; j < 3; j++)
@@ -196,16 +186,14 @@ void Tetrahedron::ComputeDeformationForces()
                 for (int l = 0; l < 3; l++)
                 {
                     innerProduct += beta[k][i]*beta[l][j]*totalStress[k][l];
-					if (isnan(innerProduct))
-						std::cout << "innerProduct nan" << std::endl;
                 }
             }
             forceOnNode_i += Pmat[j] * innerProduct;
         }
         
         forceOnNode_i *= -volume * 0.5f;
-        // SHOWVEC(forceOnNode_i);
-        // Apply force to node
+        
+		// Apply force to node
         Vertices[i]->ApplyForce(forceOnNode_i);
     }
     

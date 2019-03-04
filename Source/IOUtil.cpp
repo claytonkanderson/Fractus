@@ -42,6 +42,7 @@ void IOUtil::LoadTetrahedronObj(TetraGroup & outGroup, const char * filename)
 
 			outGroup.Vertices.emplace_back();
 			outGroup.Vertices.back().setPos(tempPos);
+
 		}
 		else if (str.front() == 't')
 		{
