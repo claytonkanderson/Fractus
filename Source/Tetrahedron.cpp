@@ -142,7 +142,8 @@ void Tetrahedron::ComputeDeformationForces()
     vec3 dxd_u3 = VBeta * vec4(0,0,1,0);
     
 	std::array<vec3, 3 > dxd{ dxd_u1, dxd_u2, dxd_u3 };
-   
+	std::array<glm::vec3, 3> dots;
+
     mat3 strainTensor = mat3(1.0f);
     for (int i = 0; i < 3; i++)
         for (int j = 0 ; j < 3; j++)
@@ -169,11 +170,6 @@ void Tetrahedron::ComputeDeformationForces()
     for (int i = 0; i < 3; i++)
         for (int j = 0 ; j < 3; j++)
             totalStress[i][j] = elasticStress[i][j] + viscousStress[i][j];
-    
-	for (int i = 0; i < 3; i++)
-		for (int j = 0; j < 3; j++)
-			if (isnan(totalStress[i][j]))
-				std::cout << "stress nan" << std::endl;
 
     for (int i = 0; i < Vertices.size(); i++)
     {

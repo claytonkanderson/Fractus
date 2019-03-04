@@ -16,8 +16,6 @@
 #include <glm/gtx/component_wise.hpp>
 #include <chrono>
 
-#define MAXVERTS 4000
-
 using namespace std::chrono;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -41,20 +39,9 @@ class TetraGroup: public Object
 public:
     
     // CREATORS
-    TetraGroup() {
-        high_resolution_clock::time_point t1 = high_resolution_clock::now();
-        timeSpan = duration_cast<duration<double>>(t1-t1);
-        timers.push_back(timeSpan); timers.push_back(timeSpan);
-        timers.push_back(timeSpan); timers.push_back(timeSpan);
-        timers.push_back(timeSpan); timers.push_back(timeSpan);
-    }
-    ~TetraGroup() {
-        std::vector<Tetrahedron *>().swap(Tetrahedra);
-        std::vector<Vertex>().swap(Vertices);
-        glDeleteBuffers(1,&vertexBuffer);
-        glDeleteBuffers(1,&normalBuffer);
-        glDeleteVertexArrays(1,&VAO);
-    }
+	TetraGroup();
+
+	~TetraGroup();
 
 	void Initialize();
 
@@ -101,17 +88,19 @@ public:
     bool ValidFractureVert(Vertex * fracturingVertex);
     bool PlaneIntersectTetrahedra(Tetrahedron * tet, const glm::vec3 &planePoint, const glm::vec3 &planeNormal);
     
-    
     // ACCESSORS
     Tetrahedron * GetTetrahedron(int index) {return Tetrahedra[index];}
     Vertex * GetVertex(int index) {return &Vertices[index];}
     Vertex * GetVertex(glm::vec3 pos, float epsilon);
+	unsigned int GetVertexIndex(Vertex * vertex) const;
     std::vector<duration<double>> GetTimers() {return timers;}
-	const std::vector<Tetrahedron *> const GetTetrahedra() { return Tetrahedra; }
+	const std::vector<Tetrahedron *> & GetTetrahedra() const { return Tetrahedra; }
     
+	size_t GetNumVerts() const { return Vertices.size(); }
+	static constexpr size_t GetMaxNumVerts() { return 8000; }
+
     bool meshView = false;
     bool snapToPlane = true;
-    int numVerts = 0;
     int addendumFrames = 0;
     float Toughness = 4000.0f;
     std::vector<Vertex> Vertices;

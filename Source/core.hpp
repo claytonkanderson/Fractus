@@ -29,7 +29,7 @@ template <typename T>
 using frWP = std::weak_ptr<T>;
 
 #define SHOWVAR(v) std::cout << #v << ": " << v << std::endl
-#define SHOWVEC(v) std::cout << #v << ": " << v.x << " " << v.y << " " << v.z << std::endl
+#define SHOWVEC(v) std::cout << #v << ": " << v[0] << " " << v[1] << " " << v[2] << std::endl
 #define SHOWVEC4(v) std::cout << #v << ": " << v.x << " " << v.y << " " << v.z << " " << v.w << std::endl
 #define SHOWMAT(m) std::cout << #m << ": " << std::endl  \
 << m[0][0] << " " << m[0][1] << " " << m[0][2] << " " << m[0][3] << std::endl \

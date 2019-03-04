@@ -139,6 +139,28 @@ void TetraGroup::GroundResponse()
 
 ////////////////////////////////////////////////////////////////////////////////
 
+TetraGroup::TetraGroup()
+{
+	Vertices.reserve(GetMaxNumVerts());
+
+	high_resolution_clock::time_point t1 = high_resolution_clock::now();
+	timeSpan = duration_cast<duration<double>>(t1 - t1);
+	timers.push_back(timeSpan); timers.push_back(timeSpan);
+	timers.push_back(timeSpan); timers.push_back(timeSpan);
+	timers.push_back(timeSpan); timers.push_back(timeSpan);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+TetraGroup::~TetraGroup()
+{
+	glDeleteBuffers(1, &vertexBuffer);
+	glDeleteBuffers(1, &normalBuffer);
+	glDeleteVertexArrays(1, &VAO);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 void TetraGroup::Initialize()
 {
 	UpdateBetaMatrices();
@@ -162,9 +184,8 @@ void TetraGroup::CreateGrid(vec3 bottomLeftPos, vec3 topRightPos, ivec3 resoluti
             {
                 Vertex v;
                 v.Set(vec3(x,y,z), vec3(0), vec3(0));
-                v.identifier = numVerts;
+                v.identifier = GetNumVerts();
                 Vertices.push_back(v);
-                numVerts++;
             }
         }
     }
@@ -224,6 +245,19 @@ Vertex * TetraGroup::GetVertex(vec3 pos, float epsilon)
     }
     
     return NULL;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+unsigned int TetraGroup::GetVertexIndex(Vertex * vertex) const
+{
+	for (unsigned int i = 0; i < Vertices.size(); i++)
+	{
+		if (&Vertices[i] == vertex)
+			return i;
+	}
+
+	return (unsigned int)-1;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -302,9 +336,8 @@ positions[j] = temp; \
         {
             Vertex v;
             v.Set(positions[i], vec3(0), vec3(0));
-            v.identifier = numVerts;
+			v.identifier = GetNumVerts();
             Vertices.push_back(v);
-            numVerts++;
         }
     }
     
@@ -406,16 +439,14 @@ void TetraGroup::Init(const TetraGroupInits &init)
     glDeleteBuffers(1,&vertexBuffer);
     glDeleteBuffers(1,&normalBuffer);
     glDeleteVertexArrays(1,&VAO);
-    vector<Tetrahedron *>().swap(Tetrahedra);
-    vector<Vertex>().swap(Vertices);
+
+	Tetrahedra.clear();
+	Vertices.clear();
     
-    Vertices.reserve(MAXVERTS);
     inits = init;
     
-    numVerts = 0;
     CreateGrid(vec3(-0.5*inits.x_width,-0.5*inits.y_width,-0.5*inits.z_width),
                vec3(0.5*inits.x_width,0.5*inits.y_width,0.5*inits.z_width), inits.div);
-    
     
     for (int i = 0; i < Vertices.size(); i++)
         assert(Vertices[i].numConnections != 0);
@@ -442,9 +473,9 @@ void TetraGroup::ComputeSeparation()
     
     bool wasFracture = false;
     
-    if (numVerts < 0.99f*MAXVERTS)
+    if ((float)GetNumVerts() < 0.99f*GetMaxNumVerts())
     {
-        unsigned int numOldVerts = numVerts;
+        unsigned int numOldVerts = GetNumVerts();
         for(unsigned int i = 0; i < numOldVerts; i++)
         {
             assert(Vertices[i].numConnections != 0);
@@ -573,7 +604,8 @@ void TetraGroup::ComputeSeparation()
                 
                 for (int j = 0; j < top.size(); j++)
                 {
-                    if (IsIsolated(top[j])) IsolateTetrahedra(top[j]);
+                    if (IsIsolated(top[j])) 
+						IsolateTetrahedra(top[j]);
                 }
                 
                 
@@ -889,7 +921,6 @@ vec3 TetraGroup::FindBestFracturePlane(Vertex * fracturingVertex, vec3 eigenDir)
     vec3 planeNormal = vec3(0,0,0);
     float maxFaceDot = -1;
     
-    
     for (int i = 0; i < fracturingVertex->numConnections; i++)
     {
         Tetrahedron * tet = fracturingVertex->tetrahedra[i];
@@ -1194,12 +1225,12 @@ pair<Vertex *,Vertex *> TetraGroup::TetrahedraMutualVertices(Tetrahedron *tet0, 
 Vertex * TetraGroup::DuplicateVertex(Vertex * oldVert)
 {
     Vertex newV0;
-    newV0.identifier = numVerts;
-    numVerts++;
+    newV0.identifier = GetNumVerts();
     newV0.setPos(oldVert->getPos());
     newV0.setMass(oldVert->getMass());
     newV0.setVel(oldVert->getVel());
-    if (Vertices.size() > MAXVERTS) assert(0);
+    if (Vertices.size() > GetMaxNumVerts()) 
+		assert(0);
     Vertices.push_back(newV0);
     return &Vertices.back();
 }

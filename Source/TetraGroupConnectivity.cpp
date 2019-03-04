@@ -86,12 +86,12 @@ void TetraGroup::ArbitrarySplit(Vertex * fractureVert, vec3 fractureNormal)
         
         // Create two new verts at edge locations
         Vertex newV0;
-        newV0.identifier = numVerts;
-        numVerts++;
+        newV0.identifier = GetNumVerts();
         newV0.setPos(intersectionPt);
         newV0.setMass(fractureVert->getMass()); // Will be updated later
         newV0.setVel(fractureVert->getVel()); // Not sure what this should be
-        if (Vertices.size() > MAXVERTS) assert(0);
+        if (Vertices.size() > GetMaxNumVerts()) 
+			assert(0);
         Vertices.push_back(newV0);
         
         edgeVertsTop.push_back(&Vertices.back());

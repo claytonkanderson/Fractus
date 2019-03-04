@@ -41,7 +41,7 @@ int main(int argc, const char * argv[]) {
     Scene scene;
     TetraGroup group;
     
-    float timestep = 0.01667 / 1000.0;
+    float timestep = 0.01667 / 2000.0;
     int physPerDraw = 25;
     bool pause = false;
     
@@ -56,8 +56,14 @@ int main(int argc, const char * argv[]) {
 	IOUtil::LoadTetrahedronObj(group, "BowlTetrahedra.obj");
 
 	for (auto & tet : group.GetTetrahedra())
-		tet->SetConstants(0.0f, 5.29e7f, 0, 198);
+		tet->SetConstants(0, 5.29e7, 0, 198);
 	group.Toughness = 106;
+
+	group.SetInitialConditions(
+		glm::translate(glm::mat4(), glm::vec3(0, 1.5, 0)),
+		glm::vec3(0, 0, 0), 
+		glm::vec3()
+	);
 
     group.SetShader(*Window::getRegularShader());
 	scene.AddObject(group);

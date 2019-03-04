@@ -16,6 +16,7 @@
 namespace IOUtil
 {
 	void LoadTetrahedronObj(TetraGroup & outGroup, const char * filename);
+	void WriteTetrahedronObj(const TetraGroup & group, const char * filename);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
