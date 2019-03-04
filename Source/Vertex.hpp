@@ -55,7 +55,7 @@ public:
     
     void RemoveConnection(Tetrahedron * tet)
     {
-        for (int i = 0; i < tetrahedra.size(); i++)
+        for (size_t i = 0; i < tetrahedra.size(); i++)
         {
             if (tetrahedra[i] == tet)
             {

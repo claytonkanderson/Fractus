@@ -53,6 +53,10 @@ int main(int argc, const char * argv[]) {
     
     //group.Init(inits); // Creates Grid
 
+	// For next time : add material coordinate property to vertices,
+	// verify usage of material / world positions.
+	// Verify locations of UpdateBeta / UpdateMass (as well as their impls)
+
 	IOUtil::LoadTetrahedronObj(group, "BowlTetrahedra.obj");
 
 	for (auto & tet : group.GetTetrahedra())

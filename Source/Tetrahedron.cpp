@@ -324,7 +324,11 @@ void Tetrahedron::ReplaceVertex(Vertex * oldVertex, Vertex * newVertex)
     for (int i = 0; i < Vertices.size(); i++)
         if (Vertices[i] == oldVertex)
             Vertices[i] = newVertex;
-    for (int i = 0; i < 4; i++) { Triangles[i].ReplaceVertex(oldVertex, newVertex); }
+    for (int i = 0; i < 4; i++) {
+		Triangles[i].ReplaceVertex(oldVertex, newVertex); 
+	}
+
+	UpdateBeta();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
