@@ -57,6 +57,7 @@ void IOUtil::LoadTetrahedronObj(TetraGroup & outGroup, const char * filename)
 
 			outGroup.Vertices.emplace_back();
 			outGroup.Vertices.back().setPos(tempPos);
+			outGroup.Vertices.back().SetMaterialCoordinate(tempPos);
 
 		}
 		else if (str.front() == 't')

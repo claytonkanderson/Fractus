@@ -19,6 +19,8 @@
 #ifndef __DSYEVH3_H
 #define __DSYEVH3_H
 
+#define _SILENCE_CXX17_C_HEADER_DEPRECATION_WARNING
+
 #include <stdio.h>
 #include <math.h>
 #include <complex.h>

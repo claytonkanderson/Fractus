@@ -30,51 +30,20 @@ public:
     const glm::vec3 & getPos() const { return Position; }
 	const glm::vec3 & getVel() const { return Velocity; }
     const glm::vec3 & getForce() const { return Force; }
+	const glm::vec3 & GetMaterialCoordinate() const { return MaterialCoordinate; }
     float getMass() const { return mass; }
     
     void setMass(float mass) {this->mass = mass; invMass = 1.0f / mass;}
     void setPos(glm::vec3 pos) {Position = pos;}
     void setVel(glm::vec3 vel) {Velocity = vel;}
-    
-    void SetCompressiveForce(glm::vec3 force)
-    {
-        if (numForces < maxConnectivity)
-        {
-            CompressiveForces[numForces] = force;
-        }
-    }
-    void SetTensileForce(glm::vec3 force)
-    {
-        if (numForces < maxConnectivity)
-        {
-            TensileForces[numForces] = force;
-            numConnections++;
-        }
-    }
+	void SetMaterialCoordinate(const glm::vec3 & materialCoordinate) { MaterialCoordinate = materialCoordinate; }
+
+	void SetCompressiveForce(glm::vec3 force);
+	void SetTensileForce(glm::vec3 force);
 	bool AddConnectedTetrahedron(Tetrahedron * tet);
     
-    void RemoveConnection(Tetrahedron * tet)
-    {
-        for (size_t i = 0; i < tetrahedra.size(); i++)
-        {
-            if (tetrahedra[i] == tet)
-            {
-                tetrahedra.erase(tetrahedra.begin() + i);
-                numConnections--;
-            }
-        }
-    }
-    
-    bool AddConnection(Tetrahedron * tet)
-    {
-        if (numConnections < maxConnectivity)
-        {
-            tetrahedra[numConnections] = tet;
-            numConnections++;
-            return true;
-        }
-        return false;
-    }
+	void RemoveConnection(Tetrahedron * tet);
+	bool AddConnection(Tetrahedron * tet);
     
     glm::vec3 DrawForce;
     glm::vec3 Force;
@@ -92,7 +61,7 @@ public:
 private:
     glm::vec3 Position;
     glm::vec3 Normal;
-    glm::vec3 TexCoord;
+    glm::vec3 MaterialCoordinate;
     glm::vec3 Velocity;
     
     float mass;

@@ -870,10 +870,6 @@ void TetraGroup::SplitTetrahedraByVertex(Tetrahedron * loneTet, Tetrahedron * ot
     loneTet->ReplaceVertex(oldVert, newVert);
     oldVert->RemoveConnection(loneTet);
     newVert->AddConnection(loneTet);
-    
-
-	loneTet->UpdateBeta();
-	otherTet->UpdateBeta();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -896,9 +892,6 @@ void TetraGroup::SplitTetrahedraByEdge(Tetrahedron * loneTet, Tetrahedron * othe
     oldV1->RemoveConnection(loneTet);
     newV0->AddConnection(loneTet);
     newV1->AddConnection(loneTet);
-
-	loneTet->UpdateBeta();
-	otherTet->UpdateBeta();
 }
 
 ////////////////////////////////////////////////////////////////////////////////

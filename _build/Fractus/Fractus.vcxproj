@@ -23,32 +23,32 @@
     <ProjectGuid>{17946ECE-2051-44C9-81A7-583139CA711C}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>Fractus</RootNamespace>
-    <WindowsTargetPlatformVersion>10.0.17763.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
-    <ConfigurationType>Application</ConfigurationType>
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
@@ -166,9 +166,6 @@
     <ClInclude Include="..\..\Source\Color.hpp" />
     <ClInclude Include="..\..\Source\core.hpp" />
     <ClInclude Include="..\..\Source\demos.hpp" />
-    <ClInclude Include="..\..\Source\dsyevc3.h" />
-    <ClInclude Include="..\..\Source\dsyevh3.h" />
-    <ClInclude Include="..\..\Source\dsyevq3.h" />
     <ClInclude Include="..\..\Source\dsytrd3.h" />
     <ClInclude Include="..\..\Source\IOUtil.hpp" />
     <ClInclude Include="..\..\Source\Light.hpp" />
@@ -187,10 +184,6 @@
     <ClCompile Include="..\..\Source\Camera.cpp" />
     <ClCompile Include="..\..\Source\Color.cpp" />
     <ClCompile Include="..\..\Source\demos.cpp" />
-    <ClCompile Include="..\..\Source\dsyevc3.cpp" />
-    <ClCompile Include="..\..\Source\dsyevh3.cpp" />
-    <ClCompile Include="..\..\Source\dsyevq3.cpp" />
-    <ClCompile Include="..\..\Source\dsytrd3.cpp" />
     <ClCompile Include="..\..\Source\IOUtil.cpp" />
     <ClCompile Include="..\..\Source\main.cpp" />
     <ClCompile Include="..\..\Source\PlaneObject.cpp" />

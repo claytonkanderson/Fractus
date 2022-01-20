@@ -22,9 +22,7 @@ class Tetrahedron
 public:
     Tetrahedron() {}
     Tetrahedron(Vertex *v0, Vertex *v1, Vertex *v2, Vertex *v3);
-    Tetrahedron(glm::vec3 a, glm::vec3 b, glm::vec3 c, glm::vec3 d) {MakeTetrahedron(a,b,c,d);}
   
-    void MakeTetrahedron(glm::vec3 a, glm::vec3 b, glm::vec3 c, glm::vec3 d);
     void UpdateTriangles();
     
     void SetConstants(float elastic, float poisson)

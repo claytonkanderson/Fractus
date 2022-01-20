@@ -15,32 +15,6 @@
 using namespace std;
 using namespace glm;
 
-void Tetrahedron::MakeTetrahedron(vec3 a, vec3 b, vec3 c, vec3 d)
-{
-    Vertices[0]->Set(a, vec3(0,0,0), vec3(0,0,0));
-    Vertices[1]->Set(b, vec3(0,0,0), vec3(0,0,0));
-    Vertices[2]->Set(c, vec3(0,0,0), vec3(0,0,0));
-    Vertices[3]->Set(d, vec3(0,0,0), vec3(0,0,0));
-    
-    Triangles[0].Init(Vertices[0], Vertices[3], Vertices[1]);
-    Triangles[1].Init(Vertices[2], Vertices[1], Vertices[3]);
-    Triangles[2].Init(Vertices[0], Vertices[3], Vertices[2]);
-    Triangles[3].Init(Vertices[0], Vertices[2], Vertices[1]);
-    
-    mat4 m = mat4(vec4(a,1), vec4(b,1), vec4(c,1), vec4(d,1));
-    beta = inverse(m);
-    density = 1000.0f;
-    ComputeVolume();
-    mass = density * volume;
-    
-    Vertices[0]->setMass(mass / 4.0f);
-    Vertices[1]->setMass(mass / 4.0f);
-    Vertices[2]->setMass(mass / 4.0f);
-    Vertices[3]->setMass(mass / 4.0f);
-    
-    UpdateTriangles();
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 
 void Tetrahedron::UpdateTriangles()
@@ -95,18 +69,23 @@ Tetrahedron::Tetrahedron(Vertex *v0, Vertex *v1, Vertex *v2, Vertex *v3)
 
 void Tetrahedron::UpdateBeta()
 {
-    glm::mat4 m = glm::mat4(vec4(Vertices[0]->getPos(),1), vec4(Vertices[1]->getPos(),1),
-                  vec4(Vertices[2]->getPos(),1), vec4(Vertices[3]->getPos(),1));
-    beta = glm::inverse(m);
+    glm::mat4 m = glm::mat4(
+		vec4(Vertices[0]->GetMaterialCoordinate(), 1), 
+		vec4(Vertices[1]->GetMaterialCoordinate(), 1),
+		vec4(Vertices[2]->GetMaterialCoordinate(), 1),
+		vec4(Vertices[3]->GetMaterialCoordinate(), 1)
+	);
+    
+	beta = glm::inverse(m);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
 void Tetrahedron::ComputeVolume()
 {
-    volume =  1.0f / 6.0f * fabs(dot(cross(Vertices[1]->getPos()-Vertices[0]->getPos(),
-                                           Vertices[2]->getPos()-Vertices[0]->getPos()),
-                                     Vertices[3]->getPos()-Vertices[0]->getPos()));
+    volume =  1.0f / 6.0f * fabs(dot(cross(Vertices[1]->GetMaterialCoordinate()-Vertices[0]->GetMaterialCoordinate(),
+                                           Vertices[2]->GetMaterialCoordinate()-Vertices[0]->GetMaterialCoordinate()),
+                                     Vertices[3]->GetMaterialCoordinate()-Vertices[0]->GetMaterialCoordinate()));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -327,8 +306,6 @@ void Tetrahedron::ReplaceVertex(Vertex * oldVertex, Vertex * newVertex)
     for (int i = 0; i < 4; i++) {
 		Triangles[i].ReplaceVertex(oldVertex, newVertex); 
 	}
-
-	UpdateBeta();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
