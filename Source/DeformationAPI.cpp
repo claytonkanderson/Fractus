@@ -3,6 +3,24 @@
 #include <glm/common.hpp>
 #include <iostream>
 
+static void* mData = nullptr;
+
+////////////////////////////////////////////////////////////////////////////////
+
+extern "C" void __declspec(dllexport) __stdcall Initialize()
+{
+	TestDeformation::TetraGroup* group = new TestDeformation::TetraGroup();
+	mData = group;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+extern "C" void __declspec(dllexport) __stdcall Destroy()
+{
+	TestDeformation::TetraGroup* group = (TestDeformation::TetraGroup*)mData;
+	delete group;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 //
 extern "C" void __declspec(dllexport) __stdcall Deform(
@@ -76,7 +94,6 @@ extern "C" void __declspec(dllexport) __stdcall Deform(
 
 	for (int i = 0; i < numVertices; i++)
 	{
-		std::cout << "Mass : " << group.mVertices[i].mMass << std::endl;
 		group.mVertices[i].mInvMass = 1.0f / group.mVertices[i].mMass;
 	}
 
@@ -94,26 +111,23 @@ extern "C" void __declspec(dllexport) __stdcall Deform(
 	}
 }
 
-#include <iostream>
-
-int main(int argc, const char* argv[]) {
-
-	float lambda = 2.65e6f;
-	float psi = 397.f;
-	float phi = 264.f;
-	float mu = 3.97e6f;
-	float density = 1013.f;
-	float timestep = 0.00001f;
-
-	TestDeformation::TetraGroup group;
-
-	std::vector<float> positions = { 0, 0, 0, 1, 0.5f, 0, 0, 1, 0, 0, 0.5f, 1 };
-	std::vector<int> indices = { 0, 1, 2, 3 };
-
-	Deform(positions.data(), 4, indices.data(), 1, timestep, lambda, psi, mu, phi, density);
-
-	for (int i = 0; i < 12; i++)
-		std::cout << positions[i] << std::endl;
-}
+//#include <iostream>
+//
+//int main(int argc, const char* argv[]) {
+//
+//	float lambda = 2.65e6f;
+//	float psi = 397.f;
+//	float phi = 264.f;
+//	float mu = 3.97e6f;
+//	float density = 1013.f;
+//	float timestep = 0.00001f;
+//
+//	TestDeformation::TetraGroup group;
+//
+//	std::vector<float> positions = { 0, 0, 0, 1, 0.5f, 0, 0, 1, 0, 0, 0.5f, 1 };
+//	std::vector<int> indices = { 0, 1, 2, 3 };
+//
+//	Deform(positions.data(), 4, indices.data(), 1, timestep, lambda, psi, mu, phi, density);
+//}
 
 ////////////////////////////////////////////////////////////////////////////////
