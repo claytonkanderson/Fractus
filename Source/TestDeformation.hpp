@@ -45,6 +45,7 @@ namespace TestDeformation
 		float mPsi = 100;
 		float mMu = 1;
 		float mPhi = 1;
+		float mDensity = 1;
 
 		std::vector<Tetrahedra> mTetrahedra;
 		std::vector<Vertex> mVertices;

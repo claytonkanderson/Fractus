@@ -103,12 +103,19 @@ namespace TestDeformation
                     viscousStress[i][j] = mPhi * rateTrace * (i == j ? 1 : 0) + 2 * mPsi * rateOfStrainTensor[i][j];
 
             for (int i = 0; i < 3; i++)
+            {
                 for (int j = 0; j < 3; j++)
+                {
                     sigma[i][j] = (double)elasticStress[i][j] + (double)viscousStress[i][j];
+
+                    if (isnan(sigma[i][j]))
+                        throw std::exception("Nan value in sigma detected.");
+                }
+            }
 
             for (int i = 0; i < 4; i++)
             {
-                vec3 forceOnNode;
+                vec3 forceOnNode = vec3(0);
                 for (int j = 0; j < 4; j++)
                 {
                     float innerProduct = 0;
@@ -116,15 +123,21 @@ namespace TestDeformation
                     {
                         for (int l = 0; l < 3; l++)
                         {
-                            innerProduct += tetrahedra.mBeta[k][i] * tetrahedra.mBeta[l][j] * sigma[k][l];
+                            // Reversed indices from paper because glm is column, row indexing
+                            // and the conventional matrix indexing is (row, column)
+                            // - should not matter in a lot of places above because the matrices are symmetric
+                            innerProduct += tetrahedra.mBeta[l][j] * tetrahedra.mBeta[k][i] * sigma[l][k];
                         }
                     }
                     forceOnNode += pMat[j] * innerProduct;
                 }
 
-                forceOnNode *= tetrahedra.mVolume * 0.5f;
+                forceOnNode *= -tetrahedra.mVolume * 0.5f;
 
-                std::cout << "Force on node " << forceOnNode[0] << ", " << forceOnNode[1] << ", " << forceOnNode[2] << std::endl;
+                if (isnan(forceOnNode.x) || isnan(forceOnNode.x) || isnan(forceOnNode.x))
+                {
+                    throw std::exception("Nan value in forceOnNode detected.");
+                }
 
                 mVertices[tetrahedra.mIndices[i]].mForce += forceOnNode;
             }
@@ -145,8 +158,8 @@ namespace TestDeformation
                 sigmaMinus += fmin(0.0f, (float)eigenValues[i]) * mMat;
             }
 
-            std::array<vec3, 4> fPlus;
-            std::array<vec3, 4> fMinus;
+            std::array<vec3, 4> fPlus = { vec3(0.0),vec3(0.0),vec3(0.0),vec3(0.0) };
+            std::array<vec3, 4> fMinus = { vec3(0.0),vec3(0.0),vec3(0.0),vec3(0.0) };;
 
             for (int i = 0; i < 4; i++)
             {
@@ -191,7 +204,7 @@ namespace TestDeformation
             vertex.mVelocity += a * timestep;
             vertex.mPosition += vertex.mVelocity * timestep;
 
-            std::cout << "Position " << vertex.mPosition[0] << ", " << vertex.mPosition[1] << ", " << vertex.mPosition[2] << std::endl;
+            //std::cout << "Position " << vertex.mPosition[0] << ", " << vertex.mPosition[1] << ", " << vertex.mPosition[2] << std::endl;
 
             fMinus = vec3(0.0);
             fPlus = vec3(0.0);
@@ -241,6 +254,18 @@ namespace TestDeformation
             if (largestEigenvalue < eigenValues[2]) {
                 largestEigenvalue = (float)eigenValues[2];
                 principalEigenVector = vec3(eigenVectors[2][0], eigenVectors[2][1], eigenVectors[2][2]);
+            }
+        }
+
+        for (auto& vertex : mVertices)
+        {
+            if (vertex.mPosition.y < 0)
+            {
+                vertex.mPosition.y = -vertex.mPosition.y;
+                float elasticity = 0.9f;
+                float friction = 0.1f;
+                const auto & velocity = vertex.mVelocity;
+                vertex.mVelocity = (glm::vec3((1 - friction)* velocity.x, -elasticity * velocity.y, (1 - friction)* velocity.z));
             }
         }
 	}

@@ -1,3 +1,5 @@
 _build/Fractus/.vs/
 _build/Fractus/Release/
 _build/Fractus/x64/
+_build/
+External/
