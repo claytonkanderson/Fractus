@@ -2,6 +2,8 @@
 #include "dsyevq3.h"
 #include "dsyevh3.h"
 
+#include <Mathematics/Delaunay3.h>
+
 #include <glm/mat4x3.hpp>
 #include <iostream>
 
@@ -9,7 +11,7 @@ using namespace glm;
 
 namespace TestDeformation
 {
-	////////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////////
 
     void ComputeMMat(const vec3& eigenVector, mat3& outMat)
     {
