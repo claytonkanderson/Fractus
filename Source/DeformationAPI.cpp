@@ -6,6 +6,7 @@
 #include <Mathematics/Delaunay3.h>
 #include <Mathematics/IntrSegment3Plane3.h>
 #include <Mathematics/AlignedBox.h>
+#include <Mathematics/DistPointHyperplane.h>
 
 static void* mData = nullptr;
 
@@ -14,12 +15,15 @@ static void* mData = nullptr;
 extern "C" void __declspec(dllexport) __stdcall Initialize(
 	void* vertexPositions,
 	int numVertices,
+	int maxNumVertices,
 	void* tetrahedraIndices,
 	int numTetrahedra,
+	int maxNumTetrahedra,
 	float lambda,
 	float psi,
 	float mu,
 	float phi,
+	float toughness,
 	float density)
 {
 	TestDeformation::TetraGroup* group = new TestDeformation::TetraGroup();
@@ -30,6 +34,10 @@ extern "C" void __declspec(dllexport) __stdcall Initialize(
 	group->mPhi = phi;
 	group->mMu = mu;
 	group->mDensity = density;
+	group->mToughness = toughness;
+	group->mMaxNumTetrahedra = maxNumTetrahedra;
+	group->mMaxNumVertices = maxNumVertices;
+	// Could reserve the max memory here
 	group->mVertices.resize(numVertices);
 	group->mTetrahedra.resize(numTetrahedra);
 
@@ -51,41 +59,9 @@ extern "C" void __declspec(dllexport) __stdcall Initialize(
 		tetrahedra.mIndices[1] = indices[4 * i + 1];
 		tetrahedra.mIndices[2] = indices[4 * i + 2];
 		tetrahedra.mIndices[3] = indices[4 * i + 3];
-
-		auto& m0 = group->mVertices[tetrahedra.mIndices[0]].mMaterialCoordinates;
-		auto& m1 = group->mVertices[tetrahedra.mIndices[1]].mMaterialCoordinates;
-		auto& m2 = group->mVertices[tetrahedra.mIndices[2]].mMaterialCoordinates;
-		auto& m3 = group->mVertices[tetrahedra.mIndices[3]].mMaterialCoordinates;
-
-		glm::mat4 m = glm::mat4(
-			glm::vec4(m0, 1.f),
-			glm::vec4(m1, 1.f),
-			glm::vec4(m2, 1.f),
-			glm::vec4(m3, 1.f)
-		);
-
-		tetrahedra.mBeta = glm::inverse(m);
-
-		tetrahedra.mVolume = 1.0f / 6.0f * fabs(
-			glm::dot(
-				glm::cross(
-					m1 - m0,
-					m2 - m0
-				),
-				m3 - m0));
-
-		tetrahedra.mMass = density * tetrahedra.mVolume;
-
-		for (int j = 0; j < 4; j++)
-		{
-			group->mVertices[tetrahedra.mIndices[j]].mMass += 0.25f * tetrahedra.mMass;
-		}
 	}
 
-	for (int i = 0; i < numVertices; i++)
-	{
-		group->mVertices[i].mInvMass = 1.0f / group->mVertices[i].mMass;
-	}
+	group->ComputeDerivedQuantities();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -104,13 +80,16 @@ extern "C" void __declspec(dllexport) __stdcall Deform(
 	bool useVelocities,
 	void* vertexForces,
 	bool useForces,
-	int numVertices,
+	void* tetrahedraIndices,
+	int* numVertices,
+	int* numTetrahedra,
 	float timestep,
 	int numSteps)
 {
 	auto positions = reinterpret_cast<float*>(vertexPositions);
 	auto velocities = reinterpret_cast<float*>(vertexVelocities);
 	auto forces = reinterpret_cast<float*>(vertexForces);
+	auto indices = reinterpret_cast<int*>(tetrahedraIndices);
 
 	TestDeformation::TetraGroup* group = (TestDeformation::TetraGroup*)mData;
 
@@ -127,6 +106,9 @@ extern "C" void __declspec(dllexport) __stdcall Deform(
 	}
 
 	// End simulation
+
+	*numVertices = group->mVertices.size();
+	*numTetrahedra = group->mTetrahedra.size();
 
 	for (int i = 0; i < group->mVertices.size(); i++)
 	{
@@ -149,6 +131,62 @@ extern "C" void __declspec(dllexport) __stdcall Deform(
 			forces[3 * i + 1] = vertex.mForce.y;
 			forces[3 * i + 2] = vertex.mForce.z;
 		}
+	}
+
+	// Optimize - don't need to loop over all tet's, only the new ones
+	for (int i = 0; i < group->mTetrahedra.size(); i++)
+	{
+		indices[4 * i + 0] = group->mTetrahedra[i].mIndices[0];
+		indices[4 * i + 1] = group->mTetrahedra[i].mIndices[1];
+		indices[4 * i + 2] = group->mTetrahedra[i].mIndices[2];
+		indices[4 * i + 3] = group->mTetrahedra[i].mIndices[3];
+	}
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+extern "C" void __declspec(dllexport) __stdcall Delaunay3D(
+	float* inoutVertices,
+	int* inoutNumVertices,
+	int maxNumVertices,
+	int* outTetrahedraIndices,
+	int maxNumTetrahedra,
+	int* outNumTetrahedra,
+	bool* success
+)
+{
+	gte::Delaunay3<float> triangulator;
+
+	int numInitialVertices = (*inoutNumVertices);
+	std::vector<gte::Vector3<float>> vertices(numInitialVertices);
+
+	for (int i = 0; i < numInitialVertices; i++)
+		vertices[i] = gte::Vector3<float>({inoutVertices[3*i], inoutVertices[3 * i + 1] , inoutVertices[3 * i + 2] });
+
+	*success = triangulator(vertices);
+
+	if (!*success)
+		return;
+
+	if (maxNumVertices < triangulator.GetNumVertices() || maxNumTetrahedra < triangulator.GetNumTetrahedra())
+	{
+		*success = false;
+		return;
+	}
+
+	*inoutNumVertices = triangulator.GetNumVertices();
+	*outNumTetrahedra = triangulator.GetNumTetrahedra();
+
+	for (int i = 0; i < triangulator.GetNumVertices(); i++)
+	{
+		inoutVertices[3 * i] = triangulator.GetVertices()[i][0];
+		inoutVertices[3 * i + 1] = triangulator.GetVertices()[i][1];
+		inoutVertices[3 * i + 2] = triangulator.GetVertices()[i][2];
+	}
+
+	for (int i = 0; i < triangulator.GetIndices().size(); i++)
+	{
+		outTetrahedraIndices[i] = triangulator.GetIndices()[i];
 	}
 }
 
@@ -173,6 +211,9 @@ extern "C" void __declspec(dllexport) __stdcall TetrahedralizeCubeIntersection(
 	glm::vec3 max(cubeMinMax[3], cubeMinMax[4], cubeMinMax[5]);
 	gte::AlignedBox3<float> box3d({{min.x, min.y, min.z}, {max.x, max.y, max.z}});
 
+	std::array<gte::Vector3<float>, 8> cubeVertices;
+	box3d.GetVertices(cubeVertices);
+
 	gte::Vector3<float> planeNormal
 	{
 		planeNormalOrigin[0],
@@ -186,6 +227,49 @@ extern "C" void __declspec(dllexport) __stdcall TetrahedralizeCubeIntersection(
 		planeNormalOrigin[5]
 	};
 	gte::Plane3<float> plane(planeNormal, planeOrigin);
+
+	// Check that the box is actually intersected by the plane, otherwise return
+	// We perform this check by comparing the signed distance of each cube vertex 
+	{
+		gte::DCPQuery<float, gte::Vector3<float>, gte::Plane3<float>> distanceQuery;
+		bool first = true;
+		bool positive = false;
+		bool intersected = false;
+		for (int i = 0; i < 8; i++)
+		{
+			const auto& vertex = cubeVertices[i];
+			auto result = distanceQuery(vertex, plane);
+
+			if (result.distance <= 1e-6f && result.distance >= -1e-6f)
+				continue;
+
+			if (first)
+			{
+				positive = (result.signedDistance > 0.0f);
+				first = false;
+				continue;
+			}
+
+			if (positive && (result.signedDistance < 0.0f))
+			{
+				intersected = true;
+				break;
+			}
+
+			if (!positive && (result.signedDistance > 0.0f))
+			{
+				intersected = true;
+				break;
+			}
+		}
+
+		if (!intersected)
+		{
+			*outNumVertices = 0;
+			*outNumTetrahedra = 0;
+			return;
+		}
+	}
 
 	std::vector<gte::Vector3<float>> intersections;
 	float dX = max.x - min.x;
@@ -212,6 +296,15 @@ extern "C" void __declspec(dllexport) __stdcall TetrahedralizeCubeIntersection(
 	gte::FIQuery<float, gte::Segment3<float>, gte::Plane3<float>> query;
 	for (const auto& edge : edges)
 	{
+		// Skip cube edges that are contained in the plane. We check for these by 
+		// checking if both edge points are contained in the plane.
+		gte::DCPQuery<float, gte::Vector3<float>, gte::Plane3<float>> distanceQuery;
+		auto p0Query = distanceQuery(edge.p[0], plane);
+		auto p1Query = distanceQuery(edge.p[1], plane);
+
+		if (p0Query.distance <= 1e-6f && p1Query.distance <= 1e-6f)
+			continue;
+
 		auto result = query(edge, plane);
 		if (result.intersect)
 			intersections.push_back(result.point);
@@ -219,8 +312,6 @@ extern "C" void __declspec(dllexport) __stdcall TetrahedralizeCubeIntersection(
 
 	std::vector<gte::Vector3<float>>  positiveVertices(intersections);
 	std::vector<gte::Vector3<float>>  negativeVertices(intersections);
-	std::array<gte::Vector3<float>, 8> cubeVertices;
-	box3d.GetVertices(cubeVertices);
 
 	for (const auto& vertex : cubeVertices)
 	{
@@ -228,9 +319,9 @@ extern "C" void __declspec(dllexport) __stdcall TetrahedralizeCubeIntersection(
 		// if we dot with the normal we get a scalar distance
 		auto displacement = vertex - planeOrigin;
 		auto signedDistance = displacement[0] * planeNormal[0] + displacement[1] * planeNormal[1] + displacement[2] * planeNormal[2];
-		if (signedDistance > 0)
+		if (signedDistance >= 0)
 			positiveVertices.push_back(vertex);
-		else
+		if (signedDistance <= 0)
 			negativeVertices.push_back(vertex);
 	}
 
@@ -264,24 +355,32 @@ extern "C" void __declspec(dllexport) __stdcall TetrahedralizeCubeIntersection(
 //int main(int argc, const char* argv[]) {
 //
 //	{
-//		//float lambda = 2.65e6f;
-//		//float psi = 397.f;
-//		//float phi = 264.f;
-//		//float mu = 3.97e6f;
-//		//float density = 1013.f;
-//		//float timestep = 0.001f;
+//		float lambda = 2.65e6f;
+//		float psi = 397.f;
+//		float phi = 264.f;
+//		float mu = 3.97e6f;
+//		float density = 1013.f;
+//		float timestep = 0.001f;
 //
-//		//std::vector<float> positions = { 0, 0, 0, 1, 0.5f, 0, 0, 1, 0, 0, 0.5f, 1 };
-//		//std::vector<int> indices = { 0, 1, 2, 3 };
+//		std::vector<float> positions = { 0, 0, 0, 1, 0.5f, 0, 0, 1, 0, 0, 0.5f, 1 };
+//		std::vector<int> indices = { 0, 1, 2, 3 };
 //
-//		//for (int i = 0; i < 4; i++)
-//		//{
-//		//	positions[3 * i + 1] += 1;
-//		//}
+//		for (int i = 0; i < 4; i++)
+//		{
+//			positions[3 * i + 1] += 1;
+//		}
 //
-//		//Initialize(positions.data(), 4, indices.data(), 1, lambda, psi, mu, phi, density);
-//		//TestDeformation::TetraGroup* group = (TestDeformation::TetraGroup*)mData;
+//		Initialize(positions.data(), 4, indices.data(), 1, lambda, psi, mu, phi, density);
+//		TestDeformation::TetraGroup* group = (TestDeformation::TetraGroup*)mData;
 //
+//		for (int i = 0; i < 2000; i++)
+//		{
+//			group->Update(0.001f);
+//			for (int i = 0; i < group->mVertices.size(); i++)
+//			{
+//				std::cout << group->mVertices[i].mPosition.y << std::endl;
+//			}
+//		}
 //		//Deform(positions.data(), );
 //
 //		//for (const auto& vertex : group->mVertices)
@@ -293,25 +392,26 @@ extern "C" void __declspec(dllexport) __stdcall TetrahedralizeCubeIntersection(
 //
 //		//Destroy();
 //	}
-//	{
-//		std::vector<float> minMax = { 0, 0, 0, 2, 2, 2 };
-//		std::vector<float> normalOrigin = { 0, 0, 1, 0, 0, 1 };
-//		std::vector<float> vertices(10);
-//		std::vector<int> indices(12);
-//		int numTetrahedra;
-//		int numVertices;
-//		bool positivePlane = true;
-//		TetrahedralizeCubeIntersection(minMax.data(), normalOrigin.data(), vertices.data(), &numVertices, indices.data(), &numTetrahedra, positivePlane);
 //
-//		std::cout << "Num tetrahedra : " << numTetrahedra << std::endl;
-//		std::cout << "Num vertices : " << numVertices << std::endl;
+//	//{
+//	//	std::vector<float> minMax = { 0, 0, 0, 2, 2, 2 };
+//	//	std::vector<float> normalOrigin = { 0, 0, 1, 0, 0, 1 };
+//	//	std::vector<float> vertices(10);
+//	//	std::vector<int> indices(12);
+//	//	int numTetrahedra;
+//	//	int numVertices;
+//	//	bool positivePlane = true;
+//	//	TetrahedralizeCubeIntersection(minMax.data(), normalOrigin.data(), vertices.data(), &numVertices, indices.data(), &numTetrahedra, positivePlane);
 //
-//		for (int i = 0; i < numVertices; i++)
-//		{
-//			
-//			std::cout << "Position : (" << vertices[3 * i] << ", " << vertices[3 * i + 1] << ", " << vertices[3 * i + 2] << ")" << std::endl;
-//		}
-//	}
+//	//	std::cout << "Num tetrahedra : " << numTetrahedra << std::endl;
+//	//	std::cout << "Num vertices : " << numVertices << std::endl;
+//
+//	//	for (int i = 0; i < numVertices; i++)
+//	//	{
+//	//		
+//	//		std::cout << "Position : (" << vertices[3 * i] << ", " << vertices[3 * i + 1] << ", " << vertices[3 * i + 2] << ")" << std::endl;
+//	//	}
+//	//}
 //
 //}
 
