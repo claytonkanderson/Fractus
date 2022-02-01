@@ -63,7 +63,7 @@ namespace TestDeformation
 		std::vector<size_t> GetTetrahedrasFromNode(size_t nodeIdx) const;
 		bool EdgeIntersectsPlane(const glm::ivec2& edgeIdx, int fracutreNodeIdx, const glm::vec3& planeNormal) const;
 		bool PlaneIntersectEdge(const glm::vec3& planePos, const glm::vec3& planeNormal,
-			const glm::vec3& edgePos0, const glm::vec3& edgePos1, glm::vec3* intersectionPos = nullptr) const;
+			const glm::vec3& edgePos0, const glm::vec3& edgePos1, float & d, glm::vec3* intersectionPos = nullptr) const;
 		float GetSignedDistanceToPlane(int nodeIdx, int fractureNodeIdx, const glm::vec3& planeNormal) const;
 		std::vector<size_t> GetTetrahedraNeighbors(size_t tetrahedraIdx) const;
 		size_t GetCommonVertexFromEdges(const glm::ivec2& edge0, const glm::ivec2& edge1) const;

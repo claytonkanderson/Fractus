@@ -3,6 +3,7 @@
 #include "dsyevh3.h"
 
 #include <Mathematics/Delaunay3.h>
+#include <Mathematics/SymmetricEigensolver3x3.h>
 
 #include <iostream>
 #define GLM_ENABLE_EXPERIMENTAL
@@ -56,9 +57,14 @@ namespace TestDeformation
         mat3 sigmaMinus = mat3(0);
         mat3 mMat;
         double sigma[3][3];
-        double eigenVectors[3][3];
-        double eigenValues[3];
+        std::array<double, 3> eigenvalues;
+        std::array<std::array<double, 3>, 3> eigenvectors;
         double separation[3][3];
+        const int32_t sortType = -1; // -1 is decreasing order, so the first is the largest
+        const bool aggressive = false;
+
+        //
+        gte::SymmetricEigensolver3x3<double> solver;
 
         for (auto& vertex : mVertices)
         {
@@ -112,17 +118,17 @@ namespace TestDeformation
                 for (int j = 0; j < 3; j++)
                     rateOfStrainTensor[i][j] = dot(dx[i], dxd[j]) + dot(dxd[i], dx[j]);
 
-            mat3 elasticStress;
-            float strainTrace = strainTensor[0][0] + strainTensor[1][1] + strainTensor[2][2];
+            mat3 elasticStress(0.0);
             for (int i = 0; i < 3; i++)
                 for (int j = 0; j < 3; j++)
-                    elasticStress[i][j] = mLambda * strainTrace * (i == j ? 1 : 0) + 2 * mMu * strainTensor[i][j];
+                    for(int k = 0; k < 3; k++)
+                        elasticStress[i][j] += mLambda * strainTensor[k][k] * (i == j ? 1 : 0) + 2 * mMu * strainTensor[i][j];
 
-            mat3 viscousStress;
-            float rateTrace = rateOfStrainTensor[0][0] + rateOfStrainTensor[1][1] + rateOfStrainTensor[2][2];
+            mat3 viscousStress(0.0);
             for (int i = 0; i < 3; i++)
                 for (int j = 0; j < 3; j++)
-                    viscousStress[i][j] = mPhi * rateTrace * (i == j ? 1 : 0) + 2 * mPsi * rateOfStrainTensor[i][j];
+                    for(int k = 0; k < 3; k++)
+                        viscousStress[i][j] += mPhi * rateOfStrainTensor[k][k] * (i == j ? 1 : 0) + 2 * mPsi * rateOfStrainTensor[i][j];
 
             for (int i = 0; i < 3; i++)
             {
@@ -156,7 +162,7 @@ namespace TestDeformation
 
                 forceOnNode *= -tetrahedra.mVolume * 0.5f;
 
-                if (isnan(forceOnNode.x) || isnan(forceOnNode.x) || isnan(forceOnNode.x))
+                if (isnan(forceOnNode.x) || isnan(forceOnNode.y) || isnan(forceOnNode.z))
                 {
                     throw std::exception("Nan value in forceOnNode detected.");
                 }
@@ -164,20 +170,29 @@ namespace TestDeformation
                 mVertices[tetrahedra.mIndices[i]].mForce += forceOnNode;
             }
 
-            dsyevh3(sigma, eigenVectors, eigenValues);
+            solver(sigma[0][0], sigma[0][1], sigma[0][2],
+                sigma[1][1], sigma[1][2], sigma[2][2],
+                aggressive, sortType, eigenvalues, eigenvectors);
+
+            /*
+            T const& a00, T const& a01, T const& a02, T const& a11,
+            T const& a12, T const& a22, bool aggressive, int32_t sortType,
+            std::array<T, 3>& eval, std::array<std::array<T, 3>, 3>& evec
+            */
+
+            //dsyevh3(sigma, eigenVectors, eigenValues);
 
             sigmaPlus = mat3(0.0);
             sigmaMinus = mat3(0.0);
 
             for (int i = 0; i < 3; i++)
             {
-                // Not completely sure that this is right (might be [i][0], etc)
-                dvec3 eigenVec(eigenVectors[0][i], eigenVectors[1][i], eigenVectors[2][i]);
+                dvec3 eigenVec(eigenvectors[i][0], eigenvectors[i][1], eigenvectors[i][2]);
                 mat3 mMat;
                 ComputeMMat(eigenVec, mMat);
 
-                sigmaPlus += fmax(0.0f, (float)eigenValues[i]) * mMat;
-                sigmaMinus += fmin(0.0f, (float)eigenValues[i]) * mMat;
+                sigmaPlus += fmax(0.0f, (float)eigenvalues[i]) * mMat;
+                sigmaMinus += fmin(0.0f, (float)eigenvalues[i]) * mMat;
             }
 
             std::array<vec3, 4> fPlus = { vec3(0.0),vec3(0.0),vec3(0.0),vec3(0.0) };
@@ -201,8 +216,8 @@ namespace TestDeformation
                     fMinus[i] += pMat[j] * innerProductMinus;
                 }
 
-                fPlus[i] *= tetrahedra.mVolume * 0.5f;
-                fMinus[i] *= tetrahedra.mVolume * 0.5f;
+                fPlus[i] *= -tetrahedra.mVolume * 0.5f;
+                fMinus[i] *= -tetrahedra.mVolume * 0.5f;
             }
 
             for (int i = 0; i < 4; i++)
@@ -215,8 +230,8 @@ namespace TestDeformation
         vec3 a;
         mat3 mSeparation;
         mat3 m_Mat;
-        vec3 fPlus;
-        vec3 fMinus;
+        vec3 compressiveForceSum;
+        vec3 tensileForceSum;
         
         for (size_t vertexIdx = 0; vertexIdx < mVertices.size(); vertexIdx++)
         {
@@ -227,20 +242,24 @@ namespace TestDeformation
             vertex.mVelocity += a * timestep;
             vertex.mPosition += vertex.mVelocity * timestep;
 
-            fMinus = vec3(0.0);
-            fPlus = vec3(0.0);
+            compressiveForceSum = vec3(0.0);
+            tensileForceSum = vec3(0.0);
+
+            // Tensile is f+
+            // Compressive is f-
+            // Formula is -m(f+) + m(f-) + sum(m(f+)) - sum(m(f-))
 
             for (const auto& compressiveForce : vertex.mCompressiveForces)
-                fMinus += compressiveForce;
+                compressiveForceSum += compressiveForce;
             for (const auto& tensileForce : vertex.mTensileForces)
-                fPlus += tensileForce;
+                tensileForceSum += tensileForce;
 
             mSeparation = mat3(0.0);
 
-            ComputeMMat(fMinus, m_Mat);
-            mSeparation += m_Mat;
-            ComputeMMat(fPlus, m_Mat);
+            ComputeMMat(tensileForceSum, m_Mat);
             mSeparation -= m_Mat;
+            ComputeMMat(compressiveForceSum, m_Mat);
+            mSeparation += m_Mat;
 
             for (const auto& compressiveForce : vertex.mCompressiveForces)
             {
@@ -263,19 +282,19 @@ namespace TestDeformation
                 }
             }
 
-            dsyevh3(separation, eigenVectors, eigenValues);
+            solver(separation[0][0], separation[0][1], separation[0][2],
+                separation[1][1], separation[1][2], separation[2][2],
+                aggressive, sortType, eigenvalues, eigenvectors);
 
             // Look for largest eigenvalue and corresponding eigen vector
-            float largestEigenvalue = (float)eigenValues[0];
-            vec3 principalEigenVector = vec3(eigenVectors[0][0], eigenVectors[0][1], eigenVectors[0][2]);
-            if (largestEigenvalue < eigenValues[1]) {
-                largestEigenvalue = (float)eigenValues[1];
-                principalEigenVector = vec3(eigenVectors[1][0], eigenVectors[1][1], eigenVectors[1][2]);
-            }
-            if (largestEigenvalue < eigenValues[2]) {
-                largestEigenvalue = (float)eigenValues[2];
-                principalEigenVector = vec3(eigenVectors[2][0], eigenVectors[2][1], eigenVectors[2][2]);
-            }
+            float largestEigenvalue = (float)eigenvalues[0];
+            vec3 principalEigenVector = vec3(eigenvectors[0][0], eigenvectors[0][1], eigenvectors[0][2]);
+
+            if (largestEigenvalue > mToughness)
+                std::cout << " Large eigen " << std::endl;
+
+            mVertices[vertexIdx].mPrincipalEigenVector = principalEigenVector;
+            mVertices[vertexIdx].mLargestEigenvalue = largestEigenvalue;
         }
 
         // Casually prevent fracturing newly created vertices
@@ -284,12 +303,33 @@ namespace TestDeformation
         {
             for (size_t idx = 0; idx < numVertices; idx++)
             {
+                // Here we need to compute the angle compared to the other possible planes
+                // so that we can snap to any given plane if it's within an angular tolerance
+                // 
+                // so actually i think this might apply to individual tetrahedra once we've
+                // determined the fracture plane, so instead of checking to see if the plane intersections
+                // any of the edges, we ... 
+                // 
+                // to do we that : find all triangles that this vertex belongs to
+                // foreach, compute normal
+                // compare dot(x,y) = |x||y|cos(theta), compare theta against tolerance
+                // also I think glm at least has a degrees function that could be called directly
+                // 
+                // once we find a plane that is within tolerance, we need to write a bunch more
+                // remeshing code.
+                // 
+                // we duplicate the vertex, then compare 
+                // 
+                // and elsewhere we need to consider the distance to other nodes when creating a new node
+                // to snap to the new node if it's within a distance tolerance
                 if (mVertices[idx].mLargestEigenvalue > mToughness)
                     FractureNode(idx, mVertices[idx].mPrincipalEigenVector);
 
                 if (mVertices.size() >= mMaxNumVertices)
                     break;
             }
+
+            ComputeDerivedQuantities();
         }
 
         for (auto& vertex : mVertices)
@@ -339,6 +379,9 @@ namespace TestDeformation
                     ),
                     m3 - m0));
 
+            if (tetrahedra.mVolume <= 0.0f)
+				std::cout << "Tetrahedra volume " << tetrahedra.mVolume << std::endl;
+
             tetrahedra.mMass = mDensity * tetrahedra.mVolume;
 
             for (int j = 0; j < 4; j++)
@@ -357,7 +400,7 @@ namespace TestDeformation
 
     void TetraGroup::FractureNode(size_t fractureNodeIdx, const glm::dvec3& fracturePlaneNormal)
     {
-        std::cout << "Fracture Node" << std::endl;
+        std::cout << "Fracture Node " << fractureNodeIdx << std::endl;
 
         Vertex negativeCopiedVertex;
         negativeCopiedVertex.mPosition = mVertices[fractureNodeIdx].mPosition;
@@ -409,13 +452,15 @@ namespace TestDeformation
                 if (d0 >= 0 && d1 >= 0 && d2 >= 0 && d3 >= 0)
                 {
                     // It gets the positive one, which it already has
+                    continue;
                 }
-                else if (d0 < 0 && d1 < 0 && d2 < 0 && d3 < 0)
+                else if (d0 <= 0 && d1 <= 0 && d2 <= 0 && d3 <= 0)
                 {
                     element.ReplaceVertex(fractureNodeIdx, negativeCopiedVertexIdx);
+                    continue;
                 }
                 else
-                    std::cout << "Not edges were split but the tetrahedra has vertices on both sides of the fracture plane." << std::endl;
+                    std::cout << "No edges were split but the tetrahedra has vertices on both sides of the fracture plane." << std::endl;
             }
             else if (splitEdges.size() == 1)
             {
@@ -663,7 +708,6 @@ namespace TestDeformation
                 mTetrahedra.push_back(tet);
             }
 
-            ComputeDerivedQuantities();
         }
     }
     
@@ -676,11 +720,16 @@ namespace TestDeformation
         const auto& edgePos1 = mVertices[edgeIdx.y].mPosition;
 
         glm::vec3 intersectionPos;
-        if (!PlaneIntersectEdge(planePosition, planeNormal, edgePos0, edgePos1, &intersectionPos))
+        float d;
+        if (!PlaneIntersectEdge(planePosition, planeNormal, edgePos0, edgePos1, d, &intersectionPos))
             std::cout << "Expected edge to be split by plane but the two don't intersect." << std::endl;
 
         Vertex vertex;
         vertex.mPosition = intersectionPos;
+
+        const auto& m0 = mVertices[edgeIdx.x].mMaterialCoordinates;
+        const auto& m1 = mVertices[edgeIdx.y].mMaterialCoordinates;
+        vertex.mMaterialCoordinates = m0 + glm::normalize(m1-m0) * d;
 
         mVertices.push_back(vertex);
 
@@ -709,12 +758,13 @@ namespace TestDeformation
         const auto& planePosition = mVertices[fracutreNodeIdx].mPosition;
         const auto& edgePos0 = mVertices[edgeIdx.x].mPosition;
         const auto& edgePos1 = mVertices[edgeIdx.y].mPosition;
-        return PlaneIntersectEdge(planePosition, planeNormal, edgePos0, edgePos1);
+        float d;
+        return PlaneIntersectEdge(planePosition, planeNormal, edgePos0, edgePos1, d);
     }
 
     ////////////////////////////////////////////////////////////////////////////////
 
-    bool TetraGroup::PlaneIntersectEdge(const glm::vec3& planePos, const glm::vec3& planeNormal, const glm::vec3& edgePos0, const glm::vec3& edgePos1, glm::vec3* intersectionPos) const
+    bool TetraGroup::PlaneIntersectEdge(const glm::vec3& planePos, const glm::vec3& planeNormal, const glm::vec3& edgePos0, const glm::vec3& edgePos1, float& d, glm::vec3* intersectionPos) const
     {
         // plane equation is (p - p0) * n = 0, where n is the normal vector
         // line equation is p = l0 + v * t, where v is the direction vector of the line
@@ -723,7 +773,7 @@ namespace TestDeformation
         // if d == 0, plane contains line
         auto edgeDirVec = glm::normalize(edgePos1 - edgePos0);
 
-        float d = glm::dot((planePos - edgePos0), planeNormal) / glm::dot(edgeDirVec, planeNormal);
+        d = glm::dot((planePos - edgePos0), planeNormal) / glm::dot(edgeDirVec, planeNormal);
         
         // Outside the line segment
         if (d <= 0 || d > 1)

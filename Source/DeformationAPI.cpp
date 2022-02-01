@@ -352,67 +352,100 @@ extern "C" void __declspec(dllexport) __stdcall TetrahedralizeCubeIntersection(
 
 #include <iostream>
 
-//int main(int argc, const char* argv[]) {
-//
-//	{
-//		float lambda = 2.65e6f;
-//		float psi = 397.f;
-//		float phi = 264.f;
-//		float mu = 3.97e6f;
-//		float density = 1013.f;
-//		float timestep = 0.001f;
-//
-//		std::vector<float> positions = { 0, 0, 0, 1, 0.5f, 0, 0, 1, 0, 0, 0.5f, 1 };
-//		std::vector<int> indices = { 0, 1, 2, 3 };
-//
-//		for (int i = 0; i < 4; i++)
-//		{
-//			positions[3 * i + 1] += 1;
-//		}
-//
-//		Initialize(positions.data(), 4, indices.data(), 1, lambda, psi, mu, phi, density);
-//		TestDeformation::TetraGroup* group = (TestDeformation::TetraGroup*)mData;
-//
-//		for (int i = 0; i < 2000; i++)
-//		{
-//			group->Update(0.001f);
-//			for (int i = 0; i < group->mVertices.size(); i++)
-//			{
-//				std::cout << group->mVertices[i].mPosition.y << std::endl;
-//			}
-//		}
-//		//Deform(positions.data(), );
-//
-//		//for (const auto& vertex : group->mVertices)
-//		//{
-//		//	std::cout << "Position : (" << vertex.mPosition.x << ", " << vertex.mPosition.y << ", " << vertex.mPosition.z << ")" << std::endl;
-//		//	std::cout << "Velocity : (" << vertex.mVelocity.x << ", " << vertex.mVelocity.y << ", " << vertex.mVelocity.z << ")" << std::endl;
-//		//	std::cout << std::endl;
-//		//}
-//
-//		//Destroy();
-//	}
-//
-//	//{
-//	//	std::vector<float> minMax = { 0, 0, 0, 2, 2, 2 };
-//	//	std::vector<float> normalOrigin = { 0, 0, 1, 0, 0, 1 };
-//	//	std::vector<float> vertices(10);
-//	//	std::vector<int> indices(12);
-//	//	int numTetrahedra;
-//	//	int numVertices;
-//	//	bool positivePlane = true;
-//	//	TetrahedralizeCubeIntersection(minMax.data(), normalOrigin.data(), vertices.data(), &numVertices, indices.data(), &numTetrahedra, positivePlane);
-//
-//	//	std::cout << "Num tetrahedra : " << numTetrahedra << std::endl;
-//	//	std::cout << "Num vertices : " << numVertices << std::endl;
-//
-//	//	for (int i = 0; i < numVertices; i++)
-//	//	{
-//	//		
-//	//		std::cout << "Position : (" << vertices[3 * i] << ", " << vertices[3 * i + 1] << ", " << vertices[3 * i + 2] << ")" << std::endl;
-//	//	}
-//	//}
-//
-//}
+int main(int argc, const char* argv[]) {
+
+	{
+		int maxNumVertices = 10;
+		int maxNumTetrahedra = 10;
+
+		float lambda = 2.65e6f;
+		float psi = 397.f;
+		float phi = 264.f;
+		float mu = 3.97e6f;
+		float density = 5013.f;
+		float timestep = 0.0001f;
+		float toughness = 10.f;
+
+
+		std::vector<float> positions = { 
+			0, 25 + 0, 0,
+			1, 25 + 0.5f, 0,
+			0, 25 + 1, 0,
+			0, 25 + 0.5f, 1,
+			-0.5f, 25 + 0.5f, -1.2f
+		};
+		positions.resize(3 * (maxNumVertices+10));
+		std::vector<int> indices = { 
+			0, 1, 2, 3,
+			0, 1, 4, 2
+		};
+		indices.resize(4 * (maxNumTetrahedra+10));
+
+		Initialize(positions.data(), 5, maxNumVertices, indices.data(), 2, maxNumTetrahedra, lambda, psi, mu, phi, toughness, density);
+		TestDeformation::TetraGroup* group = (TestDeformation::TetraGroup*)mData;
+
+		//group->mVertices[1].mPosition -= glm::vec3(0.1, 0, 0);
+
+		//for (auto& vert : group->mVertices)
+		//{
+		//	vert.mPosition += glm::vec3(0, 1, 0);
+		//	vert.mVelocity = glm::vec3(0, -150, 0);
+		//}
+
+		float maxEigenvalue = -1;
+		float maxEigenvalueTime = 0.0f;
+
+		for (int i = 0; i < 30000; i++)
+		{
+			group->Update(timestep);
+
+			if (i == 1000)
+				std::cout << "bloop" << std::endl;
+
+			for (const auto& vertex : group->mVertices)
+			{
+				if (vertex.mLargestEigenvalue > maxEigenvalue)
+				{
+					maxEigenvalue = vertex.mLargestEigenvalue;
+					maxEigenvalueTime = i * timestep;
+				}
+			}
+		}
+
+		std::cout << "Max Eigenvalue : " << maxEigenvalue << " time " << maxEigenvalueTime << "s." << std::endl;
+
+		//Deform(positions.data(), );
+
+		//for (const auto& vertex : group->mVertices)
+		//{
+		//	std::cout << "Position : (" << vertex.mPosition.x << ", " << vertex.mPosition.y << ", " << vertex.mPosition.z << ")" << std::endl;
+		//	std::cout << "Velocity : (" << vertex.mVelocity.x << ", " << vertex.mVelocity.y << ", " << vertex.mVelocity.z << ")" << std::endl;
+		//	std::cout << std::endl;
+		//}
+
+		//Destroy();
+	}
+
+	//{
+	//	std::vector<float> minMax = { 0, 0, 0, 2, 2, 2 };
+	//	std::vector<float> normalOrigin = { 0, 0, 1, 0, 0, 1 };
+	//	std::vector<float> vertices(10);
+	//	std::vector<int> indices(12);
+	//	int numTetrahedra;
+	//	int numVertices;
+	//	bool positivePlane = true;
+	//	TetrahedralizeCubeIntersection(minMax.data(), normalOrigin.data(), vertices.data(), &numVertices, indices.data(), &numTetrahedra, positivePlane);
+
+	//	std::cout << "Num tetrahedra : " << numTetrahedra << std::endl;
+	//	std::cout << "Num vertices : " << numVertices << std::endl;
+
+	//	for (int i = 0; i < numVertices; i++)
+	//	{
+	//		
+	//		std::cout << "Position : (" << vertices[3 * i] << ", " << vertices[3 * i + 1] << ", " << vertices[3 * i + 2] << ")" << std::endl;
+	//	}
+	//}
+
+}
 
 ////////////////////////////////////////////////////////////////////////////////
