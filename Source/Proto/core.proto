@@ -1,0 +1,375 @@
+syntax = "proto3";
+
+package IronGames;
+
+////////////////////////////////////////////////////////////////////////////////
+
+// 0-1 space
+message Color
+{
+    float r = 1;
+    float g = 2;
+    float b = 3;
+    float a = 4;
+}
+
+message Vector3
+{
+    float x = 1;
+    float y = 2;
+    float z = 3;
+}
+
+message Matrix3
+{
+	Vector3 col0 = 1;
+	Vector3 col1 = 2;
+	Vector3 col2 = 3;
+}
+
+message Quaternion
+{
+    float w = 1;
+    float x = 2;
+    float y = 3;
+    float z = 4;
+}
+
+message Transform
+{
+    Vector3 position = 1;
+    Quaternion rotation = 2;
+}
+
+// Future - use this approach instead of 
+// individually specifying event properties in the proto
+// files to reduce how often the proto files have to be edited.
+message Parameter
+{
+    int32 name = 1;
+
+    oneof value {
+        float val_float = 2;
+        int32 val_int = 3;
+        string val_string = 4;
+        Vector3 val_vector3 = 5;
+        Color color = 6;
+    }
+}
+
+message Player
+{
+    string name = 1;
+    Color color = 2;
+    int32 id = 3;
+    int32 row = 4;
+    int32 col = 5;
+    float rotation = 6;
+    int32 team_id = 7;
+    bool is_host = 8;
+}
+
+message Actor
+{
+    int32 unit_id = 1;
+    int32 type_id = 2;
+    int32 owner_id = 3;
+    Transform transform = 4;
+
+    repeated Parameter parameters = 5;
+}
+
+message Tile
+{
+    int32 terrain_id = 1;
+    repeated Actor actors = 2;
+    PlayerAssets player_assets = 3;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Simulation Debug
+////////////////////////////////////////////////////////////////////////////////
+
+message SimulationVertex
+{
+	Vector3 position = 1;
+	Vector3 material_coordinates = 2;
+	Vector3 velocity = 3;
+	float mass = 4;
+	Vector3 force = 5;
+	float largest_eigenvalue = 6;
+	Vector3 principal_eigenvector = 7;
+	repeated Vector3 compressive_forces = 8;
+	repeated Vector3 tensile_forces = 9;
+	Matrix3 separation_tensor = 10;
+}
+
+message SimulationTetrahedra
+{
+	float mass = 1;
+	float volume = 2;
+	repeated int32 indices = 3;
+	Matrix3 strain_tensor = 4;
+	Matrix3 stress_tensor = 5;
+}
+
+message SimulationFrame
+{
+	float time = 1;
+	repeated SimulationVertex vertices = 2;
+	repeated SimulationTetrahedra tetrahedra = 3;
+}
+
+message SimulationSummary
+{
+	float lambda = 1;
+	float psi = 2;
+	float mu = 3;
+	float phi = 4;
+	float density = 5;
+	float toughness = 6;
+	int32 max_num_vertices = 7;
+	int32 max_num_tetrahedra = 8;
+	repeated SimulationFrame frames = 9;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Event and Command message definitions
+////////////////////////////////////////////////////////////////////////////////
+
+message Box
+{
+    Vector3 min = 1;
+    Vector3 max = 2;
+}
+
+message EditCube
+{
+    Vector3 center = 1;
+}
+
+message TetrahedraMesh
+{
+    repeated Vector3 positions = 1;
+}
+
+message Asset
+{
+    repeated EditCube cubes = 1;
+    repeated TetrahedraMesh tetrahedra_Meshes = 2;
+    Box bounds = 3;
+    string last_saved = 4;
+    string author = 5;
+}
+
+message PlayerAssets
+{
+    repeated Asset assets = 1;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Event and Command message definitions
+////////////////////////////////////////////////////////////////////////////////
+
+message EventPlayerConnected
+{
+    Player player = 1;
+}
+
+message EventPlayerChanged
+{
+    Player player = 1;
+}
+
+message EventPlayerDisconnected
+{
+    Player player = 1;
+}
+
+message EventUnitCreation
+{
+    int32 unit_id = 1;
+    int32 type_id = 2;
+    int32 owner_id = 3;
+    Transform transform = 4;
+}
+
+// Can be either a unit or a building
+message EventActorCreationRequest
+{
+    int32 type_id = 1;
+    int32 owner_id = 2;
+    Transform transform = 3;
+}
+
+message EventUnitDestruction
+{
+    int32 unit_id = 1;   
+}
+
+message EventBuildingCreation
+{
+    int32 building_id = 1;
+    int32 type_id = 2;
+    Transform transform = 3;
+}
+
+message EventBuildingDestruction
+{
+    int32 building_id = 1;
+}
+
+message CommandMove
+{
+    int32 unit_id = 1;
+    Vector3 destination = 2;
+}
+
+message CommandAttack
+{
+    int32 unit_id = 1;
+    int32 target_id = 2;
+}
+
+message CommandAttackMove
+{
+    int32 unit_id = 1;
+    Vector3 destination = 2;
+}
+
+message EventUnitCommand
+{
+    oneof command {
+        CommandMove move = 1;
+        CommandAttack attack = 2;
+        CommandAttackMove attack_move = 3;
+    }
+}
+
+message EventPlayerReadyToStartGame
+{
+
+}
+
+message EventGameStart
+{
+
+}
+
+message EventAllPlayersReadyForGameToStart
+{
+
+}
+
+message EventPlayerLoadedGame
+{
+    
+}
+
+message EventPlayerLoadedTile
+{
+    Tile tile = 1;
+}
+
+message Event
+{
+    int64 time = 1;
+    int32 sender_id = 2;
+
+    oneof event {
+        EventPlayerConnected player_connected = 3;
+        EventPlayerDisconnected player_disconnected = 4;
+        EventUnitCreation unit_creation = 5;
+        EventActorCreationRequest actor_creation_request = 6;
+        EventUnitDestruction unit_destruction = 7;
+        EventBuildingCreation building_creation = 8;
+        EventBuildingDestruction building_destruction = 9;
+        EventUnitCommand unit_command = 10;
+        EventPlayerReadyToStartGame player_ready_to_start_Game = 11;
+        EventGameStart game_start = 12;
+        EventPlayerChanged player_changed = 13;
+        EventAllPlayersReadyForGameToStart all_players_ready_for_game_to_start = 14;
+        EventPlayerLoadedTile player_loaded_tile = 15;
+        EventPlayerLoadedGame player_loaded_game = 16;
+    }
+}
+
+message EventList
+{
+    repeated Event events = 1;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Game Setup & Lobby Messages
+////////////////////////////////////////////////////////////////////////////////
+
+message JoinGameRequest
+{
+    Player player = 1;
+    int32 game_id = 2;
+}
+
+message JoinGameResponse
+{
+    int32 player_id = 1;
+
+    // Includes all players in the game
+    repeated Player players = 2;
+}
+
+message ExitGameRequest
+{
+    int32 player_id = 1;
+}
+
+message ExitGameResponse
+{
+
+}
+
+message SubscribeEventsRequest
+{
+    Player player = 1;
+}
+
+message SendEventResponse
+{
+    
+}
+
+message NewGameRequest
+{
+
+}
+
+message NewGameResponse
+{
+    int32 game_id = 1;
+}
+
+message EndGameRequest
+{
+    int32 game_id = 1;
+}
+
+message EndGameResponse
+{
+
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// API
+////////////////////////////////////////////////////////////////////////////////
+
+service IronGamesServer
+{
+    rpc NewGame(NewGameRequest) returns (NewGameResponse) {}
+    rpc JoinGame(JoinGameRequest) returns (JoinGameResponse) {}
+    rpc EndGame(EndGameResponse) returns (EndGameResponse) {}
+
+    // TODO - switch to bidirectional stream...?
+    rpc SendEvent(EventList) returns (SendEventResponse) {}
+
+    // Should be called after joining a game
+    rpc SubscribeEvents (SubscribeEventsRequest) returns (stream Event) {}
+}

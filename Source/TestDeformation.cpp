@@ -32,11 +32,11 @@ namespace TestDeformation
         }
     }
 
-    void ComputeMMat(const vec3& eigenVector, mat3& outMat)
+    void ComputeMMat(const dvec3& eigenVector, dmat3& outMat)
     {
         if (glm::length(eigenVector) < 1e-6)
         {
-            outMat = mat3(0.0);
+            outMat = dmat3(0.0);
             return;
         }
 
@@ -49,19 +49,48 @@ namespace TestDeformation
 
     ////////////////////////////////////////////////////////////////////////////////
 
-	void TetraGroup::Update(float timestep)
+    namespace 
+    {
+        IronGames::Vector3 Convert(const glm::dvec3& vec)
+        {
+            IronGames::Vector3 v;
+            v.set_x(vec.x);
+            v.set_y(vec.y);
+            v.set_z(vec.z);
+            return v;
+        }
+
+        IronGames::Matrix3 Convert(const glm::dmat3& mat)
+        {
+            IronGames::Matrix3 m;
+            *m.mutable_col0() = Convert(mat[0]);
+            *m.mutable_col1() = Convert(mat[1]);
+            *m.mutable_col2() = Convert(mat[2]);
+            return m;
+        }
+    }
+
+    void TetraGroup::Update(double timestep)
 	{
-		mat4x3 pMat;
-		mat4x3 vMat;
-        mat3 sigmaPlus = mat3(0);
-        mat3 sigmaMinus = mat3(0);
-        mat3 mMat;
-        double sigma[3][3];
+		dmat4x3 pMat;
+		dmat4x3 vMat;
+        dmat3 sigmaPlus = dmat3(0);
+        dmat3 sigmaMinus = dmat3(0);
+        dmat3 mMat;
+        dmat3 sigma;
         std::array<double, 3> eigenvalues;
         std::array<std::array<double, 3>, 3> eigenvectors;
         double separation[3][3];
         const int32_t sortType = -1; // -1 is decreasing order, so the first is the largest
         const bool aggressive = false;
+
+        auto* frame = (mSummary ? mSummary->add_frames() : nullptr);
+
+        //bool saveFrame = (mStepsSinceLastSave >= mSaveEveryXSteps && mSummary);
+        bool saveFrame = true;
+
+        if (saveFrame)
+            frame->set_time(mSimulationTime);
 
         //
         gte::SymmetricEigensolver3x3<double> solver;
@@ -73,58 +102,67 @@ namespace TestDeformation
             vertex.mForce = vec3(0.0);
             vertex.mLargestEigenvalue = 0.0f;
             vertex.mPrincipalEigenVector = vec3(0.0f);
+
+            if (saveFrame)
+            {
+                auto vert = frame->add_vertices();
+                *vert->mutable_position() = Convert(vertex.mPosition);
+                *vert->mutable_material_coordinates() = Convert(vertex.mMaterialCoordinates);
+                *vert->mutable_velocity() = Convert(vertex.mVelocity);
+                vert->set_mass(vertex.mMass);
+            }
         }
 
-		for (auto& tetrahedra : mTetrahedra)
+		for (size_t tetIdx = 0; tetIdx < mTetrahedra.size(); tetIdx++)
 		{
+            auto& tetrahedra = mTetrahedra[tetIdx];
             auto& v0 = mVertices[tetrahedra.mIndices[0]];
             auto& v1 = mVertices[tetrahedra.mIndices[1]];
             auto& v2 = mVertices[tetrahedra.mIndices[2]];
             auto& v3 = mVertices[tetrahedra.mIndices[3]];
 
-			pMat = mat4x3(v0.mPosition,
+			pMat = dmat4x3(v0.mPosition,
 				v1.mPosition,
 				v2.mPosition,
 				v3.mPosition);
 
-			vMat = mat4x3(v0.mVelocity,
+			vMat = dmat4x3(v0.mVelocity,
 				v1.mVelocity,
 				v2.mVelocity,
 				v3.mVelocity);
 
-			mat3x4 pBeta = pMat * tetrahedra.mBeta;
+			dmat3x4 pBeta = pMat * tetrahedra.mBeta;
 
-            vec3 dx_u1 = pBeta * vec4(1, 0, 0, 0);
-            vec3 dx_u2 = pBeta * vec4(0, 1, 0, 0);
-            vec3 dx_u3 = pBeta * vec4(0, 0, 1, 0);
+            dvec3 dx_u1 = pBeta * dvec4(1, 0, 0, 0);
+            dvec3 dx_u2 = pBeta * dvec4(0, 1, 0, 0);
+            dvec3 dx_u3 = pBeta * dvec4(0, 0, 1, 0);
 
-            std::array<vec3, 3> dx{ dx_u1, dx_u2, dx_u3 };
+            std::array<dvec3, 3> dx{ dx_u1, dx_u2, dx_u3 };
 
-            mat3x4 vBeta = vMat * tetrahedra.mBeta;
-            vec3 dxd_u1 = vBeta * vec4(1, 0, 0, 0);
-            vec3 dxd_u2 = vBeta * vec4(0, 1, 0, 0);
-            vec3 dxd_u3 = vBeta * vec4(0, 0, 1, 0);
+            dmat3x4 vBeta = vMat * tetrahedra.mBeta;
+            dvec3 dxd_u1 = vBeta * dvec4(1, 0, 0, 0);
+            dvec3 dxd_u2 = vBeta * dvec4(0, 1, 0, 0);
+            dvec3 dxd_u3 = vBeta * dvec4(0, 0, 1, 0);
 
-            std::array<vec3, 3 > dxd{ dxd_u1, dxd_u2, dxd_u3 };
-            std::array<glm::vec3, 3> dots;
+            std::array<dvec3, 3 > dxd{ dxd_u1, dxd_u2, dxd_u3 };
 
-            mat3 strainTensor;
+            dmat3 strainTensor;
             for (int i = 0; i < 3; i++)
                 for (int j = 0; j < 3; j++)
                     strainTensor[i][j] = dot(dx[i], dx[j]) - (i == j ? 1 : 0);
 
-            mat3 rateOfStrainTensor;
+            dmat3 rateOfStrainTensor;
             for (int i = 0; i < 3; i++)
                 for (int j = 0; j < 3; j++)
                     rateOfStrainTensor[i][j] = dot(dx[i], dxd[j]) + dot(dxd[i], dx[j]);
 
-            mat3 elasticStress(0.0);
+            dmat3 elasticStress(0.0);
             for (int i = 0; i < 3; i++)
                 for (int j = 0; j < 3; j++)
                     for(int k = 0; k < 3; k++)
                         elasticStress[i][j] += mLambda * strainTensor[k][k] * (i == j ? 1 : 0) + 2 * mMu * strainTensor[i][j];
 
-            mat3 viscousStress(0.0);
+            dmat3 viscousStress(0.0);
             for (int i = 0; i < 3; i++)
                 for (int j = 0; j < 3; j++)
                     for(int k = 0; k < 3; k++)
@@ -143,10 +181,10 @@ namespace TestDeformation
 
             for (int i = 0; i < 4; i++)
             {
-                vec3 forceOnNode = vec3(0);
+                dvec3 forceOnNode = dvec3(0);
                 for (int j = 0; j < 4; j++)
                 {
-                    float innerProduct = 0;
+                    double innerProduct = 0;
                     for (int k = 0; k < 3; k++)
                     {
                         for (int l = 0; l < 3; l++)
@@ -174,36 +212,27 @@ namespace TestDeformation
                 sigma[1][1], sigma[1][2], sigma[2][2],
                 aggressive, sortType, eigenvalues, eigenvectors);
 
-            /*
-            T const& a00, T const& a01, T const& a02, T const& a11,
-            T const& a12, T const& a22, bool aggressive, int32_t sortType,
-            std::array<T, 3>& eval, std::array<std::array<T, 3>, 3>& evec
-            */
-
-            //dsyevh3(sigma, eigenVectors, eigenValues);
-
-            sigmaPlus = mat3(0.0);
-            sigmaMinus = mat3(0.0);
+            sigmaPlus = dmat3(0.0);
+            sigmaMinus = dmat3(0.0);
 
             for (int i = 0; i < 3; i++)
             {
                 dvec3 eigenVec(eigenvectors[i][0], eigenvectors[i][1], eigenvectors[i][2]);
-                mat3 mMat;
                 ComputeMMat(eigenVec, mMat);
 
-                sigmaPlus += fmax(0.0f, (float)eigenvalues[i]) * mMat;
-                sigmaMinus += fmin(0.0f, (float)eigenvalues[i]) * mMat;
+                sigmaPlus += fmax(0.0f, eigenvalues[i]) * mMat;
+                sigmaMinus += fmin(0.0f, eigenvalues[i]) * mMat;
             }
 
-            std::array<vec3, 4> fPlus = { vec3(0.0),vec3(0.0),vec3(0.0),vec3(0.0) };
-            std::array<vec3, 4> fMinus = { vec3(0.0),vec3(0.0),vec3(0.0),vec3(0.0) };;
+            std::array<dvec3, 4> fPlus = { dvec3(0.0),dvec3(0.0),dvec3(0.0),dvec3(0.0) };
+            std::array<dvec3, 4> fMinus = { dvec3(0.0),dvec3(0.0),dvec3(0.0),dvec3(0.0) };;
 
             for (int i = 0; i < 4; i++)
             {
                 for (int j = 0; j < 4; j++)
                 {
-                    float innerProductPlus = 0;
-                    float innerProductMinus = 0;
+                    double innerProductPlus = 0;
+                    double innerProductMinus = 0;
                     for (int k = 0; k < 3; k++)
                     {
                         for (int l = 0; l < 3; l++)
@@ -216,27 +245,42 @@ namespace TestDeformation
                     fMinus[i] += pMat[j] * innerProductMinus;
                 }
 
-                fPlus[i] *= -tetrahedra.mVolume * 0.5f;
-                fMinus[i] *= -tetrahedra.mVolume * 0.5f;
+                //fPlus[i] *= -tetrahedra.mVolume * 0.5f;
+                //fMinus[i] *= -tetrahedra.mVolume * 0.5f;
+                fPlus[i] *= tetrahedra.mVolume * 0.5f;
+                fMinus[i] *= tetrahedra.mVolume * 0.5f;
             }
 
             for (int i = 0; i < 4; i++)
             {
-                mVertices[tetrahedra.mIndices[i]].mCompressiveForces.push_back(fMinus[i]);
-                mVertices[tetrahedra.mIndices[i]].mTensileForces.push_back(fPlus[i]);
+                //mVertices[tetrahedra.mIndices[i]].mCompressiveForces.push_back(fMinus[i]);
+                //mVertices[tetrahedra.mIndices[i]].mTensileForces.push_back(fPlus[i]);
+                mVertices[tetrahedra.mIndices[i]].mCompressiveForces.push_back(fPlus[i]);
+                mVertices[tetrahedra.mIndices[i]].mTensileForces.push_back(fMinus[i]);
+            }
+
+            if (saveFrame)
+            {
+                auto& tet = *frame->add_tetrahedra();
+                tet.set_mass(tetrahedra.mMass);
+                tet.set_volume(tetrahedra.mVolume);
+                *tet.mutable_strain_tensor() = Convert(strainTensor);
+                *tet.mutable_stress_tensor() = Convert(sigma);
+                for (auto& idx : tetrahedra.mIndices)
+                    tet.add_indices(idx);
             }
 		}
 
-        vec3 a;
-        mat3 mSeparation;
-        mat3 m_Mat;
-        vec3 compressiveForceSum;
-        vec3 tensileForceSum;
+        dvec3 a;
+        dmat3 mSeparation;
+        dmat3 m_Mat;
+        dvec3 compressiveForceSum;
+        dvec3 tensileForceSum;
         
         for (size_t vertexIdx = 0; vertexIdx < mVertices.size(); vertexIdx++)
         {
             auto& vertex = mVertices[vertexIdx];
-            vertex.mForce += glm::vec3(0, -9.8, 0) * vertex.mMass;
+            vertex.mForce += glm::dvec3(0, -9.8, 0) * vertex.mMass;
 
             a = vertex.mInvMass * vertex.mForce;
             vertex.mVelocity += a * timestep;
@@ -254,7 +298,7 @@ namespace TestDeformation
             for (const auto& tensileForce : vertex.mTensileForces)
                 tensileForceSum += tensileForce;
 
-            mSeparation = mat3(0.0);
+            mSeparation = dmat3(0.0);
 
             ComputeMMat(tensileForceSum, m_Mat);
             mSeparation -= m_Mat;
@@ -287,14 +331,29 @@ namespace TestDeformation
                 aggressive, sortType, eigenvalues, eigenvectors);
 
             // Look for largest eigenvalue and corresponding eigen vector
-            float largestEigenvalue = (float)eigenvalues[0];
-            vec3 principalEigenVector = vec3(eigenvectors[0][0], eigenvectors[0][1], eigenvectors[0][2]);
+            double largestEigenvalue = eigenvalues[0];
+            dvec3 principalEigenVector = dvec3(eigenvectors[0][0], eigenvectors[0][1], eigenvectors[0][2]);
 
             if (largestEigenvalue > mToughness)
                 std::cout << " Large eigen " << std::endl;
 
             mVertices[vertexIdx].mPrincipalEigenVector = principalEigenVector;
             mVertices[vertexIdx].mLargestEigenvalue = largestEigenvalue;
+
+            if (saveFrame)
+            {
+                auto& vert = *frame->mutable_vertices(vertexIdx);
+                *vert.mutable_force() = Convert(mVertices[vertexIdx].mForce);
+                vert.set_largest_eigenvalue(mVertices[vertexIdx].mLargestEigenvalue);
+                *vert.mutable_principal_eigenvector() = Convert(mVertices[vertexIdx].mPrincipalEigenVector);
+
+                for (const auto& compressiveForce : mVertices[vertexIdx].mCompressiveForces)
+                    *vert.add_compressive_forces() = Convert(compressiveForce);
+                for (const auto& tensileForce : mVertices[vertexIdx].mTensileForces)
+                    *vert.add_tensile_forces() = Convert(tensileForce);
+
+                *vert.mutable_separation_tensor() = Convert(mSeparation);
+            }
         }
 
         // Casually prevent fracturing newly created vertices
@@ -323,7 +382,13 @@ namespace TestDeformation
                 // and elsewhere we need to consider the distance to other nodes when creating a new node
                 // to snap to the new node if it's within a distance tolerance
                 if (mVertices[idx].mLargestEigenvalue > mToughness)
+                {
                     FractureNode(idx, mVertices[idx].mPrincipalEigenVector);
+                    // Artificially only allowing one node to fracture per frame.
+                    // Probably should at least sort them and fracture on the largest eigenvalue instead of
+                    // the first 
+                    break;
+                }
 
                 if (mVertices.size() >= mMaxNumVertices)
                     break;
@@ -337,12 +402,20 @@ namespace TestDeformation
             if (vertex.mPosition.y < 0)
             {
                 vertex.mPosition.y = -vertex.mPosition.y;
-                float elasticity = 0.9f;
-                float friction = 0.1f;
+                double elasticity = 0.9f;
+                double friction = 0.1f;
                 const auto & velocity = vertex.mVelocity;
-                vertex.mVelocity = (glm::vec3((1 - friction)* velocity.x, -elasticity * velocity.y, (1 - friction)* velocity.z));
+                vertex.mVelocity = (glm::dvec3((1 - friction)* velocity.x, -elasticity * velocity.y, (1 - friction)* velocity.z));
             }
         }
+
+        mStepNum++;
+        mSimulationTime += timestep;
+
+        if (saveFrame)
+            mStepsSinceLastSave = 0;
+        else
+            mStepsSinceLastSave++;
 	}
 
     ////////////////////////////////////////////////////////////////////////////////
@@ -362,11 +435,11 @@ namespace TestDeformation
             auto& m2 = mVertices[tetrahedra.mIndices[2]].mMaterialCoordinates;
             auto& m3 = mVertices[tetrahedra.mIndices[3]].mMaterialCoordinates;
 
-            glm::mat4 m = glm::mat4(
-                glm::vec4(m0, 1.f),
-                glm::vec4(m1, 1.f),
-                glm::vec4(m2, 1.f),
-                glm::vec4(m3, 1.f)
+            glm::dmat4 m = glm::dmat4(
+                glm::dvec4(m0, 1.f),
+                glm::dvec4(m1, 1.f),
+                glm::dvec4(m2, 1.f),
+                glm::dvec4(m3, 1.f)
             );
 
             tetrahedra.mBeta = glm::inverse(m);
@@ -405,6 +478,7 @@ namespace TestDeformation
         Vertex negativeCopiedVertex;
         negativeCopiedVertex.mPosition = mVertices[fractureNodeIdx].mPosition;
         negativeCopiedVertex.mMaterialCoordinates = mVertices[fractureNodeIdx].mMaterialCoordinates;
+        negativeCopiedVertex.mVelocity = mVertices[fractureNodeIdx].mVelocity;
         mVertices.push_back(negativeCopiedVertex);
 
         size_t negativeCopiedVertexIdx = mVertices.size() - 1;
@@ -713,14 +787,14 @@ namespace TestDeformation
     
     ////////////////////////////////////////////////////////////////////////////////
 
-    size_t TetraGroup::SplitEdge(const glm::ivec2 & edgeIdx, size_t fractureNodeIdx, const glm::vec3& planeNormal)
+    size_t TetraGroup::SplitEdge(const glm::ivec2 & edgeIdx, size_t fractureNodeIdx, const glm::dvec3& planeNormal)
     {
         const auto& planePosition = mVertices[fractureNodeIdx].mPosition;
         const auto& edgePos0 = mVertices[edgeIdx.x].mPosition;
         const auto& edgePos1 = mVertices[edgeIdx.y].mPosition;
 
-        glm::vec3 intersectionPos;
-        float d;
+        glm::dvec3 intersectionPos;
+        double d;
         if (!PlaneIntersectEdge(planePosition, planeNormal, edgePos0, edgePos1, d, &intersectionPos))
             std::cout << "Expected edge to be split by plane but the two don't intersect." << std::endl;
 
@@ -729,7 +803,12 @@ namespace TestDeformation
 
         const auto& m0 = mVertices[edgeIdx.x].mMaterialCoordinates;
         const auto& m1 = mVertices[edgeIdx.y].mMaterialCoordinates;
-        vertex.mMaterialCoordinates = m0 + glm::normalize(m1-m0) * d;
+        vertex.mMaterialCoordinates = m0 + (m1 - m0) * d;
+
+        const auto& v0 = mVertices[edgeIdx.x].mVelocity;
+        const auto& v1 = mVertices[edgeIdx.y].mVelocity;
+        // Not sure this is the right way to do this but it seems rather reasonable
+        vertex.mVelocity = v0 + (v1 - v0) * d;
 
         mVertices.push_back(vertex);
 
@@ -753,18 +832,18 @@ namespace TestDeformation
 
     ////////////////////////////////////////////////////////////////////////////////
 
-    bool TetraGroup::EdgeIntersectsPlane(const glm::ivec2& edgeIdx, int fracutreNodeIdx, const glm::vec3& planeNormal) const
+    bool TetraGroup::EdgeIntersectsPlane(const glm::ivec2& edgeIdx, int fractureNodeIdx, const glm::dvec3& planeNormal) const
     {
-        const auto& planePosition = mVertices[fracutreNodeIdx].mPosition;
+        const auto& planePosition = mVertices[fractureNodeIdx].mPosition;
         const auto& edgePos0 = mVertices[edgeIdx.x].mPosition;
         const auto& edgePos1 = mVertices[edgeIdx.y].mPosition;
-        float d;
+        double d;
         return PlaneIntersectEdge(planePosition, planeNormal, edgePos0, edgePos1, d);
     }
 
     ////////////////////////////////////////////////////////////////////////////////
 
-    bool TetraGroup::PlaneIntersectEdge(const glm::vec3& planePos, const glm::vec3& planeNormal, const glm::vec3& edgePos0, const glm::vec3& edgePos1, float& d, glm::vec3* intersectionPos) const
+    bool TetraGroup::PlaneIntersectEdge(const glm::dvec3& planePos, const glm::dvec3& planeNormal, const glm::dvec3& edgePos0, const glm::dvec3& edgePos1, double& d, glm::dvec3* intersectionPos) const
     {
         // plane equation is (p - p0) * n = 0, where n is the normal vector
         // line equation is p = l0 + v * t, where v is the direction vector of the line
@@ -787,7 +866,7 @@ namespace TestDeformation
 
     ////////////////////////////////////////////////////////////////////////////////
 
-    float TetraGroup::GetSignedDistanceToPlane(int nodeIdx, int fractureNodeIdx, const glm::vec3& planeNormal) const
+    double TetraGroup::GetSignedDistanceToPlane(int nodeIdx, int fractureNodeIdx, const glm::dvec3& planeNormal) const
     {
         const auto& planePosition = mVertices[fractureNodeIdx].mPosition;
         const auto& nodePosition = mVertices[nodeIdx].mPosition;

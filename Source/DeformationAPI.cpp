@@ -2,6 +2,7 @@
 #include <glm/vec4.hpp>
 #include <glm/common.hpp>
 #include <iostream>
+#include <fstream>
 
 #include <Mathematics/Delaunay3.h>
 #include <Mathematics/IntrSegment3Plane3.h>
@@ -19,12 +20,12 @@ extern "C" void __declspec(dllexport) __stdcall Initialize(
 	void* tetrahedraIndices,
 	int numTetrahedra,
 	int maxNumTetrahedra,
-	float lambda,
-	float psi,
-	float mu,
-	float phi,
-	float toughness,
-	float density)
+	double lambda,
+	double psi,
+	double mu,
+	double phi,
+	double toughness,
+	double density)
 {
 	TestDeformation::TetraGroup* group = new TestDeformation::TetraGroup();
 	mData = group;
@@ -114,22 +115,22 @@ extern "C" void __declspec(dllexport) __stdcall Deform(
 	{
 		auto& vertex = group->mVertices[i];
 
-		positions[3 * i]      = vertex.mPosition.x;
-		positions[3 * i + 1]  = vertex.mPosition.y;
-		positions[3 * i + 2 ] = vertex.mPosition.z;
+		positions[3 * i]      = (float)vertex.mPosition.x;
+		positions[3 * i + 1]  = (float)vertex.mPosition.y;
+		positions[3 * i + 2 ] = (float)vertex.mPosition.z;
 
 		if (useVelocities)
 		{
-			velocities[3 * i] = vertex.mVelocity.x;
-			velocities[3 * i + 1] = vertex.mVelocity.y;
-			velocities[3 * i + 2] = vertex.mVelocity.z;
+			velocities[3 * i]     = (float)vertex.mVelocity.x;
+			velocities[3 * i + 1] = (float)vertex.mVelocity.y;
+			velocities[3 * i + 2] = (float)vertex.mVelocity.z;
 		}
 
 		if (useForces)
 		{
-			forces[3 * i] = vertex.mForce.x;
-			forces[3 * i + 1] = vertex.mForce.y;
-			forces[3 * i + 2] = vertex.mForce.z;
+			forces[3 * i]     = (float)vertex.mForce.x;
+			forces[3 * i + 1] = (float)vertex.mForce.y;
+			forces[3 * i + 2] = (float)vertex.mForce.z;
 		}
 	}
 
@@ -358,21 +359,21 @@ int main(int argc, const char* argv[]) {
 		int maxNumVertices = 10;
 		int maxNumTetrahedra = 10;
 
-		float lambda = 2.65e6f;
-		float psi = 397.f;
-		float phi = 264.f;
-		float mu = 3.97e6f;
-		float density = 5013.f;
-		float timestep = 0.0001f;
-		float toughness = 10.f;
+		double lambda = 2.65e6f;
+		double psi = 397.f;
+		double phi = 264.f;
+		double mu = 3.97e6f;
+		double density = 5013.f;
+		double timestep = 0.0001f;
+		double toughness = 10.f;
 
 
 		std::vector<float> positions = { 
-			0, 25 + 0, 0,
-			1, 25 + 0.5f, 0,
-			0, 25 + 1, 0,
-			0, 25 + 0.5f, 1,
-			-0.5f, 25 + 0.5f, -1.2f
+			0, 1 + 0, 0,
+			1, 1 + 0.5f, 0,
+			0, 1 + 1, 0,
+			0, 1 + 0.5f, 1,
+			-0.5f, 1 + 0.5f, -1.2f
 		};
 		positions.resize(3 * (maxNumVertices+10));
 		std::vector<int> indices = { 
@@ -383,24 +384,26 @@ int main(int argc, const char* argv[]) {
 
 		Initialize(positions.data(), 5, maxNumVertices, indices.data(), 2, maxNumTetrahedra, lambda, psi, mu, phi, toughness, density);
 		TestDeformation::TetraGroup* group = (TestDeformation::TetraGroup*)mData;
+		
+		for (auto& vert : group->mVertices)
+			vert.mVelocity += glm::vec3(0, -10, 0);
 
-		//group->mVertices[1].mPosition -= glm::vec3(0.1, 0, 0);
-
-		//for (auto& vert : group->mVertices)
-		//{
-		//	vert.mPosition += glm::vec3(0, 1, 0);
-		//	vert.mVelocity = glm::vec3(0, -150, 0);
-		//}
+		IronGames::SimulationSummary summary;
+		group->mSummary = &summary;
+		group->mSaveEveryXSteps = 1;
+		summary.set_lambda(lambda);
+		summary.set_psi(psi);
+		summary.set_phi(phi);
+		summary.set_mu(mu);
+		summary.set_density(density);
+		summary.set_toughness(toughness);
 
 		float maxEigenvalue = -1;
 		float maxEigenvalueTime = 0.0f;
 
-		for (int i = 0; i < 30000; i++)
+		for (int i = 0; i < 10000; i++)
 		{
 			group->Update(timestep);
-
-			if (i == 1000)
-				std::cout << "bloop" << std::endl;
 
 			for (const auto& vertex : group->mVertices)
 			{
@@ -412,18 +415,15 @@ int main(int argc, const char* argv[]) {
 			}
 		}
 
+		// write to file...
+		std::ofstream ofs("simulation.summary", std::ios_base::out | std::ios_base::binary);
+		summary.SerializeToOstream(&ofs);
+		
+		//int numVertices;
+		//int numTetrahedra;
+		//Deform(positions.data(), nullptr, false, nullptr, false, indices.data(), &numVertices, &numTetrahedra, timestep, 5);
+
 		std::cout << "Max Eigenvalue : " << maxEigenvalue << " time " << maxEigenvalueTime << "s." << std::endl;
-
-		//Deform(positions.data(), );
-
-		//for (const auto& vertex : group->mVertices)
-		//{
-		//	std::cout << "Position : (" << vertex.mPosition.x << ", " << vertex.mPosition.y << ", " << vertex.mPosition.z << ")" << std::endl;
-		//	std::cout << "Velocity : (" << vertex.mVelocity.x << ", " << vertex.mVelocity.y << ", " << vertex.mVelocity.z << ")" << std::endl;
-		//	std::cout << std::endl;
-		//}
-
-		//Destroy();
 	}
 
 	//{
