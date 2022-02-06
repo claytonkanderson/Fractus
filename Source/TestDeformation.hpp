@@ -41,6 +41,8 @@ namespace TestDeformation
 			mIndices[3] = id3;
 		}
 
+		std::array<size_t, 3> GetOtherVertices(size_t vertexId) const;
+		std::array<size_t, 2> GetOtherVertices(size_t vertexId1, size_t vertexId2) const;
 		bool ContainsVertexIndex(size_t idx) const;
 		bool ContainsEdgeIndex(const glm::ivec2& edgeId) const;
 		std::array<glm::ivec2, 6> GetEdges() const;
@@ -51,6 +53,57 @@ namespace TestDeformation
 		double mVolume = -1;
 		glm::dmat4 mBeta = glm::dmat4(0);
 		std::array<size_t, 4> mIndices;
+	};
+
+	class FractureContext
+	{
+	public:
+		FractureContext(
+			const glm::vec3 & fracturePlaneNormal,
+			const glm::vec3 & fracturePlanePosition,
+			size_t fractureVertexIdx,
+			std::vector<Tetrahedra> & tetrahedra,
+			std::vector<Vertex> & vertices)
+			: 
+			mFracturePlaneNormal(fracturePlaneNormal),
+			mFractureNodePosition(fracturePlanePosition),
+			mFractureNodeIdx(fractureVertexIdx),
+			mTetrahedra(tetrahedra),
+			mVertices(vertices)
+		{
+
+		}
+
+		void Fracture();
+
+	private:
+		void DetermineSnapping();
+
+		void FaceSnappedFracture();
+		void EdgeSnappedFracture();
+
+		std::vector<glm::ivec2> PlaneIntersectTetrahedraEdges() const;
+
+		void FractureTetrahedra(size_t tetIdx);
+		void AssignTetToSide();
+		void RegularFracture();
+		void NeighborFaceFracture();
+		void NeighborEdgeFracture();
+
+	private:
+		size_t mTetrahedraIdx = -1;
+
+		bool mSnapToFace = false;
+		glm::ivec3 mSnappingFaceId;
+
+		bool mSnapToEdge = false;
+		glm::ivec2 mSnappingEdgeId;
+
+		const glm::dvec3& mFracturePlaneNormal;
+		const glm::dvec3& mFractureNodePosition;
+		size_t mFractureNodeIdx = -1;
+		std::vector<Tetrahedra>& mTetrahedra;
+		std::vector<Vertex>& mVertices;
 	};
 
 	class TetraGroup

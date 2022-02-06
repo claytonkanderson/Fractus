@@ -4,6 +4,7 @@
 
 #include <Mathematics/Delaunay3.h>
 #include <Mathematics/SymmetricEigensolver3x3.h>
+#include <Mathematics/DistPointHyperplane.h>
 
 #include <iostream>
 #define GLM_ENABLE_EXPERIMENTAL
@@ -29,6 +30,11 @@ namespace TestDeformation
             if (idx1 < idx2)
                 return glm::ivec2(idx1, idx2);
             return glm::ivec2(idx2, idx1);
+        }
+
+        glm::ivec3 GetFaceId(size_t idx1, size_t idx2, size_t idx3)
+        {
+            return glm::ivec3();
         }
     }
 
@@ -473,6 +479,13 @@ namespace TestDeformation
 
     void TetraGroup::FractureNode(size_t fractureNodeIdx, const glm::dvec3& fracturePlaneNormal)
     {
+        /*
+        
+        DetermineSnapping();
+
+        if (snap to face)
+        */
+
         std::cout << "Fracture Node " << fractureNodeIdx << std::endl;
 
         Vertex negativeCopiedVertex;
@@ -643,6 +656,8 @@ namespace TestDeformation
                         sharedNodes.push_back(nodeIdx);
                     }
 
+                    // actually, this neighbor may be a face neighbor
+                    // so we are definitely missing that case here
                     if (sharedNodes.size() != 2)
                         std::cout << "Expected 2 shared nodes during neighbor splitting, found " << sharedNodes.size() << "." << std::endl;
 
@@ -657,6 +672,7 @@ namespace TestDeformation
 
                     neighborTetrahedraToRemove.push_back(neighborTetIdx);
                 }
+                // this is a face neighbor
                 else if (splitNeighborEdges.size() == 2)
                 {
                     auto a = GetCommonVertexFromEdges(splitNeighborEdges[0], splitNeighborEdges[1]);
@@ -968,6 +984,255 @@ namespace TestDeformation
 
         if (!setVertex)
             std::cout << "Attempted to replace a vertex but the specified was not in the tetrahedron." << std::endl;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////
+
+    void FractureContext::Fracture()
+    {
+        // actually need to get the tetrahedra that own the fracture node
+        // instead of looping over all tetrahedra
+        for (size_t tetIdx = 0; tetIdx < mTetrahedra.size(); tetIdx++)
+        {
+            FractureTetrahedra(tetIdx);
+        }
+
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////
+
+    namespace
+    {
+        double DistPointPlane(
+            const glm::vec3& point,
+            const glm::vec3& planeNormal,
+            const glm::vec3& planePosition
+        )
+        {
+            gte::Vector3<float> normal
+            {
+                planeNormal.x,
+                planeNormal.y,
+                planeNormal.z
+            };
+            gte::Vector3<float> origin
+            {
+               planePosition.x,
+               planePosition.y,
+               planePosition.z
+            };
+            gte::Plane3<float> plane(normal, origin);
+
+            gte::Vector3<float> position
+            {
+               point.x,
+               point.y,
+               point.z
+            };
+
+            // Get signed distance of all vertices to plane
+            gte::DCPQuery<float, gte::Vector3<float>, gte::Plane3<float>> distanceQuery;
+            auto results = distanceQuery(position, plane);
+            return results.distance;
+        }
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////
+
+    void FractureContext::DetermineSnapping()
+    {
+        mSnapToFace = false;
+        mSnapToEdge = false;
+
+        const double cDistanceTolerance = 0.05;
+        const double cAngularSeparation = 0.1; // radians? double check what values paper uses
+        const auto& tetrahedron = mTetrahedra[mTetrahedraIdx];
+
+        size_t numDistanceTriggered = 0;
+        std::vector<size_t> closeVertexIndices;
+
+        // first check how close the other vertices are to the plane
+        // and snap to the close ones
+
+        for (size_t i = 0; i < 4; i++)
+        {
+            auto otherVertexId = tetrahedron.mIndices[i];
+            if (otherVertexId == mFractureNodeIdx)
+                continue;
+
+            double dist = DistPointPlane(mVertices[otherVertexId].mPosition, mFracturePlaneNormal, mFractureNodePosition);
+            bool triggeredTolerance = (std::abs(dist) <= cDistanceTolerance);
+
+            if (triggeredTolerance)
+            {
+                numDistanceTriggered++;
+                closeVertexIndices.push_back(otherVertexId);
+            }
+        }
+
+        if (numDistanceTriggered != 0)
+        {
+			if (numDistanceTriggered == 1)
+			{
+				mSnapToEdge = true;
+                mSnappingEdgeId = GetEdgeId(closeVertexIndices[0], mFractureNodeIdx);
+				return;
+			}
+			else if (numDistanceTriggered == 2)
+			{
+				mSnapToFace = true;
+                mSnappingFaceId = GetFaceId(closeVertexIndices[0], closeVertexIndices[1], mFractureNodeIdx);
+				return;
+			}
+			else
+			{
+				// warn small tet
+				return;
+			}
+        }
+
+        // no nodes were close so we go to angular tolerance between the fracture plane and 
+        // edges of the tetrahedron
+
+        // angle between line and plane
+        // project line onto plane
+        // get angle between projection and line
+
+        size_t numAngularTriggered = 0;
+
+        // need to get indices of the other three vertices then get the edges
+        // check angular distance from edge to plane
+
+        const auto& otherVertices = tetrahedron.GetOtherVertices(mFractureNodeIdx);
+        std::vector<size_t> snappedVertexIds;
+
+        for (int i = 0; i < 3; i++)
+        {
+            auto otherVertexId = otherVertices[i];
+            auto edgeDir = glm::normalize(mVertices[mFractureNodeIdx].mPosition - mVertices[otherVertexId].mPosition);
+            auto d = glm::dot(mFracturePlaneNormal, edgeDir);
+            // if we dot with the normal again
+            // dot(normal, edgeDir) - dot(normal, edgeDir)*dot(normal, normal) = 0
+            auto projectedEdgeDir = glm::normalize(edgeDir - d * mFracturePlaneNormal);
+            // angle is between 0 and pi
+            auto angle = glm::acos(glm::dot(projectedEdgeDir, edgeDir));
+
+            if (angle < cAngularSeparation || angle >(glm::pi<float>() - cAngularSeparation))
+            {
+                numAngularTriggered++;
+                snappedVertexIds.push_back(otherVertexId);
+            }
+        }
+
+        if (numAngularTriggered == 0)
+        {
+            // this is the no snap, regular fracture case
+            return;
+        }
+        else if (numAngularTriggered == 1)
+        {
+            mSnapToEdge = true;
+            mSnappingEdgeId = GetEdgeId(mFractureNodeIdx, snappedVertexIds[0]);
+        }
+        
+        // warn poorly conditioned tet, snap to one of the closest edges
+        mSnapToEdge = true;
+        mSnappingEdgeId = GetEdgeId(mFractureNodeIdx, snappedVertexIds[0]);
+
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////
+
+    void FractureContext::FaceSnappedFracture()
+    {
+        AssignTetToSide();
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////
+
+    void FractureContext::EdgeSnappedFracture()
+    {
+        // get single intersection between not the snapped node and not the fracture not
+        // throw if no intersection
+
+        NeighborEdgeFracture();
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////
+
+    std::vector<glm::ivec2> FractureContext::PlaneIntersectTetrahedraEdges() const
+    {
+        return std::vector<glm::ivec2>();
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////
+
+    void FractureContext::FractureTetrahedra(size_t tetIdx)
+    {
+        mTetrahedraIdx = tetIdx;
+
+        DetermineSnapping();
+
+        if (mSnapToFace)
+            return FaceSnappedFracture();
+
+        if (mSnapToEdge)
+            return EdgeSnappedFracture();
+
+        const auto& splitEdges = PlaneIntersectTetrahedraEdges();
+
+        if (splitEdges.size() == 0)
+            return AssignTetToSide();
+
+        if (splitEdges.size() == 1)
+            throw std::exception("Edge tolerance failed to detect single split edge case.");
+
+        if (splitEdges.size() == 2)
+            return RegularFracture();
+
+        throw std::exception("More than 2 split edges, serious edge case detected.");
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////
+
+    void FractureContext::AssignTetToSide()
+    {
+        size_t numPosition = 0;
+        size_t numNegative = 0;
+
+        const auto& tetrahedra = mTetrahedra[mTetrahedraIdx];
+
+        for (size_t i = 0; i < 4; i++)
+        {
+            double dist = DistPointPlane(mVertices[tetrahedra.mIndices[i]].mPosition, mFracturePlaneNormal, mFractureNodePosition);
+
+            if (dist >= 0.0)
+                numPosition++;
+            if (dist <= 0.0)
+                numNegative++;
+        }
+
+        if (numPosition == 4)
+        {
+            // assign tet to + side
+            return;
+        }
+
+        if (numNegative == 4)
+        {
+            // assign tet to - side
+            return;
+        }
+        
+        throw std::exception("Attempted to assign tetrahedra to plane side but vertices were on both sides.");
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////
+
+    void FractureContext::RegularFracture()
+    {
+        NeighborFaceFracture();
+        NeighborEdgeFracture();
     }
 
     ////////////////////////////////////////////////////////////////////////////////
