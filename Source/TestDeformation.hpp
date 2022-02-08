@@ -45,8 +45,12 @@ namespace TestDeformation
 		std::array<size_t, 2> GetOtherVertices(size_t vertexId1, size_t vertexId2) const;
 		bool ContainsVertexIndex(size_t idx) const;
 		bool ContainsEdgeIndex(const glm::ivec2& edgeId) const;
+		bool ContainsFaceIndex(const glm::ivec3& faceId) const;
 		std::array<glm::ivec2, 6> GetEdges() const;
 		void ReplaceVertex(size_t oldVertexId, size_t newVertexId);
+
+	public:
+		bool mCreatedThisFrame = false;
 
 	public:
 		double mMass = -1;
@@ -60,13 +64,12 @@ namespace TestDeformation
 	public:
 		FractureContext(
 			const glm::vec3 & fracturePlaneNormal,
-			const glm::vec3 & fracturePlanePosition,
 			size_t fractureVertexIdx,
 			std::vector<Tetrahedra> & tetrahedra,
 			std::vector<Vertex> & vertices)
 			: 
 			mFracturePlaneNormal(fracturePlaneNormal),
-			mFractureNodePosition(fracturePlanePosition),
+			mFractureNodePosition(mVertices[fractureVertexIdx].mPosition),
 			mFractureNodeIdx(fractureVertexIdx),
 			mTetrahedra(tetrahedra),
 			mVertices(vertices)
@@ -82,26 +85,46 @@ namespace TestDeformation
 		void FaceSnappedFracture();
 		void EdgeSnappedFracture();
 
-		std::vector<glm::ivec2> PlaneIntersectTetrahedraEdges() const;
 
 		void FractureTetrahedra(size_t tetIdx);
-		void AssignTetToSide();
-		void RegularFracture();
-		void NeighborFaceFracture();
-		void NeighborEdgeFracture();
+		void AssignTetToSide(const glm::dvec3 & normal);
+		void RegularFracture(const std::array<glm::ivec2, 2> & edgeIds, const std::array<double, 2> & parametricDistance);
+		void NeighborFaceFracture(const glm::ivec3 & faceId, const std::vector<size_t> & newNodeIds);
+		void NeighborEdgeFracture(const glm::ivec2 & edgeId);
+		void CalculateSnappedFaceNormal();
+		void CalculateSnappedEdgeNormal();
+		size_t CloneVertex(size_t vertexId);
+		size_t CreateEdgeVertex(const glm::ivec2 & edgeId, double parametricDistance);
+		
+		void SeparateNodes(size_t& outPositiveNode, size_t& outNegativeNode, const std::array<size_t, 2>& nodes, const glm::dvec3& planePos, const glm::dvec3& planeNormal) const;
+		void SeparateNodes(std::vector<size_t>& outPositiveNodes, std::vector<size_t>& outNegativeNodes, const std::vector<size_t>& nodes, const glm::dvec3& planePos, const glm::dvec3& planeNormal) const;
+		bool PlaneIntersectEdge(const glm::dvec3& planePos, const glm::dvec3& planeNormal, const glm::dvec3& edgePos0, const glm::dvec3& edgePos1, double& d, glm::dvec3* intersectionPos) const;
+		bool IsIsolatedEdge(const glm::ivec2& edgeId) const;
+		std::vector<size_t> GetTetrahedraNeighbors(size_t tetrahedraIdx) const;
+		size_t GetNonFractureNode(const glm::ivec2& edge) const;
+		void PlaneIntersectTetrahedraEdges(std::vector<glm::ivec2>& outVertexIds, std::vector<double>& parametricDistance) const;
 
 	private:
 		size_t mTetrahedraIdx = -1;
 
 		bool mSnapToFace = false;
 		glm::ivec3 mSnappingFaceId;
+		glm::dvec3 mSnappedFaceNormal;
 
 		bool mSnapToEdge = false;
 		glm::ivec2 mSnappingEdgeId;
+		glm::dvec3 mSnappedEdgeNormal;
+
+		bool mFracturedNeighborFaceTet = false;
+		size_t mFracturedNeighborFaceTetId = -1;
+
+		std::vector<size_t> mTetrahedraToDelete;
+		std::vector<Tetrahedra> mNewTetrahedra;
 
 		const glm::dvec3& mFracturePlaneNormal;
 		const glm::dvec3& mFractureNodePosition;
 		size_t mFractureNodeIdx = -1;
+		size_t mNegativeFractureNodeIdx = -1;
 		std::vector<Tetrahedra>& mTetrahedra;
 		std::vector<Vertex>& mVertices;
 	};
