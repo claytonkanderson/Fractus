@@ -62,8 +62,15 @@ namespace TestDeformation
 
     ////////////////////////////////////////////////////////////////////////////////
 
-    TetraGroup::TetraGroup()
+    void TetraGroup::Initialize(double lambda, double psi, double phi, double mu, double density, double toughness)
     {
+        mLambda = lambda;
+        mPsi = psi;
+        mPhi = phi;
+        mMu = mu;
+        mDensity = density;
+        mToughness = toughness;
+
         mSummary.set_lambda(mLambda);
         mSummary.set_psi(mPsi);
         mSummary.set_phi(mPhi);

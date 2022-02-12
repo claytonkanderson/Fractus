@@ -132,8 +132,8 @@ namespace TestDeformation
 	class TetraGroup
 	{
 	public:
-		TetraGroup();
-
+		
+		void Initialize(double lambda, double psi, double phi, double mu, double density, double toughness);
 		void Update(double timestep);
 		void ComputeDerivedQuantities();
 		void FractureNode(size_t nodeIdx, const glm::dvec3& fracturePlaneNormal);

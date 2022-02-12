@@ -35,12 +35,7 @@ extern "C" void __declspec(dllexport) __stdcall Initialize(
 	TestDeformation::TetraGroup* group = new TestDeformation::TetraGroup();
 	mData = group;
 
-	group->mLambda = lambda;
-	group->mPsi = psi;
-	group->mPhi = phi;
-	group->mMu = mu;
-	group->mDensity = density;
-	group->mToughness = toughness;
+	group->Initialize(lambda, psi, phi, mu, density, toughness);
 	group->mMaxNumTetrahedra = maxNumTetrahedra;
 	group->mMaxNumVertices = maxNumVertices;
 	// Could reserve the max memory here

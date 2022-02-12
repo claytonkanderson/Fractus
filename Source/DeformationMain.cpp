@@ -17,16 +17,8 @@ int main(int argc, const char* argv[])
 {
 	IronGames::SimulationSummaries summaries;
 
-	try
-	{
-		TestDeformation::TestFractureManager testManager(&summaries);
-		testManager.RunAllTestCases();
-	}
-	catch (const std::exception& e)
-	{
-		// nah
-	};
-
+	TestDeformation::TestFractureManager testManager(&summaries);
+	testManager.RunAllTestCases();
 
 	// write to file...
 	std::ofstream ofs("simulation.summary", std::ios_base::out | std::ios_base::binary);

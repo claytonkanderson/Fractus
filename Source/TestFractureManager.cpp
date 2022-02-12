@@ -147,20 +147,27 @@ namespace TestDeformation
 			float maxEigenvalue = -1;
 			float maxEigenvalueTime = 0.0f;
 
-			for (int i = 0; i < 3000; i++)
-			{
-				group->Update(timestep);
-
-				for (const auto& vertex : group->mVertices)
+			try {
+				for (int i = 0; i < 3000; i++)
 				{
-					if (vertex.mLargestEigenvalue > maxEigenvalue)
+					group->Update(timestep);
+
+					for (const auto& vertex : group->mVertices)
 					{
-						maxEigenvalue = vertex.mLargestEigenvalue;
-						maxEigenvalueTime = i * timestep;
+						if (vertex.mLargestEigenvalue > maxEigenvalue)
+						{
+							maxEigenvalue = vertex.mLargestEigenvalue;
+							maxEigenvalueTime = i * timestep;
+						}
 					}
 				}
 			}
+			catch (const std::exception& e)
+			{
+				std::cout << "Error occurred during Test Case Two : " << e.what() << std::endl;
+			}
 
+			*summary = group->mSummary;
 			std::cout << "Max Eigenvalue : " << maxEigenvalue << " time " << maxEigenvalueTime << "s." << std::endl;
 		}
 	};
