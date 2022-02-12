@@ -1,12 +1,13 @@
 #include "TestDeformation.hpp"
-#include "dsyevq3.h"
-#include "dsyevh3.h"
+#include "ProtoConverter.hpp"
 
 #include <Mathematics/Delaunay3.h>
 #include <Mathematics/SymmetricEigensolver3x3.h>
 #include <Mathematics/DistPointHyperplane.h>
 
 #include <iostream>
+#include <fstream>
+
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/mat4x3.hpp>
 #include <glm/gtx/hash.hpp>
@@ -34,7 +35,13 @@ namespace TestDeformation
 
         glm::ivec3 GetFaceId(size_t idx1, size_t idx2, size_t idx3)
         {
-            return glm::ivec3();
+            if (idx1 == idx2 || idx1 == idx3 || idx2 == idx3)
+                throw std::exception("Attempted to get a face with duplicate vertex ids.");
+
+            std::array<int, 3> verts{ idx1, idx2, idx3 };
+            std::sort(verts.begin(), verts.end());
+
+            return glm::ivec3(verts[0], verts[1], verts[2]);
         }
     }
 
@@ -55,26 +62,17 @@ namespace TestDeformation
 
     ////////////////////////////////////////////////////////////////////////////////
 
-    namespace 
+    TetraGroup::TetraGroup()
     {
-        IronGames::Vector3 Convert(const glm::dvec3& vec)
-        {
-            IronGames::Vector3 v;
-            v.set_x(vec.x);
-            v.set_y(vec.y);
-            v.set_z(vec.z);
-            return v;
-        }
-
-        IronGames::Matrix3 Convert(const glm::dmat3& mat)
-        {
-            IronGames::Matrix3 m;
-            *m.mutable_col0() = Convert(mat[0]);
-            *m.mutable_col1() = Convert(mat[1]);
-            *m.mutable_col2() = Convert(mat[2]);
-            return m;
-        }
+        mSummary.set_lambda(mLambda);
+        mSummary.set_psi(mPsi);
+        mSummary.set_phi(mPhi);
+        mSummary.set_mu(mMu);
+        mSummary.set_density(mDensity);
+        mSummary.set_toughness(mToughness);
     }
+
+    ////////////////////////////////////////////////////////////////////////////////
 
     void TetraGroup::Update(double timestep)
 	{
@@ -90,7 +88,8 @@ namespace TestDeformation
         const int32_t sortType = -1; // -1 is decreasing order, so the first is the largest
         const bool aggressive = false;
 
-        auto* frame = (mSummary ? mSummary->add_frames() : nullptr);
+        //auto* frame = (mSummary ? mSummary->add_frames() : nullptr);
+        auto frame = mSummary.add_frames();
 
         //bool saveFrame = (mStepsSinceLastSave >= mSaveEveryXSteps && mSummary);
         bool saveFrame = true;
@@ -112,9 +111,9 @@ namespace TestDeformation
             if (saveFrame)
             {
                 auto vert = frame->add_vertices();
-                *vert->mutable_position() = Convert(vertex.mPosition);
-                *vert->mutable_material_coordinates() = Convert(vertex.mMaterialCoordinates);
-                *vert->mutable_velocity() = Convert(vertex.mVelocity);
+                *vert->mutable_position() = ProtoConverter::Convert(vertex.mPosition);
+                *vert->mutable_material_coordinates() = ProtoConverter::Convert(vertex.mMaterialCoordinates);
+                *vert->mutable_velocity() = ProtoConverter::Convert(vertex.mVelocity);
                 vert->set_mass(vertex.mMass);
             }
         }
@@ -270,8 +269,8 @@ namespace TestDeformation
                 auto& tet = *frame->add_tetrahedra();
                 tet.set_mass(tetrahedra.mMass);
                 tet.set_volume(tetrahedra.mVolume);
-                *tet.mutable_strain_tensor() = Convert(strainTensor);
-                *tet.mutable_stress_tensor() = Convert(sigma);
+                *tet.mutable_strain_tensor() = ProtoConverter::Convert(strainTensor);
+                *tet.mutable_stress_tensor() = ProtoConverter::Convert(sigma);
                 for (auto& idx : tetrahedra.mIndices)
                     tet.add_indices(idx);
             }
@@ -340,8 +339,8 @@ namespace TestDeformation
             double largestEigenvalue = eigenvalues[0];
             dvec3 principalEigenVector = dvec3(eigenvectors[0][0], eigenvectors[0][1], eigenvectors[0][2]);
 
-            if (largestEigenvalue > mToughness)
-                std::cout << " Large eigen " << std::endl;
+            //if (largestEigenvalue > mToughness)
+            //    std::cout << " Large eigen " << std::endl;
 
             mVertices[vertexIdx].mPrincipalEigenVector = principalEigenVector;
             mVertices[vertexIdx].mLargestEigenvalue = largestEigenvalue;
@@ -349,16 +348,16 @@ namespace TestDeformation
             if (saveFrame)
             {
                 auto& vert = *frame->mutable_vertices(vertexIdx);
-                *vert.mutable_force() = Convert(mVertices[vertexIdx].mForce);
+                *vert.mutable_force() = ProtoConverter::Convert(mVertices[vertexIdx].mForce);
                 vert.set_largest_eigenvalue(mVertices[vertexIdx].mLargestEigenvalue);
-                *vert.mutable_principal_eigenvector() = Convert(mVertices[vertexIdx].mPrincipalEigenVector);
+                *vert.mutable_principal_eigenvector() = ProtoConverter::Convert(mVertices[vertexIdx].mPrincipalEigenVector);
 
                 for (const auto& compressiveForce : mVertices[vertexIdx].mCompressiveForces)
-                    *vert.add_compressive_forces() = Convert(compressiveForce);
+                    *vert.add_compressive_forces() = ProtoConverter::Convert(compressiveForce);
                 for (const auto& tensileForce : mVertices[vertexIdx].mTensileForces)
-                    *vert.add_tensile_forces() = Convert(tensileForce);
+                    *vert.add_tensile_forces() = ProtoConverter::Convert(tensileForce);
 
-                *vert.mutable_separation_tensor() = Convert(mSeparation);
+                *vert.mutable_separation_tensor() = ProtoConverter::Convert(mSeparation);
             }
         }
 
@@ -374,6 +373,33 @@ namespace TestDeformation
                 if (mVertices.size() >= mMaxNumVertices)
                     break;
             }
+
+            /*
+            
+                        // let's try fracturing only the highest eigenvalue and only allowing one fracture per frame
+
+            float maxEigenValue = -1;
+            size_t maxEigenValueNodeId = -1;
+
+            for (size_t idx = 0; idx < numVertices; idx++)
+            {
+                if (mVertices[idx].mLargestEigenvalue > mToughness)
+                {
+                    if (mVertices[idx].mLargestEigenvalue > maxEigenValue)
+                    {
+                        maxEigenValue = mVertices[idx].mLargestEigenvalue;
+                        maxEigenValueNodeId = idx;
+                    }
+                }
+
+                if (mVertices.size() >= mMaxNumVertices)
+                    break;
+            }
+
+            if (maxEigenValueNodeId != -1)
+                FractureNode(maxEigenValueNodeId, mVertices[maxEigenValueNodeId].mPrincipalEigenVector);
+            
+            */
 
             ComputeDerivedQuantities();
         }
@@ -457,318 +483,6 @@ namespace TestDeformation
         std::cout << "Fracture Node " << fractureNodeIdx << std::endl;
         FractureContext context(fracturePlaneNormal, fractureNodeIdx, mTetrahedra, mVertices);
         context.Fracture();
-
-        Vertex negativeCopiedVertex;
-        negativeCopiedVertex.mPosition = mVertices[fractureNodeIdx].mPosition;
-        negativeCopiedVertex.mMaterialCoordinates = mVertices[fractureNodeIdx].mMaterialCoordinates;
-        negativeCopiedVertex.mVelocity = mVertices[fractureNodeIdx].mVelocity;
-        mVertices.push_back(negativeCopiedVertex);
-
-        size_t negativeCopiedVertexIdx = mVertices.size() - 1;
-
-        // so, n+ is fractureNodeIndex and n- is negativeCopiedVertexIdx
-
-        std::unordered_map<glm::ivec2, int> splitEdgeToNewVertices;
-        std::vector<int> elementVertexIndices;
-        std::vector<int> topVertexIndices;
-        std::vector<int> botVertexIndices;
-
-        std::vector<int> tetrahedraToRemove;
-        std::vector<int> neighborTetrahedraToRemove;
-        std::vector<Tetrahedra> tetrahedraToAdd;
-
-        for (size_t elementIdx : GetTetrahedrasFromNode(fractureNodeIdx))
-        {
-            auto& element = mTetrahedra[elementIdx];
-
-            std::vector<glm::ivec2> splitEdges;
-
-            for (const auto& edge : element.GetEdges())
-            {
-                auto iter = splitEdgeToNewVertices.find(edge);
-                if (iter != splitEdgeToNewVertices.end())
-                {
-                    splitEdges.push_back(edge);
-                }
-                else if (EdgeIntersectsPlane(edge, fractureNodeIdx, fracturePlaneNormal))
-                {
-                    auto newVertexId = SplitEdge(edge, fractureNodeIdx, fracturePlaneNormal);
-                    splitEdgeToNewVertices[edge] = newVertexId;
-                    splitEdges.push_back(edge);
-                }
-            }
-
-            if (splitEdges.size() == 0)
-            {
-                // we need to assign this tet to n+ or n-
-                auto d0 = GetSignedDistanceToPlane(element.mIndices[0], fractureNodeIdx, fracturePlaneNormal);
-                auto d1 = GetSignedDistanceToPlane(element.mIndices[1], fractureNodeIdx, fracturePlaneNormal);
-                auto d2 = GetSignedDistanceToPlane(element.mIndices[2], fractureNodeIdx, fracturePlaneNormal);
-                auto d3 = GetSignedDistanceToPlane(element.mIndices[3], fractureNodeIdx, fracturePlaneNormal);
-
-                if (d0 >= 0 && d1 >= 0 && d2 >= 0 && d3 >= 0)
-                {
-                    // It gets the positive one, which it already has
-                    continue;
-                }
-                else if (d0 <= 0 && d1 <= 0 && d2 <= 0 && d3 <= 0)
-                {
-                    element.ReplaceVertex(fractureNodeIdx, negativeCopiedVertexIdx);
-                    continue;
-                }
-                else
-                    std::cout << "No edges were split but the tetrahedra has vertices on both sides of the fracture plane." << std::endl;
-            }
-            else if (splitEdges.size() == 1)
-            {
-                // TODO edge case == 1 
-                // This can only happen for neighbors, or the edge case where the plane is along an edge?
-            }
-
-            if (splitEdges.size() != 2)
-            {
-                std::cout << "Expected 2 split edges, but found " << splitEdges.size() << "." << std::endl;
-                continue;
-            }
-
-            elementVertexIndices.clear();
-            topVertexIndices.clear();
-            botVertexIndices.clear();
-
-            tetrahedraToRemove.push_back(elementIdx);
-            for (const auto& idx : element.mIndices)
-            {
-                if (idx != fractureNodeIdx)
-					elementVertexIndices.push_back(idx);
-            }
-            
-            for (const auto& vertexIdx : elementVertexIndices)
-            {
-                if (GetSignedDistanceToPlane(vertexIdx, fractureNodeIdx, fracturePlaneNormal) < 0.0f)
-                    botVertexIndices.push_back(vertexIdx);
-                else
-                    topVertexIndices.push_back(vertexIdx);
-            }
-
-            if (topVertexIndices.size() == 1 && botVertexIndices.size() == 2)
-            {
-                auto a = topVertexIndices[0];
-                auto b = botVertexIndices[0];
-                auto c = botVertexIndices[1];
-                auto dp = fractureNodeIdx;
-                auto dm = negativeCopiedVertexIdx;
-                auto e = splitEdgeToNewVertices[splitEdges[0]];
-                auto f = splitEdgeToNewVertices[splitEdges[1]];
-
-                tetrahedraToAdd.push_back(Tetrahedra(a, dp, e, f));
-                tetrahedraToAdd.push_back(Tetrahedra(b, f, e, dm));
-                tetrahedraToAdd.push_back(Tetrahedra(b, c, f, dm));
-            }
-            else if (topVertexIndices.size() == 2 && botVertexIndices.size() == 1)
-            {
-                auto a = botVertexIndices[0];
-                auto b = topVertexIndices[0];
-                auto c = topVertexIndices[1];
-                auto dp = fractureNodeIdx;
-                auto dm = negativeCopiedVertexIdx;
-                auto e = splitEdgeToNewVertices[splitEdges[0]];
-                auto f = splitEdgeToNewVertices[splitEdges[1]];
-
-                tetrahedraToAdd.push_back(Tetrahedra(a, dm, e, f));
-                tetrahedraToAdd.push_back(Tetrahedra(b, f, e, dp));
-                tetrahedraToAdd.push_back(Tetrahedra(b, c, f, dp));
-            }
-            else
-            {
-                std::cout << "Unexpected number of vertices above (" << topVertexIndices.size() << "), and below (" << botVertexIndices.size() << ")." << std::endl;
-            }
-        }
-
-        std::vector<int> splitNeighbors;
-
-        for (auto splitTetIdx : tetrahedraToRemove)
-        {
-            for (auto neighborTetIdx : GetTetrahedraNeighbors(splitTetIdx))
-            {
-                const auto& neighborTet = mTetrahedra[neighborTetIdx];
-                if (neighborTet.ContainsVertexIndex(fractureNodeIdx))
-                    continue;
-
-                // Also skip neighbors we have already split
-                auto iter = std::find(splitNeighbors.begin(), splitNeighbors.end(), neighborTetIdx);
-                if (iter != splitNeighbors.end())
-                    continue;
-
-                const auto& edges = neighborTet.GetEdges();
-
-                std::vector<glm::ivec2> splitNeighborEdges;
-                for (const auto& edge : edges)
-                {
-                    if (splitEdgeToNewVertices.find(edge) != splitEdgeToNewVertices.end())
-                        splitNeighborEdges.push_back(edge);
-                }
-
-                if (splitNeighborEdges.size() == 0)
-                {
-                    // Nothing to do here
-                }
-                else if (splitNeighborEdges.size() == 1)
-                {
-                    const auto& edge = splitNeighborEdges[0];
-                    const auto& newNode = splitEdgeToNewVertices[edge];
-
-                    std::vector<int> sharedNodes;
-                    for (auto nodeIdx : neighborTet.mIndices)
-                    {
-                        if (nodeIdx == edge.x || nodeIdx == edge.y)
-                            continue;
-                        
-                        sharedNodes.push_back(nodeIdx);
-                    }
-
-                    // actually, this neighbor may be a face neighbor
-                    // so we are definitely missing that case here
-                    if (sharedNodes.size() != 2)
-                        std::cout << "Expected 2 shared nodes during neighbor splitting, found " << sharedNodes.size() << "." << std::endl;
-
-                    auto a = sharedNodes[0];
-                    auto b = sharedNodes[1];
-                    auto c = edge.x;
-                    auto d = edge.y;
-                    auto e = newNode;
-
-                    tetrahedraToAdd.push_back(Tetrahedra(a, c, b, e));
-                    tetrahedraToAdd.push_back(Tetrahedra(a, b, d, e));
-
-                    neighborTetrahedraToRemove.push_back(neighborTetIdx);
-                }
-                // this is a face neighbor
-                else if (splitNeighborEdges.size() == 2)
-                {
-                    auto a = GetCommonVertexFromEdges(splitNeighborEdges[0], splitNeighborEdges[1]);
-                    auto e = splitEdgeToNewVertices[splitNeighborEdges[0]];
-                    auto f = splitEdgeToNewVertices[splitNeighborEdges[1]];
-
-                    std::vector<int> remainingVertices;
-
-                    for (auto vert : neighborTet.mIndices)
-                    {
-                        if (vert == a)
-                            continue;
-                        if (vert == splitNeighborEdges[0].x || vert == splitNeighborEdges[0].y)
-                            continue;
-                        if (vert == splitNeighborEdges[1].x || vert == splitNeighborEdges[1].y)
-                            continue;
-
-                        remainingVertices.push_back(vert);
-                    }
-
-                    if (remainingVertices.size() != 1)
-                        std::cout << "Expected one remaining vertex in neighbor split but found " << remainingVertices.size() << "." << std::endl;
-
-                    auto b = remainingVertices[0];
-
-                    std::vector<int> cdVertices;
-                    for (auto vert : neighborTet.mIndices)
-                    {
-                        if (vert == a || vert == b)
-                            continue;
-                        cdVertices.push_back(vert);
-                    }
-
-                    if (cdVertices.size() == 2)
-                        std::cout << " Expected two remaining vertices in neighbor split but found " << cdVertices.size() << "." << std::endl;
-
-                    auto c = cdVertices[0];
-                    auto d = cdVertices[1];
-
-                    std::vector<glm::ivec2> diagonalEdges;
-
-                    if (splitNeighborEdges[0].x == c || splitNeighborEdges[0].y == c)
-                        diagonalEdges.push_back(GetEdgeId(c, f));
-                    else
-                        diagonalEdges.push_back(GetEdgeId(c, e));
-
-                    if (splitNeighborEdges[0].x == d || splitNeighborEdges[0].y == d)
-                        diagonalEdges.push_back(GetEdgeId(d, f));
-                    else
-                        diagonalEdges.push_back(GetEdgeId(d, e));
-
-                    if (diagonalEdges.size() != 2)
-                        std::cout << "Expected 2 diagonal edges during neighbor split, found " << diagonalEdges.size() << "." << std::endl;
-
-                    int diagonalEdgeIdx = -1;
-
-                    for (const auto& newTet : tetrahedraToAdd)
-                    {
-                        if (newTet.ContainsEdgeIndex(diagonalEdges[0]))
-                        {
-                            diagonalEdgeIdx = 0;
-                            break;
-                        }
-                        else if (newTet.ContainsEdgeIndex(diagonalEdges[1]))
-                        {
-                            diagonalEdgeIdx = 1;
-                            break;
-                        }
-                    }
-
-                    auto diag = diagonalEdges[diagonalEdgeIdx];
-
-                    std::vector<int> offDiagNodes;
-
-                    if (c != diag.x && c != diag.y)
-                        offDiagNodes.push_back(c);
-                    if (d != diag.x && d != diag.y)
-                        offDiagNodes.push_back(d);
-                    if (e != diag.x && e != diag.y)
-                        offDiagNodes.push_back(e);
-                    if (f != diag.x && f != diag.y)
-                        offDiagNodes.push_back(f);
-
-                    if (offDiagNodes.size() != 2)
-                        std::cout << "Incorrect number of off diagonal nodes, expected 2, found " << offDiagNodes.size() << "." << std::endl;
-
-                    tetrahedraToAdd.push_back(Tetrahedra(a, e, b, f));
-                    tetrahedraToAdd.push_back(Tetrahedra(b, diag.y, diag.x, offDiagNodes[0]));
-                    tetrahedraToAdd.push_back(Tetrahedra(b, diag.x, diag.y, offDiagNodes[1]));
-
-                    neighborTetrahedraToRemove.push_back(neighborTetIdx);
-                }
-                else
-                {
-                    std::cout << "Too many neighbor edges were split by the fracture plane, num split = " << splitNeighborEdges.size() << "." << std::endl;
-                }
-
-                splitNeighbors.push_back(neighborTetIdx);
-            }
-        }
-
-        {
-		    std::vector<int> tetIndicesToRemove;
-            for (auto tetIdx : tetrahedraToRemove)
-                tetIndicesToRemove.push_back(tetIdx);
-            for (auto neighborTetIdx : neighborTetrahedraToRemove)
-                tetIndicesToRemove.push_back(neighborTetIdx);
-
-            std::sort(tetIndicesToRemove.begin(), tetIndicesToRemove.end(), std::greater<int>());
-
-            for (auto idx : tetIndicesToRemove)
-            {
-                mTetrahedra.erase(mTetrahedra.begin() + idx);
-            }
-        }
-
-        // TODO - optimize, recomputing quantities for all tet instead of just those that were modified.
-        // - Don't currently have a vertex to tetrahedra correspondence so redoing the mass would require
-        //   a linear search.
-        {
-            for (auto& tet : tetrahedraToAdd)
-            {
-                mTetrahedra.push_back(tet);
-            }
-
-        }
     }
     
     ////////////////////////////////////////////////////////////////////////////////
@@ -799,6 +513,14 @@ namespace TestDeformation
         mVertices.push_back(vertex);
 
         return mVertices.size() - 1;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////
+
+    void TetraGroup::OutputSaveFile()
+    {
+        std::ofstream ofs("simulation.summary", std::ios_base::out | std::ios_base::binary);
+        mSummary.SerializeToOstream(&ofs);
     }
 
     ////////////////////////////////////////////////////////////////////////////////
@@ -884,17 +606,80 @@ namespace TestDeformation
 
     ////////////////////////////////////////////////////////////////////////////////
 
-    size_t TetraGroup::GetCommonVertexFromEdges(const glm::ivec2& edge0, const glm::ivec2& edge1) const
+    namespace
     {
-        if (edge0.x == edge1.x || edge0.x == edge1.y)
-            return edge0.x;
-        if (edge0.y == edge1.x || edge0.y == edge1.y)
-            return edge0.y;
+        size_t GetCommonVertexFromEdges(const glm::ivec2& edge0, const glm::ivec2& edge1)
+        {
+            if (edge0.x == edge1.x || edge0.x == edge1.y)
+                return edge0.x;
+            if (edge0.y == edge1.x || edge0.y == edge1.y)
+                return edge0.y;
 
-        std::cout << "Failed to find common vertices for provided edges." << std::endl;
-        return 0;
+            throw std::exception("Failed to find common vertices for provided edges.");
+            return 0;
+        }
     }
 
+    ////////////////////////////////////////////////////////////////////////////////
+
+    std::array<size_t, 3> Tetrahedra::GetOtherVertices(size_t vertexId) const
+    {
+        if (!ContainsVertexIndex(vertexId))
+            throw std::exception("Tetrahedron for Get Other Vertices did not contain the specified vertex.");
+
+        if (mIndices[0] == vertexId)
+            return { mIndices[1], mIndices[2], mIndices[3] };
+
+        if (mIndices[1] == vertexId)
+            return { mIndices[0], mIndices[2], mIndices[3] };
+
+        if (mIndices[2] == vertexId)
+            return { mIndices[1], mIndices[0], mIndices[3] };
+
+        if (mIndices[3] == vertexId)
+            return { mIndices[0], mIndices[1], mIndices[2] };
+
+        throw std::exception("Tetrahedron for Get Other Vertices encountered an unexpected error.");
+        return std::array<size_t, 3>();
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////
+
+    std::array<size_t, 2> Tetrahedra::GetOtherVertices(size_t vertexId1, size_t vertexId2) const
+    {
+        std::array<size_t, 2> otherVertices{};
+        size_t counter = 0;
+        for (size_t i = 0; i < 4; i++)
+        {
+            if (mIndices[i] == vertexId1 || mIndices[i] == vertexId2)
+                continue;
+
+            otherVertices[counter] = mIndices[i];
+            counter++;
+        }
+
+        if (counter != 2)
+            throw std::exception("Tetrahedron for Get Other Vertices (2) encountered an unexpected error.");
+
+        return otherVertices;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////
+
+    size_t Tetrahedra::GetOtherVertex(const std::array<size_t, 3>& vertices) const
+    {
+        for (size_t i = 0; i < 4; i++)
+        {
+            if (mIndices[i] == vertices[0] || mIndices[i] == vertices[1] || mIndices[i] == vertices[2])
+                continue;
+
+            return mIndices[i];
+        }
+
+        throw std::exception("Tetrahedron for Get Other Vertex encountered an unexpected error.");
+        return size_t();
+    }
+    
     ////////////////////////////////////////////////////////////////////////////////
 
     bool Tetrahedra::ContainsVertexIndex(size_t idx) const
@@ -940,7 +725,7 @@ namespace TestDeformation
         if (faceId == GetFaceId(mIndices[0], mIndices[2], mIndices[3]))
             return true;
         if (faceId == GetFaceId(mIndices[1], mIndices[2], mIndices[3]))
-            return;
+            return true;
 
         return false;
     }
@@ -998,12 +783,12 @@ namespace TestDeformation
 
             for (size_t tetIdx = 0; tetIdx < neighbors.size(); tetIdx++)
             {
-                if (mTetrahedra[tetIdx].mCreatedThisFrame)
+                if (mTetrahedra[neighbors[tetIdx]].mFracturedThisFrame)
                     continue;
 
                 fractured = true;
 
-                FractureTetrahedra(tetIdx);
+                FractureTetrahedra(neighbors[tetIdx]);
 
                 // deletion in descending order so we don't invalidate the indices
                 std::sort(mTetrahedraToDelete.begin(), mTetrahedraToDelete.end(), std::greater<size_t>());
@@ -1011,7 +796,10 @@ namespace TestDeformation
                     mTetrahedra.erase(mTetrahedra.begin() + mTetrahedraToDelete[idx]);
 
                 for (auto& tet : mNewTetrahedra)
+                {
+                    tet.mFracturedThisFrame = true;
                     mTetrahedra.push_back(tet);
+                }
 
                 mTetrahedraToDelete.clear();
                 mNewTetrahedra.clear();
@@ -1019,7 +807,7 @@ namespace TestDeformation
         }
 
         for (auto& tet : mTetrahedra)
-            tet.mCreatedThisFrame = false;
+            tet.mFracturedThisFrame = false;
     }
 
     ////////////////////////////////////////////////////////////////////////////////
@@ -1056,7 +844,7 @@ namespace TestDeformation
             // Get signed distance of all vertices to plane
             gte::DCPQuery<float, gte::Vector3<float>, gte::Plane3<float>> distanceQuery;
             auto results = distanceQuery(position, plane);
-            return results.distance;
+            return results.signedDistance;
         }
     }
 
@@ -1179,6 +967,7 @@ namespace TestDeformation
 
         auto& tetrahedron = mTetrahedra[mTetrahedraIdx];
         const auto& otherNodes = tetrahedron.GetOtherVertices(mSnappingEdgeId[0], mSnappingEdgeId[1]);
+        auto splitEdgeId = GetEdgeId(otherNodes[0], otherNodes[1]);
         const auto& edgePos0 = mVertices[otherNodes[0]].mPosition;
         const auto& edgePos1 = mVertices[otherNodes[1]].mPosition;
 
@@ -1191,13 +980,13 @@ namespace TestDeformation
         // need to create a new node on the edge
         size_t newEdgeNode = CreateEdgeVertex(mSnappingEdgeId, d);
         size_t snappedNodeId = (mSnappingEdgeId[0] == mFractureNodeIdx ? mSnappingEdgeId[1] : mSnappingEdgeId[0]);
-        
+
         const auto& otherVertices = tetrahedron.GetOtherVertices(mFractureNodeIdx, snappedNodeId);
         size_t positiveOtherNode;
         size_t negativeOtherNode;
         SeparateNodes(positiveOtherNode, negativeOtherNode, otherVertices, mFractureNodePosition, mSnappedEdgeNormal);
 
-        if (IsIsolatedEdge(GetEdgeId(otherNodes[0], otherNodes[1])))
+        if (IsIsolatedEdge(splitEdgeId))
         {
             size_t positiveEdgeNode = newEdgeNode;
             size_t negativeEdgeNode = CloneVertex(positiveEdgeNode);
@@ -1208,20 +997,25 @@ namespace TestDeformation
             // no neighbor fracturing necessary because this edge was isolated, which also means there's no face neighbor
             return;
         }
-        
+
         mNewTetrahedra.push_back(Tetrahedra(mFractureNodeIdx, snappedNodeId, newEdgeNode, positiveOtherNode));
         mNewTetrahedra.push_back(Tetrahedra(mFractureNodeIdx, snappedNodeId, newEdgeNode, negativeOtherNode));
 
         const auto& fracturedFaceIds = tetrahedron.GetOtherVertices(mFractureNodeIdx);
-        NeighborFaceFracture(GetFaceId(fracturedFaceIds[0], fracturedFaceIds[1], fracturedFaceIds[2]), { newEdgeNode });
-        NeighborEdgeFracture();
+        NeighborFaceFracture(GetFaceId(fracturedFaceIds[0], fracturedFaceIds[1], fracturedFaceIds[2]), { newEdgeNode }, { splitEdgeId }, mSnappedEdgeNormal);
+        NeighborEdgeFracture(splitEdgeId, newEdgeNode, mSnappedEdgeNormal);
     }
 
     ////////////////////////////////////////////////////////////////////////////////
 
     void FractureContext::FractureTetrahedra(size_t tetIdx)
     {
+        if (tetIdx >= mTetrahedra.size())
+            throw std::exception("Fracture tet index is invalid.");
+
         mTetrahedraIdx = tetIdx;
+
+        std::cout << "Fracturing Node " << mFractureNodeIdx << " and Tetrahedra " << mTetrahedraIdx << std::endl;
 
         // done, but would be good to test
         DetermineSnapping();
@@ -1272,11 +1066,13 @@ namespace TestDeformation
         {
             double dist = DistPointPlane(mVertices[tetrahedra.mIndices[i]].mPosition, normal, mFractureNodePosition);
 
-            if (dist >= 0.0)
+            if (dist >= -1e-7)
                 numPosition++;
-            if (dist <= 0.0)
+            if (dist <= 1e-7)
                 numNegative++;
         }
+
+        tetrahedra.mFracturedThisFrame = true;
 
         if (numPosition == 4)
         {
@@ -1328,10 +1124,10 @@ namespace TestDeformation
         auto fp = edgeVertex1;
         auto fm = edgeVertex1;
 
-        if (IsIsolatedEdge(GetEdgeId(mFractureNodeIdx, edgeVertex0)))
+        if (IsIsolatedEdge(edgeIds[0]))
             em = CloneVertex(ep);
         
-        if (IsIsolatedEdge(GetEdgeId(mFractureNodeIdx, edgeVertex1)))
+        if (IsIsolatedEdge(edgeIds[1]))
             fm = CloneVertex(fp);
 
         if (positiveVertices.size() == 1 && negativeVertices.size() == 2)
@@ -1358,14 +1154,14 @@ namespace TestDeformation
         // Mark this one for deletion
         mTetrahedraToDelete.push_back(mTetrahedraIdx);
 
-        NeighborFaceFracture(GetFaceId(otherVertices[0], otherVertices[1], otherVertices[2]), { edgeVertex0, edgeVertex1 });
-        NeighborEdgeFracture(edgeIds[0]);
-        NeighborEdgeFracture(edgeIds[1]);
+        NeighborFaceFracture(GetFaceId(otherVertices[0], otherVertices[1], otherVertices[2]), { edgeVertex0, edgeVertex1 }, { edgeIds[0], edgeIds[1] }, mFracturePlaneNormal);
+        NeighborEdgeFracture(edgeIds[0], edgeVertex0, mFracturePlaneNormal);
+        NeighborEdgeFracture(edgeIds[1], edgeVertex1, mFracturePlaneNormal);
     }
 
     ////////////////////////////////////////////////////////////////////////////////
 
-    void FractureContext::NeighborFaceFracture(const glm::ivec3& faceId, const std::vector<size_t>& newNodeIds)
+    void FractureContext::NeighborFaceFracture(const glm::ivec3& faceId, const std::vector<size_t>& newNodeIds, const std::vector<glm::ivec2>& splitEdges, const glm::dvec3& planeNormal)
     {
         // Find face neighbor if it exists
         size_t neighborTetId = -1;
@@ -1385,114 +1181,61 @@ namespace TestDeformation
         if (neighborTetId == -1)
             return;
 
+        mFracturedNeighborFaceTetId = neighborTetId;
+        mTetrahedraToDelete.push_back(mFracturedNeighborFaceTetId);
+        const auto& neighborTet = mTetrahedra[mFracturedNeighborFaceTetId];
+
         if (newNodeIds.size() == 1)
         {
-            // split neighborTetId into two tetrahedra using it's 4 vertices and
-            // the single newNodeId
+            if (!mSnapToEdge)
+                throw std::exception("Neighbor face fracture expected snapped to edge but it was not.");
+
+            auto snappedNodeId = GetNonFractureNode(mSnappingEdgeId);
+            if (!neighborTet.ContainsVertexIndex(snappedNodeId))
+                throw std::exception("Single new node neighbor face fracture, expected the neighbor tet to contain the snapping node but it did not.");
+
+            // the snapped vertex should be in the face that is being fracture
+            std::vector<size_t> vertices;
+            if (faceId[0] != snappedNodeId)
+                vertices.push_back(faceId[0]);
+            if (faceId[1] != snappedNodeId)
+                vertices.push_back(faceId[1]);
+            if (faceId[2] != snappedNodeId)
+                vertices.push_back(faceId[2]);
+
+            size_t positiveVertex;
+            size_t negativeVertex;
+            SeparateNodes(positiveVertex, negativeVertex, { vertices[0], vertices[1] }, mFractureNodePosition, mSnappedEdgeNormal);
+
+            auto otherNode = neighborTet.GetOtherVertex({vertices[0], vertices[1], snappedNodeId});
+
+
+            mNewTetrahedra.push_back(Tetrahedra(positiveVertex, snappedNodeId, newNodeIds[0], otherNode));
+            mNewTetrahedra.push_back(Tetrahedra(negativeVertex, snappedNodeId, newNodeIds[0], otherNode));
+
             return;
         }
         
         if (newNodeIds.size() == 2)
         {
-            // split neighborTetId into three tetrahedra using it's 4 vertices and
-            // the two newNodeIds
+            // these three vertices form a triangle and should form a tetrahedra with the vertex not present in the fractured face
+            auto a = GetCommonVertexFromEdges(splitEdges[0], splitEdges[1]);
+            auto e = newNodeIds[0];
+            auto f = newNodeIds[1];
 
-            {
-                /*
-                
-                                    auto a = GetCommonVertexFromEdges(splitNeighborEdges[0], splitNeighborEdges[1]);
-                    auto e = splitEdgeToNewVertices[splitNeighborEdges[0]];
-                    auto f = splitEdgeToNewVertices[splitNeighborEdges[1]];
+            auto o = neighborTet.GetOtherVertex({ (size_t)faceId[0], (size_t)faceId[1], (size_t)faceId[2] });
 
-                    std::vector<int> remainingVertices;
+            // let c be on the edge that e split,
+            // let d be on the edge that f split.
+            // a is on both these edges
+            // newNodesIds[0] is on the 0th split edge, so splitEdges[0] 
+            auto c = (splitEdges[0][0] == a ? splitEdges[0][1] : splitEdges[0][0]);
+            auto d = (splitEdges[1][0] == a ? splitEdges[1][1] : splitEdges[1][0]);
 
-                    for (auto vert : neighborTet.mIndices)
-                    {
-                        if (vert == a)
-                            continue;
-                        if (vert == splitNeighborEdges[0].x || vert == splitNeighborEdges[0].y)
-                            continue;
-                        if (vert == splitNeighborEdges[1].x || vert == splitNeighborEdges[1].y)
-                            continue;
+            mNewTetrahedra.push_back(Tetrahedra(a, e, f, o));
+            mNewTetrahedra.push_back(Tetrahedra(e, f, d, o));
+            mNewTetrahedra.push_back(Tetrahedra(e, d, c, o));
 
-                        remainingVertices.push_back(vert);
-                    }
-
-                    if (remainingVertices.size() != 1)
-                        std::cout << "Expected one remaining vertex in neighbor split but found " << remainingVertices.size() << "." << std::endl;
-
-                    auto b = remainingVertices[0];
-
-                    std::vector<int> cdVertices;
-                    for (auto vert : neighborTet.mIndices)
-                    {
-                        if (vert == a || vert == b)
-                            continue;
-                        cdVertices.push_back(vert);
-                    }
-
-                    if (cdVertices.size() == 2)
-                        std::cout << " Expected two remaining vertices in neighbor split but found " << cdVertices.size() << "." << std::endl;
-
-                    auto c = cdVertices[0];
-                    auto d = cdVertices[1];
-
-                    std::vector<glm::ivec2> diagonalEdges;
-
-                    if (splitNeighborEdges[0].x == c || splitNeighborEdges[0].y == c)
-                        diagonalEdges.push_back(GetEdgeId(c, f));
-                    else
-                        diagonalEdges.push_back(GetEdgeId(c, e));
-
-                    if (splitNeighborEdges[0].x == d || splitNeighborEdges[0].y == d)
-                        diagonalEdges.push_back(GetEdgeId(d, f));
-                    else
-                        diagonalEdges.push_back(GetEdgeId(d, e));
-
-                    if (diagonalEdges.size() != 2)
-                        std::cout << "Expected 2 diagonal edges during neighbor split, found " << diagonalEdges.size() << "." << std::endl;
-
-                    int diagonalEdgeIdx = -1;
-
-                    for (const auto& newTet : tetrahedraToAdd)
-                    {
-                        if (newTet.ContainsEdgeIndex(diagonalEdges[0]))
-                        {
-                            diagonalEdgeIdx = 0;
-                            break;
-                        }
-                        else if (newTet.ContainsEdgeIndex(diagonalEdges[1]))
-                        {
-                            diagonalEdgeIdx = 1;
-                            break;
-                        }
-                    }
-
-                    auto diag = diagonalEdges[diagonalEdgeIdx];
-
-                    std::vector<int> offDiagNodes;
-
-                    if (c != diag.x && c != diag.y)
-                        offDiagNodes.push_back(c);
-                    if (d != diag.x && d != diag.y)
-                        offDiagNodes.push_back(d);
-                    if (e != diag.x && e != diag.y)
-                        offDiagNodes.push_back(e);
-                    if (f != diag.x && f != diag.y)
-                        offDiagNodes.push_back(f);
-
-                    if (offDiagNodes.size() != 2)
-                        std::cout << "Incorrect number of off diagonal nodes, expected 2, found " << offDiagNodes.size() << "." << std::endl;
-
-                    tetrahedraToAdd.push_back(Tetrahedra(a, e, b, f));
-                    tetrahedraToAdd.push_back(Tetrahedra(b, diag.y, diag.x, offDiagNodes[0]));
-                    tetrahedraToAdd.push_back(Tetrahedra(b, diag.x, diag.y, offDiagNodes[1]));
-
-                    neighborTetrahedraToRemove.push_back(neighborTetIdx);
-                */
-            }
-
-            // may need the id's of the split edges
             return;
         }
 
@@ -1501,7 +1244,7 @@ namespace TestDeformation
 
     ////////////////////////////////////////////////////////////////////////////////
 
-    void FractureContext::NeighborEdgeFracture(const glm::ivec2& edgeId)
+    void FractureContext::NeighborEdgeFracture(const glm::ivec2& edgeId, size_t newNodeId, const glm::dvec3& planeNormal)
     {
         // need to get all tetrahedra that contain this edge and are not the original tet or the face tet
         std::vector<size_t> neighborTetrahedraIds;
@@ -1509,47 +1252,21 @@ namespace TestDeformation
         {
             if (neighborTetId == mTetrahedraIdx || (mFracturedNeighborFaceTet && neighborTetId == mFracturedNeighborFaceTetId))
                 continue;
+            
+            const auto& neighborTet = mTetrahedra[neighborTetId];
+            if (!neighborTet.ContainsEdgeIndex(edgeId))
+                continue;
 
-            neighborTetrahedraIds.push_back(neighborTetId);
+            mTetrahedraToDelete.push_back(neighborTetId);
+            
+            auto otherNodes = neighborTet.GetOtherVertices(edgeId[0], edgeId[1]);
+            size_t posEdgeNode;
+            size_t negEdgeNode;
+            SeparateNodes(posEdgeNode, negEdgeNode, { (size_t)edgeId[0], (size_t)edgeId[1] }, mFractureNodePosition, planeNormal);
+
+            mNewTetrahedra.push_back(Tetrahedra(newNodeId, otherNodes[0], otherNodes[1], posEdgeNode));
+            mNewTetrahedra.push_back(Tetrahedra(newNodeId, otherNodes[0], otherNodes[1], negEdgeNode));
         }
-        
-        // need to think through the order of creation and deletion
-        // - safe to create vertices whenever because it's additive
-        // - safe to create tetrahedra whenever because it's additive
-        // - not safe to delete tetrahedra, so the id's of tetrahedra that need to be deleted should be
-        //   stored and deleted after... all elements are considered from a single fracture?
-        // - let's say yes
-
-        /*
-                            const auto& edge = splitNeighborEdges[0];
-                    const auto& newNode = splitEdgeToNewVertices[edge];
-
-                    std::vector<int> sharedNodes;
-                    for (auto nodeIdx : neighborTet.mIndices)
-                    {
-                        if (nodeIdx == edge.x || nodeIdx == edge.y)
-                            continue;
-                        
-                        sharedNodes.push_back(nodeIdx);
-                    }
-
-                    // actually, this neighbor may be a face neighbor
-                    // so we are definitely missing that case here
-                    if (sharedNodes.size() != 2)
-                        std::cout << "Expected 2 shared nodes during neighbor splitting, found " << sharedNodes.size() << "." << std::endl;
-
-                    auto a = sharedNodes[0];
-                    auto b = sharedNodes[1];
-                    auto c = edge.x;
-                    auto d = edge.y;
-                    auto e = newNode;
-
-                    tetrahedraToAdd.push_back(Tetrahedra(a, c, b, e));
-                    tetrahedraToAdd.push_back(Tetrahedra(a, b, d, e));
-
-                    neighborTetrahedraToRemove.push_back(neighborTetIdx);
-        */
-
     }
 
     ////////////////////////////////////////////////////////////////////////////////
@@ -1659,9 +1376,58 @@ namespace TestDeformation
 
     ////////////////////////////////////////////////////////////////////////////////
 
-    std::vector<size_t> FractureContext::GetTetrahedraNeighbors(size_t tetrahedraIdx) const
+    bool FractureContext::PlaneIntersectEdge(const glm::dvec3& planePos, const glm::dvec3& planeNormal, const glm::dvec3& edgePos0, const glm::dvec3& edgePos1, double& d, glm::dvec3* intersectionPos) const
     {
-        return std::vector<size_t>();
+        // plane equation is (p - p0) * n = 0, where n is the normal vector
+        // line equation is p = l0 + v * t, where v is the direction vector of the line
+        // compute d = (p0 - l0) * n / (l * n)
+        // intersection is at p = l0 + v * d
+        // if d == 0, plane contains line
+        auto edgeDirVec = glm::normalize(edgePos1 - edgePos0);
+
+        d = glm::dot((planePos - edgePos0), planeNormal) / glm::dot(edgeDirVec, planeNormal);
+
+        // Outside the line segment
+        if (d <= 0 || d > 1)
+            return false;
+
+        if (intersectionPos)
+            *intersectionPos = edgePos0 + d * edgeDirVec;
+
+        return true;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////
+
+    bool FractureContext::IsIsolatedEdge(const glm::ivec2& edgeId) const
+    {
+        size_t counter = 0;
+
+        for (const auto& tet : mTetrahedra)
+        {
+            if (tet.ContainsEdgeIndex(edgeId))
+                counter++;
+        }
+
+        if (counter == 0)
+            throw std::exception("Failed to find isolated edge id in any tetrahedra.");
+
+        return (counter == 1);
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////
+
+    std::vector<size_t> FractureContext::GetTetrahedraNeighbors(size_t nodeIdx) const
+    {
+        std::vector<size_t> neighborIds;
+
+        for (size_t tetId = 0; tetId < mTetrahedra.size(); tetId++)
+        {
+            if (mTetrahedra[tetId].ContainsVertexIndex(nodeIdx))
+                neighborIds.push_back(tetId);
+        }
+
+        return neighborIds;
     }
 
     ////////////////////////////////////////////////////////////////////////////////

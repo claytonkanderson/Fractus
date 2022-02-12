@@ -27,9 +27,6 @@
     <ClInclude Include="..\..\Source\demos.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\Source\dsytrd3.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\Source\Light.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>

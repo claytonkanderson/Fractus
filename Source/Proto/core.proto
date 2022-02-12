@@ -133,6 +133,11 @@ message SimulationSummary
 	repeated SimulationFrame frames = 9;
 }
 
+message SimulationSummaries
+{
+    repeated SimulationSummary summaries = 1;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Event and Command message definitions
 ////////////////////////////////////////////////////////////////////////////////
@@ -160,11 +165,20 @@ message Asset
     Box bounds = 3;
     string last_saved = 4;
     string author = 5;
+    string asset_id = 6;
+}
+
+message PalaceAsset
+{
+    string asset_id = 1;
+    Transform transform = 2;
+    Color color = 3;
 }
 
 message PlayerAssets
 {
     repeated Asset assets = 1;
+    
 }
 
 ////////////////////////////////////////////////////////////////////////////////

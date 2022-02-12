@@ -1,4 +1,6 @@
 #include "TestDeformation.hpp"
+#include "DeformationAPI.h"
+#include "ProtoConverter.hpp"
 #include <glm/vec4.hpp>
 #include <glm/common.hpp>
 #include <iostream>
@@ -9,7 +11,7 @@
 #include <Mathematics/AlignedBox.h>
 #include <Mathematics/DistPointHyperplane.h>
 
-static void* mData = nullptr;
+void* mData = nullptr;
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -27,6 +29,9 @@ extern "C" void __declspec(dllexport) __stdcall Initialize(
 	double toughness,
 	double density)
 {
+	if (mData != nullptr)
+		Destroy();
+
 	TestDeformation::TetraGroup* group = new TestDeformation::TetraGroup();
 	mData = group;
 
@@ -70,6 +75,7 @@ extern "C" void __declspec(dllexport) __stdcall Initialize(
 extern "C" void __declspec(dllexport) __stdcall Destroy()
 {
 	TestDeformation::TetraGroup* group = (TestDeformation::TetraGroup*)mData;
+	group->OutputSaveFile();
 	delete group;
 }
 
@@ -347,105 +353,6 @@ extern "C" void __declspec(dllexport) __stdcall TetrahedralizeCubeIntersection(
 	{
 		outTetrahedraIndices[i] = triangulator.GetIndices()[i];
 	}
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
-#include <iostream>
-
-int main(int argc, const char* argv[]) {
-
-	{
-		int maxNumVertices = 10;
-		int maxNumTetrahedra = 10;
-
-		double lambda = 2.65e6f;
-		double psi = 397.f;
-		double phi = 264.f;
-		double mu = 3.97e6f;
-		double density = 5013.f;
-		double timestep = 0.0001f;
-		double toughness = 10.f;
-
-
-		std::vector<float> positions = { 
-			0, 1 + 0, 0,
-			1, 1 + 0.5f, 0,
-			0, 1 + 1, 0,
-			0, 1 + 0.5f, 1,
-			-0.5f, 1 + 0.5f, -1.2f
-		};
-		positions.resize(3 * (maxNumVertices+10));
-		std::vector<int> indices = { 
-			0, 1, 2, 3,
-			0, 1, 4, 2
-		};
-		indices.resize(4 * (maxNumTetrahedra+10));
-
-		Initialize(positions.data(), 5, maxNumVertices, indices.data(), 2, maxNumTetrahedra, lambda, psi, mu, phi, toughness, density);
-		TestDeformation::TetraGroup* group = (TestDeformation::TetraGroup*)mData;
-		
-		for (auto& vert : group->mVertices)
-			vert.mVelocity += glm::vec3(0, -10, 0);
-
-		IronGames::SimulationSummary summary;
-		group->mSummary = &summary;
-		group->mSaveEveryXSteps = 1;
-		summary.set_lambda(lambda);
-		summary.set_psi(psi);
-		summary.set_phi(phi);
-		summary.set_mu(mu);
-		summary.set_density(density);
-		summary.set_toughness(toughness);
-
-		float maxEigenvalue = -1;
-		float maxEigenvalueTime = 0.0f;
-
-		for (int i = 0; i < 10000; i++)
-		{
-			group->Update(timestep);
-
-			for (const auto& vertex : group->mVertices)
-			{
-				if (vertex.mLargestEigenvalue > maxEigenvalue)
-				{
-					maxEigenvalue = vertex.mLargestEigenvalue;
-					maxEigenvalueTime = i * timestep;
-				}
-			}
-		}
-
-		// write to file...
-		std::ofstream ofs("simulation.summary", std::ios_base::out | std::ios_base::binary);
-		summary.SerializeToOstream(&ofs);
-		
-		//int numVertices;
-		//int numTetrahedra;
-		//Deform(positions.data(), nullptr, false, nullptr, false, indices.data(), &numVertices, &numTetrahedra, timestep, 5);
-
-		std::cout << "Max Eigenvalue : " << maxEigenvalue << " time " << maxEigenvalueTime << "s." << std::endl;
-	}
-
-	//{
-	//	std::vector<float> minMax = { 0, 0, 0, 2, 2, 2 };
-	//	std::vector<float> normalOrigin = { 0, 0, 1, 0, 0, 1 };
-	//	std::vector<float> vertices(10);
-	//	std::vector<int> indices(12);
-	//	int numTetrahedra;
-	//	int numVertices;
-	//	bool positivePlane = true;
-	//	TetrahedralizeCubeIntersection(minMax.data(), normalOrigin.data(), vertices.data(), &numVertices, indices.data(), &numTetrahedra, positivePlane);
-
-	//	std::cout << "Num tetrahedra : " << numTetrahedra << std::endl;
-	//	std::cout << "Num vertices : " << numVertices << std::endl;
-
-	//	for (int i = 0; i < numVertices; i++)
-	//	{
-	//		
-	//		std::cout << "Position : (" << vertices[3 * i] << ", " << vertices[3 * i + 1] << ", " << vertices[3 * i + 2] << ")" << std::endl;
-	//	}
-	//}
-
 }
 
 ////////////////////////////////////////////////////////////////////////////////

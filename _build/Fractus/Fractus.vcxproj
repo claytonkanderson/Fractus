@@ -166,7 +166,6 @@
     <ClInclude Include="..\..\Source\Color.hpp" />
     <ClInclude Include="..\..\Source\core.hpp" />
     <ClInclude Include="..\..\Source\demos.hpp" />
-    <ClInclude Include="..\..\Source\dsytrd3.h" />
     <ClInclude Include="..\..\Source\IOUtil.hpp" />
     <ClInclude Include="..\..\Source\Light.hpp" />
     <ClInclude Include="..\..\Source\Object.hpp" />

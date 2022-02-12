@@ -46,7 +46,7 @@ struct TableStruct_core_2eproto {
     PROTOBUF_SECTION_VARIABLE(protodesc_cold);
   static const ::PROTOBUF_NAMESPACE_ID::internal::AuxiliaryParseTableField aux[]
     PROTOBUF_SECTION_VARIABLE(protodesc_cold);
-  static const ::PROTOBUF_NAMESPACE_ID::internal::ParseTable schema[47]
+  static const ::PROTOBUF_NAMESPACE_ID::internal::ParseTable schema[49]
     PROTOBUF_SECTION_VARIABLE(protodesc_cold);
   static const ::PROTOBUF_NAMESPACE_ID::internal::FieldMetadata field_metadata[];
   static const ::PROTOBUF_NAMESPACE_ID::internal::SerializationTable serialization_table[];
@@ -154,6 +154,9 @@ extern NewGameRequestDefaultTypeInternal _NewGameRequest_default_instance_;
 class NewGameResponse;
 struct NewGameResponseDefaultTypeInternal;
 extern NewGameResponseDefaultTypeInternal _NewGameResponse_default_instance_;
+class PalaceAsset;
+struct PalaceAssetDefaultTypeInternal;
+extern PalaceAssetDefaultTypeInternal _PalaceAsset_default_instance_;
 class Parameter;
 struct ParameterDefaultTypeInternal;
 extern ParameterDefaultTypeInternal _Parameter_default_instance_;
@@ -172,6 +175,9 @@ extern SendEventResponseDefaultTypeInternal _SendEventResponse_default_instance_
 class SimulationFrame;
 struct SimulationFrameDefaultTypeInternal;
 extern SimulationFrameDefaultTypeInternal _SimulationFrame_default_instance_;
+class SimulationSummaries;
+struct SimulationSummariesDefaultTypeInternal;
+extern SimulationSummariesDefaultTypeInternal _SimulationSummaries_default_instance_;
 class SimulationSummary;
 struct SimulationSummaryDefaultTypeInternal;
 extern SimulationSummaryDefaultTypeInternal _SimulationSummary_default_instance_;
@@ -231,12 +237,14 @@ template<> ::IronGames::JoinGameResponse* Arena::CreateMaybeMessage<::IronGames:
 template<> ::IronGames::Matrix3* Arena::CreateMaybeMessage<::IronGames::Matrix3>(Arena*);
 template<> ::IronGames::NewGameRequest* Arena::CreateMaybeMessage<::IronGames::NewGameRequest>(Arena*);
 template<> ::IronGames::NewGameResponse* Arena::CreateMaybeMessage<::IronGames::NewGameResponse>(Arena*);
+template<> ::IronGames::PalaceAsset* Arena::CreateMaybeMessage<::IronGames::PalaceAsset>(Arena*);
 template<> ::IronGames::Parameter* Arena::CreateMaybeMessage<::IronGames::Parameter>(Arena*);
 template<> ::IronGames::Player* Arena::CreateMaybeMessage<::IronGames::Player>(Arena*);
 template<> ::IronGames::PlayerAssets* Arena::CreateMaybeMessage<::IronGames::PlayerAssets>(Arena*);
 template<> ::IronGames::Quaternion* Arena::CreateMaybeMessage<::IronGames::Quaternion>(Arena*);
 template<> ::IronGames::SendEventResponse* Arena::CreateMaybeMessage<::IronGames::SendEventResponse>(Arena*);
 template<> ::IronGames::SimulationFrame* Arena::CreateMaybeMessage<::IronGames::SimulationFrame>(Arena*);
+template<> ::IronGames::SimulationSummaries* Arena::CreateMaybeMessage<::IronGames::SimulationSummaries>(Arena*);
 template<> ::IronGames::SimulationSummary* Arena::CreateMaybeMessage<::IronGames::SimulationSummary>(Arena*);
 template<> ::IronGames::SimulationTetrahedra* Arena::CreateMaybeMessage<::IronGames::SimulationTetrahedra>(Arena*);
 template<> ::IronGames::SimulationVertex* Arena::CreateMaybeMessage<::IronGames::SimulationVertex>(Arena*);
@@ -2893,6 +2901,152 @@ class SimulationSummary PROTOBUF_FINAL :
 };
 // -------------------------------------------------------------------
 
+class SimulationSummaries PROTOBUF_FINAL :
+    public ::PROTOBUF_NAMESPACE_ID::Message /* @@protoc_insertion_point(class_definition:IronGames.SimulationSummaries) */ {
+ public:
+  inline SimulationSummaries() : SimulationSummaries(nullptr) {}
+  virtual ~SimulationSummaries();
+  explicit constexpr SimulationSummaries(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized);
+
+  SimulationSummaries(const SimulationSummaries& from);
+  SimulationSummaries(SimulationSummaries&& from) noexcept
+    : SimulationSummaries() {
+    *this = ::std::move(from);
+  }
+
+  inline SimulationSummaries& operator=(const SimulationSummaries& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline SimulationSummaries& operator=(SimulationSummaries&& from) noexcept {
+    if (GetArena() == from.GetArena()) {
+      if (this != &from) InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  static const ::PROTOBUF_NAMESPACE_ID::Descriptor* descriptor() {
+    return GetDescriptor();
+  }
+  static const ::PROTOBUF_NAMESPACE_ID::Descriptor* GetDescriptor() {
+    return GetMetadataStatic().descriptor;
+  }
+  static const ::PROTOBUF_NAMESPACE_ID::Reflection* GetReflection() {
+    return GetMetadataStatic().reflection;
+  }
+  static const SimulationSummaries& default_instance() {
+    return *internal_default_instance();
+  }
+  static inline const SimulationSummaries* internal_default_instance() {
+    return reinterpret_cast<const SimulationSummaries*>(
+               &_SimulationSummaries_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages =
+    13;
+
+  friend void swap(SimulationSummaries& a, SimulationSummaries& b) {
+    a.Swap(&b);
+  }
+  inline void Swap(SimulationSummaries* other) {
+    if (other == this) return;
+    if (GetArena() == other->GetArena()) {
+      InternalSwap(other);
+    } else {
+      ::PROTOBUF_NAMESPACE_ID::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(SimulationSummaries* other) {
+    if (other == this) return;
+    GOOGLE_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  inline SimulationSummaries* New() const final {
+    return CreateMaybeMessage<SimulationSummaries>(nullptr);
+  }
+
+  SimulationSummaries* New(::PROTOBUF_NAMESPACE_ID::Arena* arena) const final {
+    return CreateMaybeMessage<SimulationSummaries>(arena);
+  }
+  void CopyFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) final;
+  void MergeFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) final;
+  void CopyFrom(const SimulationSummaries& from);
+  void MergeFrom(const SimulationSummaries& from);
+  PROTOBUF_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  size_t ByteSizeLong() const final;
+  const char* _InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::internal::ParseContext* ctx) final;
+  ::PROTOBUF_NAMESPACE_ID::uint8* _InternalSerialize(
+      ::PROTOBUF_NAMESPACE_ID::uint8* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const final;
+  int GetCachedSize() const final { return _cached_size_.Get(); }
+
+  private:
+  inline void SharedCtor();
+  inline void SharedDtor();
+  void SetCachedSize(int size) const final;
+  void InternalSwap(SimulationSummaries* other);
+  friend class ::PROTOBUF_NAMESPACE_ID::internal::AnyMetadata;
+  static ::PROTOBUF_NAMESPACE_ID::StringPiece FullMessageName() {
+    return "IronGames.SimulationSummaries";
+  }
+  protected:
+  explicit SimulationSummaries(::PROTOBUF_NAMESPACE_ID::Arena* arena);
+  private:
+  static void ArenaDtor(void* object);
+  inline void RegisterArenaDtor(::PROTOBUF_NAMESPACE_ID::Arena* arena);
+  public:
+
+  ::PROTOBUF_NAMESPACE_ID::Metadata GetMetadata() const final;
+  private:
+  static ::PROTOBUF_NAMESPACE_ID::Metadata GetMetadataStatic() {
+    return ::descriptor_table_core_2eproto_metadata_getter(kIndexInFileMessages);
+  }
+
+  public:
+
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+
+  enum : int {
+    kSummariesFieldNumber = 1,
+  };
+  // repeated .IronGames.SimulationSummary summaries = 1;
+  int summaries_size() const;
+  private:
+  int _internal_summaries_size() const;
+  public:
+  void clear_summaries();
+  ::IronGames::SimulationSummary* mutable_summaries(int index);
+  ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::IronGames::SimulationSummary >*
+      mutable_summaries();
+  private:
+  const ::IronGames::SimulationSummary& _internal_summaries(int index) const;
+  ::IronGames::SimulationSummary* _internal_add_summaries();
+  public:
+  const ::IronGames::SimulationSummary& summaries(int index) const;
+  ::IronGames::SimulationSummary* add_summaries();
+  const ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::IronGames::SimulationSummary >&
+      summaries() const;
+
+  // @@protoc_insertion_point(class_scope:IronGames.SimulationSummaries)
+ private:
+  class _Internal;
+
+  template <typename T> friend class ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper;
+  typedef void InternalArenaConstructable_;
+  typedef void DestructorSkippable_;
+  ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::IronGames::SimulationSummary > summaries_;
+  mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
+  friend struct ::TableStruct_core_2eproto;
+};
+// -------------------------------------------------------------------
+
 class Box PROTOBUF_FINAL :
     public ::PROTOBUF_NAMESPACE_ID::Message /* @@protoc_insertion_point(class_definition:IronGames.Box) */ {
  public:
@@ -2936,7 +3090,7 @@ class Box PROTOBUF_FINAL :
                &_Box_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    13;
+    14;
 
   friend void swap(Box& a, Box& b) {
     a.Swap(&b);
@@ -3102,7 +3256,7 @@ class EditCube PROTOBUF_FINAL :
                &_EditCube_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    14;
+    15;
 
   friend void swap(EditCube& a, EditCube& b) {
     a.Swap(&b);
@@ -3248,7 +3402,7 @@ class TetrahedraMesh PROTOBUF_FINAL :
                &_TetrahedraMesh_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    15;
+    16;
 
   friend void swap(TetrahedraMesh& a, TetrahedraMesh& b) {
     a.Swap(&b);
@@ -3394,7 +3548,7 @@ class Asset PROTOBUF_FINAL :
                &_Asset_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    16;
+    17;
 
   friend void swap(Asset& a, Asset& b) {
     a.Swap(&b);
@@ -3468,6 +3622,7 @@ class Asset PROTOBUF_FINAL :
     kTetrahedraMeshesFieldNumber = 2,
     kLastSavedFieldNumber = 4,
     kAuthorFieldNumber = 5,
+    kAssetIdFieldNumber = 6,
     kBoundsFieldNumber = 3,
   };
   // repeated .IronGames.EditCube cubes = 1;
@@ -3538,6 +3693,22 @@ class Asset PROTOBUF_FINAL :
   std::string* _internal_mutable_author();
   public:
 
+  // string asset_id = 6;
+  void clear_asset_id();
+  const std::string& asset_id() const;
+  void set_asset_id(const std::string& value);
+  void set_asset_id(std::string&& value);
+  void set_asset_id(const char* value);
+  void set_asset_id(const char* value, size_t size);
+  std::string* mutable_asset_id();
+  std::string* release_asset_id();
+  void set_allocated_asset_id(std::string* asset_id);
+  private:
+  const std::string& _internal_asset_id() const;
+  void _internal_set_asset_id(const std::string& value);
+  std::string* _internal_mutable_asset_id();
+  public:
+
   // .IronGames.Box bounds = 3;
   bool has_bounds() const;
   private:
@@ -3567,7 +3738,192 @@ class Asset PROTOBUF_FINAL :
   ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::IronGames::TetrahedraMesh > tetrahedra_meshes_;
   ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr last_saved_;
   ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr author_;
+  ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr asset_id_;
   ::IronGames::Box* bounds_;
+  mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
+  friend struct ::TableStruct_core_2eproto;
+};
+// -------------------------------------------------------------------
+
+class PalaceAsset PROTOBUF_FINAL :
+    public ::PROTOBUF_NAMESPACE_ID::Message /* @@protoc_insertion_point(class_definition:IronGames.PalaceAsset) */ {
+ public:
+  inline PalaceAsset() : PalaceAsset(nullptr) {}
+  virtual ~PalaceAsset();
+  explicit constexpr PalaceAsset(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized);
+
+  PalaceAsset(const PalaceAsset& from);
+  PalaceAsset(PalaceAsset&& from) noexcept
+    : PalaceAsset() {
+    *this = ::std::move(from);
+  }
+
+  inline PalaceAsset& operator=(const PalaceAsset& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline PalaceAsset& operator=(PalaceAsset&& from) noexcept {
+    if (GetArena() == from.GetArena()) {
+      if (this != &from) InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  static const ::PROTOBUF_NAMESPACE_ID::Descriptor* descriptor() {
+    return GetDescriptor();
+  }
+  static const ::PROTOBUF_NAMESPACE_ID::Descriptor* GetDescriptor() {
+    return GetMetadataStatic().descriptor;
+  }
+  static const ::PROTOBUF_NAMESPACE_ID::Reflection* GetReflection() {
+    return GetMetadataStatic().reflection;
+  }
+  static const PalaceAsset& default_instance() {
+    return *internal_default_instance();
+  }
+  static inline const PalaceAsset* internal_default_instance() {
+    return reinterpret_cast<const PalaceAsset*>(
+               &_PalaceAsset_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages =
+    18;
+
+  friend void swap(PalaceAsset& a, PalaceAsset& b) {
+    a.Swap(&b);
+  }
+  inline void Swap(PalaceAsset* other) {
+    if (other == this) return;
+    if (GetArena() == other->GetArena()) {
+      InternalSwap(other);
+    } else {
+      ::PROTOBUF_NAMESPACE_ID::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(PalaceAsset* other) {
+    if (other == this) return;
+    GOOGLE_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  inline PalaceAsset* New() const final {
+    return CreateMaybeMessage<PalaceAsset>(nullptr);
+  }
+
+  PalaceAsset* New(::PROTOBUF_NAMESPACE_ID::Arena* arena) const final {
+    return CreateMaybeMessage<PalaceAsset>(arena);
+  }
+  void CopyFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) final;
+  void MergeFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) final;
+  void CopyFrom(const PalaceAsset& from);
+  void MergeFrom(const PalaceAsset& from);
+  PROTOBUF_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  size_t ByteSizeLong() const final;
+  const char* _InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::internal::ParseContext* ctx) final;
+  ::PROTOBUF_NAMESPACE_ID::uint8* _InternalSerialize(
+      ::PROTOBUF_NAMESPACE_ID::uint8* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const final;
+  int GetCachedSize() const final { return _cached_size_.Get(); }
+
+  private:
+  inline void SharedCtor();
+  inline void SharedDtor();
+  void SetCachedSize(int size) const final;
+  void InternalSwap(PalaceAsset* other);
+  friend class ::PROTOBUF_NAMESPACE_ID::internal::AnyMetadata;
+  static ::PROTOBUF_NAMESPACE_ID::StringPiece FullMessageName() {
+    return "IronGames.PalaceAsset";
+  }
+  protected:
+  explicit PalaceAsset(::PROTOBUF_NAMESPACE_ID::Arena* arena);
+  private:
+  static void ArenaDtor(void* object);
+  inline void RegisterArenaDtor(::PROTOBUF_NAMESPACE_ID::Arena* arena);
+  public:
+
+  ::PROTOBUF_NAMESPACE_ID::Metadata GetMetadata() const final;
+  private:
+  static ::PROTOBUF_NAMESPACE_ID::Metadata GetMetadataStatic() {
+    return ::descriptor_table_core_2eproto_metadata_getter(kIndexInFileMessages);
+  }
+
+  public:
+
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+
+  enum : int {
+    kAssetIdFieldNumber = 1,
+    kTransformFieldNumber = 2,
+    kColorFieldNumber = 3,
+  };
+  // string asset_id = 1;
+  void clear_asset_id();
+  const std::string& asset_id() const;
+  void set_asset_id(const std::string& value);
+  void set_asset_id(std::string&& value);
+  void set_asset_id(const char* value);
+  void set_asset_id(const char* value, size_t size);
+  std::string* mutable_asset_id();
+  std::string* release_asset_id();
+  void set_allocated_asset_id(std::string* asset_id);
+  private:
+  const std::string& _internal_asset_id() const;
+  void _internal_set_asset_id(const std::string& value);
+  std::string* _internal_mutable_asset_id();
+  public:
+
+  // .IronGames.Transform transform = 2;
+  bool has_transform() const;
+  private:
+  bool _internal_has_transform() const;
+  public:
+  void clear_transform();
+  const ::IronGames::Transform& transform() const;
+  ::IronGames::Transform* release_transform();
+  ::IronGames::Transform* mutable_transform();
+  void set_allocated_transform(::IronGames::Transform* transform);
+  private:
+  const ::IronGames::Transform& _internal_transform() const;
+  ::IronGames::Transform* _internal_mutable_transform();
+  public:
+  void unsafe_arena_set_allocated_transform(
+      ::IronGames::Transform* transform);
+  ::IronGames::Transform* unsafe_arena_release_transform();
+
+  // .IronGames.Color color = 3;
+  bool has_color() const;
+  private:
+  bool _internal_has_color() const;
+  public:
+  void clear_color();
+  const ::IronGames::Color& color() const;
+  ::IronGames::Color* release_color();
+  ::IronGames::Color* mutable_color();
+  void set_allocated_color(::IronGames::Color* color);
+  private:
+  const ::IronGames::Color& _internal_color() const;
+  ::IronGames::Color* _internal_mutable_color();
+  public:
+  void unsafe_arena_set_allocated_color(
+      ::IronGames::Color* color);
+  ::IronGames::Color* unsafe_arena_release_color();
+
+  // @@protoc_insertion_point(class_scope:IronGames.PalaceAsset)
+ private:
+  class _Internal;
+
+  template <typename T> friend class ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper;
+  typedef void InternalArenaConstructable_;
+  typedef void DestructorSkippable_;
+  ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr asset_id_;
+  ::IronGames::Transform* transform_;
+  ::IronGames::Color* color_;
   mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   friend struct ::TableStruct_core_2eproto;
 };
@@ -3616,7 +3972,7 @@ class PlayerAssets PROTOBUF_FINAL :
                &_PlayerAssets_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    17;
+    19;
 
   friend void swap(PlayerAssets& a, PlayerAssets& b) {
     a.Swap(&b);
@@ -3762,7 +4118,7 @@ class EventPlayerConnected PROTOBUF_FINAL :
                &_EventPlayerConnected_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    18;
+    20;
 
   friend void swap(EventPlayerConnected& a, EventPlayerConnected& b) {
     a.Swap(&b);
@@ -3908,7 +4264,7 @@ class EventPlayerChanged PROTOBUF_FINAL :
                &_EventPlayerChanged_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    19;
+    21;
 
   friend void swap(EventPlayerChanged& a, EventPlayerChanged& b) {
     a.Swap(&b);
@@ -4054,7 +4410,7 @@ class EventPlayerDisconnected PROTOBUF_FINAL :
                &_EventPlayerDisconnected_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    20;
+    22;
 
   friend void swap(EventPlayerDisconnected& a, EventPlayerDisconnected& b) {
     a.Swap(&b);
@@ -4200,7 +4556,7 @@ class EventUnitCreation PROTOBUF_FINAL :
                &_EventUnitCreation_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    21;
+    23;
 
   friend void swap(EventUnitCreation& a, EventUnitCreation& b) {
     a.Swap(&b);
@@ -4379,7 +4735,7 @@ class EventActorCreationRequest PROTOBUF_FINAL :
                &_EventActorCreationRequest_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    22;
+    24;
 
   friend void swap(EventActorCreationRequest& a, EventActorCreationRequest& b) {
     a.Swap(&b);
@@ -4547,7 +4903,7 @@ class EventUnitDestruction PROTOBUF_FINAL :
                &_EventUnitDestruction_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    23;
+    25;
 
   friend void swap(EventUnitDestruction& a, EventUnitDestruction& b) {
     a.Swap(&b);
@@ -4684,7 +5040,7 @@ class EventBuildingCreation PROTOBUF_FINAL :
                &_EventBuildingCreation_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    24;
+    26;
 
   friend void swap(EventBuildingCreation& a, EventBuildingCreation& b) {
     a.Swap(&b);
@@ -4852,7 +5208,7 @@ class EventBuildingDestruction PROTOBUF_FINAL :
                &_EventBuildingDestruction_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    25;
+    27;
 
   friend void swap(EventBuildingDestruction& a, EventBuildingDestruction& b) {
     a.Swap(&b);
@@ -4989,7 +5345,7 @@ class CommandMove PROTOBUF_FINAL :
                &_CommandMove_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    26;
+    28;
 
   friend void swap(CommandMove& a, CommandMove& b) {
     a.Swap(&b);
@@ -5146,7 +5502,7 @@ class CommandAttack PROTOBUF_FINAL :
                &_CommandAttack_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    27;
+    29;
 
   friend void swap(CommandAttack& a, CommandAttack& b) {
     a.Swap(&b);
@@ -5294,7 +5650,7 @@ class CommandAttackMove PROTOBUF_FINAL :
                &_CommandAttackMove_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    28;
+    30;
 
   friend void swap(CommandAttackMove& a, CommandAttackMove& b) {
     a.Swap(&b);
@@ -5458,7 +5814,7 @@ class EventUnitCommand PROTOBUF_FINAL :
                &_EventUnitCommand_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    29;
+    31;
 
   friend void swap(EventUnitCommand& a, EventUnitCommand& b) {
     a.Swap(&b);
@@ -5658,7 +6014,7 @@ class EventPlayerReadyToStartGame PROTOBUF_FINAL :
                &_EventPlayerReadyToStartGame_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    30;
+    32;
 
   friend void swap(EventPlayerReadyToStartGame& a, EventPlayerReadyToStartGame& b) {
     a.Swap(&b);
@@ -5782,7 +6138,7 @@ class EventGameStart PROTOBUF_FINAL :
                &_EventGameStart_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    31;
+    33;
 
   friend void swap(EventGameStart& a, EventGameStart& b) {
     a.Swap(&b);
@@ -5906,7 +6262,7 @@ class EventAllPlayersReadyForGameToStart PROTOBUF_FINAL :
                &_EventAllPlayersReadyForGameToStart_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    32;
+    34;
 
   friend void swap(EventAllPlayersReadyForGameToStart& a, EventAllPlayersReadyForGameToStart& b) {
     a.Swap(&b);
@@ -6030,7 +6386,7 @@ class EventPlayerLoadedGame PROTOBUF_FINAL :
                &_EventPlayerLoadedGame_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    33;
+    35;
 
   friend void swap(EventPlayerLoadedGame& a, EventPlayerLoadedGame& b) {
     a.Swap(&b);
@@ -6154,7 +6510,7 @@ class EventPlayerLoadedTile PROTOBUF_FINAL :
                &_EventPlayerLoadedTile_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    34;
+    36;
 
   friend void swap(EventPlayerLoadedTile& a, EventPlayerLoadedTile& b) {
     a.Swap(&b);
@@ -6318,7 +6674,7 @@ class Event PROTOBUF_FINAL :
                &_Event_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    35;
+    37;
 
   friend void swap(Event& a, Event& b) {
     a.Swap(&b);
@@ -6771,7 +7127,7 @@ class EventList PROTOBUF_FINAL :
                &_EventList_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    36;
+    38;
 
   friend void swap(EventList& a, EventList& b) {
     a.Swap(&b);
@@ -6917,7 +7273,7 @@ class JoinGameRequest PROTOBUF_FINAL :
                &_JoinGameRequest_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    37;
+    39;
 
   friend void swap(JoinGameRequest& a, JoinGameRequest& b) {
     a.Swap(&b);
@@ -7074,7 +7430,7 @@ class JoinGameResponse PROTOBUF_FINAL :
                &_JoinGameResponse_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    38;
+    40;
 
   friend void swap(JoinGameResponse& a, JoinGameResponse& b) {
     a.Swap(&b);
@@ -7231,7 +7587,7 @@ class ExitGameRequest PROTOBUF_FINAL :
                &_ExitGameRequest_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    39;
+    41;
 
   friend void swap(ExitGameRequest& a, ExitGameRequest& b) {
     a.Swap(&b);
@@ -7368,7 +7724,7 @@ class ExitGameResponse PROTOBUF_FINAL :
                &_ExitGameResponse_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    40;
+    42;
 
   friend void swap(ExitGameResponse& a, ExitGameResponse& b) {
     a.Swap(&b);
@@ -7492,7 +7848,7 @@ class SubscribeEventsRequest PROTOBUF_FINAL :
                &_SubscribeEventsRequest_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    41;
+    43;
 
   friend void swap(SubscribeEventsRequest& a, SubscribeEventsRequest& b) {
     a.Swap(&b);
@@ -7638,7 +7994,7 @@ class SendEventResponse PROTOBUF_FINAL :
                &_SendEventResponse_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    42;
+    44;
 
   friend void swap(SendEventResponse& a, SendEventResponse& b) {
     a.Swap(&b);
@@ -7762,7 +8118,7 @@ class NewGameRequest PROTOBUF_FINAL :
                &_NewGameRequest_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    43;
+    45;
 
   friend void swap(NewGameRequest& a, NewGameRequest& b) {
     a.Swap(&b);
@@ -7886,7 +8242,7 @@ class NewGameResponse PROTOBUF_FINAL :
                &_NewGameResponse_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    44;
+    46;
 
   friend void swap(NewGameResponse& a, NewGameResponse& b) {
     a.Swap(&b);
@@ -8023,7 +8379,7 @@ class EndGameRequest PROTOBUF_FINAL :
                &_EndGameRequest_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    45;
+    47;
 
   friend void swap(EndGameRequest& a, EndGameRequest& b) {
     a.Swap(&b);
@@ -8160,7 +8516,7 @@ class EndGameResponse PROTOBUF_FINAL :
                &_EndGameResponse_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    46;
+    48;
 
   friend void swap(EndGameResponse& a, EndGameResponse& b) {
     a.Swap(&b);
@@ -11050,6 +11406,49 @@ SimulationSummary::frames() const {
 
 // -------------------------------------------------------------------
 
+// SimulationSummaries
+
+// repeated .IronGames.SimulationSummary summaries = 1;
+inline int SimulationSummaries::_internal_summaries_size() const {
+  return summaries_.size();
+}
+inline int SimulationSummaries::summaries_size() const {
+  return _internal_summaries_size();
+}
+inline void SimulationSummaries::clear_summaries() {
+  summaries_.Clear();
+}
+inline ::IronGames::SimulationSummary* SimulationSummaries::mutable_summaries(int index) {
+  // @@protoc_insertion_point(field_mutable:IronGames.SimulationSummaries.summaries)
+  return summaries_.Mutable(index);
+}
+inline ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::IronGames::SimulationSummary >*
+SimulationSummaries::mutable_summaries() {
+  // @@protoc_insertion_point(field_mutable_list:IronGames.SimulationSummaries.summaries)
+  return &summaries_;
+}
+inline const ::IronGames::SimulationSummary& SimulationSummaries::_internal_summaries(int index) const {
+  return summaries_.Get(index);
+}
+inline const ::IronGames::SimulationSummary& SimulationSummaries::summaries(int index) const {
+  // @@protoc_insertion_point(field_get:IronGames.SimulationSummaries.summaries)
+  return _internal_summaries(index);
+}
+inline ::IronGames::SimulationSummary* SimulationSummaries::_internal_add_summaries() {
+  return summaries_.Add();
+}
+inline ::IronGames::SimulationSummary* SimulationSummaries::add_summaries() {
+  // @@protoc_insertion_point(field_add:IronGames.SimulationSummaries.summaries)
+  return _internal_add_summaries();
+}
+inline const ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::IronGames::SimulationSummary >&
+SimulationSummaries::summaries() const {
+  // @@protoc_insertion_point(field_list:IronGames.SimulationSummaries.summaries)
+  return summaries_;
+}
+
+// -------------------------------------------------------------------
+
 // Box
 
 // .IronGames.Vector3 min = 1;
@@ -11633,6 +12032,298 @@ inline void Asset::set_allocated_author(std::string* author) {
   author_.SetAllocated(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited(), author,
       GetArena());
   // @@protoc_insertion_point(field_set_allocated:IronGames.Asset.author)
+}
+
+// string asset_id = 6;
+inline void Asset::clear_asset_id() {
+  asset_id_.ClearToEmpty();
+}
+inline const std::string& Asset::asset_id() const {
+  // @@protoc_insertion_point(field_get:IronGames.Asset.asset_id)
+  return _internal_asset_id();
+}
+inline void Asset::set_asset_id(const std::string& value) {
+  _internal_set_asset_id(value);
+  // @@protoc_insertion_point(field_set:IronGames.Asset.asset_id)
+}
+inline std::string* Asset::mutable_asset_id() {
+  // @@protoc_insertion_point(field_mutable:IronGames.Asset.asset_id)
+  return _internal_mutable_asset_id();
+}
+inline const std::string& Asset::_internal_asset_id() const {
+  return asset_id_.Get();
+}
+inline void Asset::_internal_set_asset_id(const std::string& value) {
+  
+  asset_id_.Set(::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::EmptyDefault{}, value, GetArena());
+}
+inline void Asset::set_asset_id(std::string&& value) {
+  
+  asset_id_.Set(
+    ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::EmptyDefault{}, ::std::move(value), GetArena());
+  // @@protoc_insertion_point(field_set_rvalue:IronGames.Asset.asset_id)
+}
+inline void Asset::set_asset_id(const char* value) {
+  GOOGLE_DCHECK(value != nullptr);
+  
+  asset_id_.Set(::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::EmptyDefault{}, ::std::string(value), GetArena());
+  // @@protoc_insertion_point(field_set_char:IronGames.Asset.asset_id)
+}
+inline void Asset::set_asset_id(const char* value,
+    size_t size) {
+  
+  asset_id_.Set(::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::EmptyDefault{}, ::std::string(
+      reinterpret_cast<const char*>(value), size), GetArena());
+  // @@protoc_insertion_point(field_set_pointer:IronGames.Asset.asset_id)
+}
+inline std::string* Asset::_internal_mutable_asset_id() {
+  
+  return asset_id_.Mutable(::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::EmptyDefault{}, GetArena());
+}
+inline std::string* Asset::release_asset_id() {
+  // @@protoc_insertion_point(field_release:IronGames.Asset.asset_id)
+  return asset_id_.Release(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited(), GetArena());
+}
+inline void Asset::set_allocated_asset_id(std::string* asset_id) {
+  if (asset_id != nullptr) {
+    
+  } else {
+    
+  }
+  asset_id_.SetAllocated(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited(), asset_id,
+      GetArena());
+  // @@protoc_insertion_point(field_set_allocated:IronGames.Asset.asset_id)
+}
+
+// -------------------------------------------------------------------
+
+// PalaceAsset
+
+// string asset_id = 1;
+inline void PalaceAsset::clear_asset_id() {
+  asset_id_.ClearToEmpty();
+}
+inline const std::string& PalaceAsset::asset_id() const {
+  // @@protoc_insertion_point(field_get:IronGames.PalaceAsset.asset_id)
+  return _internal_asset_id();
+}
+inline void PalaceAsset::set_asset_id(const std::string& value) {
+  _internal_set_asset_id(value);
+  // @@protoc_insertion_point(field_set:IronGames.PalaceAsset.asset_id)
+}
+inline std::string* PalaceAsset::mutable_asset_id() {
+  // @@protoc_insertion_point(field_mutable:IronGames.PalaceAsset.asset_id)
+  return _internal_mutable_asset_id();
+}
+inline const std::string& PalaceAsset::_internal_asset_id() const {
+  return asset_id_.Get();
+}
+inline void PalaceAsset::_internal_set_asset_id(const std::string& value) {
+  
+  asset_id_.Set(::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::EmptyDefault{}, value, GetArena());
+}
+inline void PalaceAsset::set_asset_id(std::string&& value) {
+  
+  asset_id_.Set(
+    ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::EmptyDefault{}, ::std::move(value), GetArena());
+  // @@protoc_insertion_point(field_set_rvalue:IronGames.PalaceAsset.asset_id)
+}
+inline void PalaceAsset::set_asset_id(const char* value) {
+  GOOGLE_DCHECK(value != nullptr);
+  
+  asset_id_.Set(::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::EmptyDefault{}, ::std::string(value), GetArena());
+  // @@protoc_insertion_point(field_set_char:IronGames.PalaceAsset.asset_id)
+}
+inline void PalaceAsset::set_asset_id(const char* value,
+    size_t size) {
+  
+  asset_id_.Set(::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::EmptyDefault{}, ::std::string(
+      reinterpret_cast<const char*>(value), size), GetArena());
+  // @@protoc_insertion_point(field_set_pointer:IronGames.PalaceAsset.asset_id)
+}
+inline std::string* PalaceAsset::_internal_mutable_asset_id() {
+  
+  return asset_id_.Mutable(::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::EmptyDefault{}, GetArena());
+}
+inline std::string* PalaceAsset::release_asset_id() {
+  // @@protoc_insertion_point(field_release:IronGames.PalaceAsset.asset_id)
+  return asset_id_.Release(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited(), GetArena());
+}
+inline void PalaceAsset::set_allocated_asset_id(std::string* asset_id) {
+  if (asset_id != nullptr) {
+    
+  } else {
+    
+  }
+  asset_id_.SetAllocated(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited(), asset_id,
+      GetArena());
+  // @@protoc_insertion_point(field_set_allocated:IronGames.PalaceAsset.asset_id)
+}
+
+// .IronGames.Transform transform = 2;
+inline bool PalaceAsset::_internal_has_transform() const {
+  return this != internal_default_instance() && transform_ != nullptr;
+}
+inline bool PalaceAsset::has_transform() const {
+  return _internal_has_transform();
+}
+inline void PalaceAsset::clear_transform() {
+  if (GetArena() == nullptr && transform_ != nullptr) {
+    delete transform_;
+  }
+  transform_ = nullptr;
+}
+inline const ::IronGames::Transform& PalaceAsset::_internal_transform() const {
+  const ::IronGames::Transform* p = transform_;
+  return p != nullptr ? *p : reinterpret_cast<const ::IronGames::Transform&>(
+      ::IronGames::_Transform_default_instance_);
+}
+inline const ::IronGames::Transform& PalaceAsset::transform() const {
+  // @@protoc_insertion_point(field_get:IronGames.PalaceAsset.transform)
+  return _internal_transform();
+}
+inline void PalaceAsset::unsafe_arena_set_allocated_transform(
+    ::IronGames::Transform* transform) {
+  if (GetArena() == nullptr) {
+    delete reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(transform_);
+  }
+  transform_ = transform;
+  if (transform) {
+    
+  } else {
+    
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:IronGames.PalaceAsset.transform)
+}
+inline ::IronGames::Transform* PalaceAsset::release_transform() {
+  
+  ::IronGames::Transform* temp = transform_;
+  transform_ = nullptr;
+  if (GetArena() != nullptr) {
+    temp = ::PROTOBUF_NAMESPACE_ID::internal::DuplicateIfNonNull(temp);
+  }
+  return temp;
+}
+inline ::IronGames::Transform* PalaceAsset::unsafe_arena_release_transform() {
+  // @@protoc_insertion_point(field_release:IronGames.PalaceAsset.transform)
+  
+  ::IronGames::Transform* temp = transform_;
+  transform_ = nullptr;
+  return temp;
+}
+inline ::IronGames::Transform* PalaceAsset::_internal_mutable_transform() {
+  
+  if (transform_ == nullptr) {
+    auto* p = CreateMaybeMessage<::IronGames::Transform>(GetArena());
+    transform_ = p;
+  }
+  return transform_;
+}
+inline ::IronGames::Transform* PalaceAsset::mutable_transform() {
+  // @@protoc_insertion_point(field_mutable:IronGames.PalaceAsset.transform)
+  return _internal_mutable_transform();
+}
+inline void PalaceAsset::set_allocated_transform(::IronGames::Transform* transform) {
+  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
+  if (message_arena == nullptr) {
+    delete transform_;
+  }
+  if (transform) {
+    ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
+      ::PROTOBUF_NAMESPACE_ID::Arena::GetArena(transform);
+    if (message_arena != submessage_arena) {
+      transform = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
+          message_arena, transform, submessage_arena);
+    }
+    
+  } else {
+    
+  }
+  transform_ = transform;
+  // @@protoc_insertion_point(field_set_allocated:IronGames.PalaceAsset.transform)
+}
+
+// .IronGames.Color color = 3;
+inline bool PalaceAsset::_internal_has_color() const {
+  return this != internal_default_instance() && color_ != nullptr;
+}
+inline bool PalaceAsset::has_color() const {
+  return _internal_has_color();
+}
+inline void PalaceAsset::clear_color() {
+  if (GetArena() == nullptr && color_ != nullptr) {
+    delete color_;
+  }
+  color_ = nullptr;
+}
+inline const ::IronGames::Color& PalaceAsset::_internal_color() const {
+  const ::IronGames::Color* p = color_;
+  return p != nullptr ? *p : reinterpret_cast<const ::IronGames::Color&>(
+      ::IronGames::_Color_default_instance_);
+}
+inline const ::IronGames::Color& PalaceAsset::color() const {
+  // @@protoc_insertion_point(field_get:IronGames.PalaceAsset.color)
+  return _internal_color();
+}
+inline void PalaceAsset::unsafe_arena_set_allocated_color(
+    ::IronGames::Color* color) {
+  if (GetArena() == nullptr) {
+    delete reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(color_);
+  }
+  color_ = color;
+  if (color) {
+    
+  } else {
+    
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:IronGames.PalaceAsset.color)
+}
+inline ::IronGames::Color* PalaceAsset::release_color() {
+  
+  ::IronGames::Color* temp = color_;
+  color_ = nullptr;
+  if (GetArena() != nullptr) {
+    temp = ::PROTOBUF_NAMESPACE_ID::internal::DuplicateIfNonNull(temp);
+  }
+  return temp;
+}
+inline ::IronGames::Color* PalaceAsset::unsafe_arena_release_color() {
+  // @@protoc_insertion_point(field_release:IronGames.PalaceAsset.color)
+  
+  ::IronGames::Color* temp = color_;
+  color_ = nullptr;
+  return temp;
+}
+inline ::IronGames::Color* PalaceAsset::_internal_mutable_color() {
+  
+  if (color_ == nullptr) {
+    auto* p = CreateMaybeMessage<::IronGames::Color>(GetArena());
+    color_ = p;
+  }
+  return color_;
+}
+inline ::IronGames::Color* PalaceAsset::mutable_color() {
+  // @@protoc_insertion_point(field_mutable:IronGames.PalaceAsset.color)
+  return _internal_mutable_color();
+}
+inline void PalaceAsset::set_allocated_color(::IronGames::Color* color) {
+  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
+  if (message_arena == nullptr) {
+    delete color_;
+  }
+  if (color) {
+    ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
+      ::PROTOBUF_NAMESPACE_ID::Arena::GetArena(color);
+    if (message_arena != submessage_arena) {
+      color = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
+          message_arena, color, submessage_arena);
+    }
+    
+  } else {
+    
+  }
+  color_ = color;
+  // @@protoc_insertion_point(field_set_allocated:IronGames.PalaceAsset.color)
 }
 
 // -------------------------------------------------------------------
@@ -14447,6 +15138,10 @@ inline void EndGameRequest::set_game_id(::PROTOBUF_NAMESPACE_ID::int32 value) {
 #ifdef __GNUC__
   #pragma GCC diagnostic pop
 #endif  // __GNUC__
+// -------------------------------------------------------------------
+
+// -------------------------------------------------------------------
+
 // -------------------------------------------------------------------
 
 // -------------------------------------------------------------------
