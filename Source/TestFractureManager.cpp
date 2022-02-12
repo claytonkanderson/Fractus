@@ -171,6 +171,66 @@ namespace TestDeformation
 			std::cout << "Max Eigenvalue : " << maxEigenvalue << " time " << maxEigenvalueTime << "s." << std::endl;
 		}
 	};
+
+	class TestCaseThree : public TestCase
+	{
+	public:
+		void Run(IronGames::SimulationSummary* summary) override
+		{
+			int maxNumVertices = 10;
+			int maxNumTetrahedra = 10;
+
+			double lambda = 2.65e6f;
+			double psi = 397.f;
+			double phi = 264.f;
+			double mu = 3.97e6f;
+			double density = 5013.f;
+			double timestep = 0.0001f;
+			double toughness = 10.f;
+
+			std::vector<float> positions = {
+			0, 25 + 0, 0,
+			1, 25 + 0.5f, 0,
+			0, 25 + 1, 0,
+			0, 25 + 0.5f, 1
+			};
+			positions.resize(3 * (maxNumVertices + 10));
+
+			std::vector<int> indices = {
+				0, 1, 2, 3
+			};
+			indices.resize(4 * (maxNumTetrahedra + 10));
+
+			Initialize(positions.data(), 4, maxNumVertices, indices.data(), 1, maxNumTetrahedra, lambda, psi, mu, phi, toughness, density);
+			TestDeformation::TetraGroup* group = (TestDeformation::TetraGroup*)mData;
+
+			float maxEigenvalue = -1;
+			float maxEigenvalueTime = 0.0f;
+
+			try {
+				for (int i = 0; i < 3000; i++)
+				{
+					group->Update(timestep);
+
+					for (const auto& vertex : group->mVertices)
+					{
+						if (vertex.mLargestEigenvalue > maxEigenvalue)
+						{
+							maxEigenvalue = vertex.mLargestEigenvalue;
+							maxEigenvalueTime = i * timestep;
+						}
+					}
+				}
+			}
+			catch (const std::exception& e)
+			{
+				std::cout << "Error occurred during Test Case Two : " << e.what() << std::endl;
+			}
+
+			*summary = group->mSummary;
+			std::cout << "Max Eigenvalue : " << maxEigenvalue << " time " << maxEigenvalueTime << "s." << std::endl;
+		}
+	};
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -180,6 +240,7 @@ TestDeformation::TestFractureManager::TestFractureManager(IronGames::SimulationS
 {
 	mTestCases.push_back(new TestCaseOne());
 	mTestCases.push_back(new TestCaseTwo());
+	mTestCases.push_back(new TestCaseThree());
 }
 
 ////////////////////////////////////////////////////////////////////////////////

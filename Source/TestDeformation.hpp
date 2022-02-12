@@ -159,13 +159,12 @@ namespace TestDeformation
 		int mMaxNumTetrahedra = 0;
 		int mStepNum = 0;
 		int mStepsSinceLastSave = 100000;
-		int mSaveEveryXSteps = 0;
+		int mSaveEveryXSteps = 1;
 		double mSimulationTime = 0;
 
 		std::vector<Tetrahedra> mTetrahedra;
 		std::vector<Vertex> mVertices;
 
 		IronGames::SimulationSummary mSummary;
-		//IronGames::SimulationSummary* mSummary = nullptr;
 	};
 }

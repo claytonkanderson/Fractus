@@ -15,25 +15,28 @@ void* mData = nullptr;
 
 ////////////////////////////////////////////////////////////////////////////////
 
-extern "C" void __declspec(dllexport) __stdcall Initialize(
+extern "C" int __declspec(dllexport) __stdcall Initialize(
 	void* vertexPositions,
 	int numVertices,
 	int maxNumVertices,
 	void* tetrahedraIndices,
 	int numTetrahedra,
 	int maxNumTetrahedra,
-	double lambda,
-	double psi,
-	double mu,
-	double phi,
-	double toughness,
-	double density)
+	float lambda,
+	float psi,
+	float mu,
+	float phi,
+	float toughness,
+	float density)
 {
 	if (mData != nullptr)
 		Destroy();
 
 	TestDeformation::TetraGroup* group = new TestDeformation::TetraGroup();
 	mData = group;
+
+	if (density <= 1e-6)
+		return -5;
 
 	group->Initialize(lambda, psi, phi, mu, density, toughness);
 	group->mMaxNumTetrahedra = maxNumTetrahedra;
@@ -62,7 +65,26 @@ extern "C" void __declspec(dllexport) __stdcall Initialize(
 		tetrahedra.mIndices[3] = indices[4 * i + 3];
 	}
 
+	if (group->mDensity <= 1e-6)
+		return -1;
+
 	group->ComputeDerivedQuantities();
+
+	for (const auto& tet : group->mTetrahedra)
+	{
+		if (tet.mVolume <= 1e-6)
+			return 1;
+		if (tet.mMass <= 1e-6)
+			return -2;
+	}
+
+	for (const auto& vert : group->mVertices)
+	{
+		if (vert.mMass <= 1e-6)
+			return 2;
+	}
+
+	return 0;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -72,11 +94,12 @@ extern "C" void __declspec(dllexport) __stdcall Destroy()
 	TestDeformation::TetraGroup* group = (TestDeformation::TetraGroup*)mData;
 	group->OutputSaveFile();
 	delete group;
+	mData = nullptr;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-//
-extern "C" void __declspec(dllexport) __stdcall Deform(
+
+extern "C" int __declspec(dllexport) __stdcall Deform(
 	void* vertexPositions,
 	void* vertexVelocities,
 	bool useVelocities,
@@ -95,6 +118,12 @@ extern "C" void __declspec(dllexport) __stdcall Deform(
 
 	TestDeformation::TetraGroup* group = (TestDeformation::TetraGroup*)mData;
 
+	for (const auto& tet : group->mTetrahedra)
+	{
+		if (tet.mVolume <= 1e-6f)
+			return 1;
+	}
+
 	for (int i = 0; i < numSteps; i++)
 	{
 		try {
@@ -103,8 +132,20 @@ extern "C" void __declspec(dllexport) __stdcall Deform(
 		catch (const std::exception& e)
 		{
 			std::cout << "Update failed due to " << e.what() << std::endl;
-			break;
+			return 4;
 		}
+	}
+
+	for (const auto& tet : group->mTetrahedra)
+	{
+		if (tet.mVolume <= 1e-6f)
+			return 2;
+	}
+
+	for (const auto& vertex : group->mVertices)
+	{
+		if (vertex.mMass <= 1e-6f)
+			return 3;
 	}
 
 	// End simulation
@@ -116,20 +157,20 @@ extern "C" void __declspec(dllexport) __stdcall Deform(
 	{
 		auto& vertex = group->mVertices[i];
 
-		positions[3 * i]      = (float)vertex.mPosition.x;
-		positions[3 * i + 1]  = (float)vertex.mPosition.y;
-		positions[3 * i + 2 ] = (float)vertex.mPosition.z;
+		positions[3 * i + 0] = (float)vertex.mPosition.x;
+		positions[3 * i + 1] = (float)vertex.mPosition.y;
+		positions[3 * i + 2] = (float)vertex.mPosition.z;
 
 		if (useVelocities)
 		{
-			velocities[3 * i]     = (float)vertex.mVelocity.x;
+			velocities[3 * i + 0] = (float)vertex.mVelocity.x;
 			velocities[3 * i + 1] = (float)vertex.mVelocity.y;
 			velocities[3 * i + 2] = (float)vertex.mVelocity.z;
 		}
 
 		if (useForces)
 		{
-			forces[3 * i]     = (float)vertex.mForce.x;
+			forces[3 * i + 0] = (float)vertex.mForce.x;
 			forces[3 * i + 1] = (float)vertex.mForce.y;
 			forces[3 * i + 2] = (float)vertex.mForce.z;
 		}
@@ -143,6 +184,8 @@ extern "C" void __declspec(dllexport) __stdcall Deform(
 		indices[4 * i + 2] = group->mTetrahedra[i].mIndices[2];
 		indices[4 * i + 3] = group->mTetrahedra[i].mIndices[3];
 	}
+
+	return 0;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

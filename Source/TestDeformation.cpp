@@ -527,7 +527,9 @@ namespace TestDeformation
     void TetraGroup::OutputSaveFile()
     {
         std::ofstream ofs("simulation.summary", std::ios_base::out | std::ios_base::binary);
-        mSummary.SerializeToOstream(&ofs);
+        IronGames::SimulationSummaries summaries;
+        *summaries.add_summaries() = mSummary;
+        summaries.SerializeToOstream(&ofs);
     }
 
     ////////////////////////////////////////////////////////////////////////////////

@@ -4,19 +4,19 @@ extern void* mData;
 
 ////////////////////////////////////////////////////////////////////////////////
 
-extern "C" void __declspec(dllexport) __stdcall Initialize(
+extern "C" int __declspec(dllexport) __stdcall Initialize(
 	void* vertexPositions,
 	int numVertices,
 	int maxNumVertices,
 	void* tetrahedraIndices,
 	int numTetrahedra,
 	int maxNumTetrahedra,
-	double lambda,
-	double psi,
-	double mu,
-	double phi,
-	double toughness,
-	double density);
+	float lambda,
+	float psi,
+	float mu,
+	float phi,
+	float toughness,
+	float density);
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -24,7 +24,7 @@ extern "C" void __declspec(dllexport) __stdcall Destroy();
 
 ////////////////////////////////////////////////////////////////////////////////
 //
-extern "C" void __declspec(dllexport) __stdcall Deform(
+extern "C" int __declspec(dllexport) __stdcall Deform(
 	void* vertexPositions,
 	void* vertexVelocities,
 	bool useVelocities,
