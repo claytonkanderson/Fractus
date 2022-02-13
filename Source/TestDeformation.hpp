@@ -67,13 +67,17 @@ namespace TestDeformation
 			const glm::vec3 & fracturePlaneNormal,
 			size_t fractureVertexIdx,
 			std::vector<Tetrahedra> & tetrahedra,
-			std::vector<Vertex> & vertices)
+			std::vector<Vertex> & vertices,
+			size_t & tetIdCounter,
+			std::unordered_map<size_t, Tetrahedra> & idToTetrahedra)
 			: 
 			mFracturePlaneNormal(fracturePlaneNormal),
 			mFractureNodePosition(vertices[fractureVertexIdx].mPosition),
 			mFractureNodeIdx(fractureVertexIdx),
 			mTetrahedra(tetrahedra),
-			mVertices(vertices)
+			mVertices(vertices),
+			mTetIdCounter(tetIdCounter),
+			mIdToTetrahedra(idToTetrahedra)
 		{
 
 		}
@@ -107,30 +111,14 @@ namespace TestDeformation
 		void CalculateVerticesDistToPlane(const glm::dvec3 & normal);
 
 	private:
-		size_t mTetrahedraIdx = -1;
-
-		bool mSnapToFace = false;
-		glm::ivec3 mSnappingFaceId;
-		glm::dvec3 mSnappedFaceNormal;
-
-		bool mSnapToEdge = false;
-		glm::ivec2 mSnappingEdgeId;
-		glm::dvec3 mSnappedEdgeNormal;
-
-		bool mFracturedNeighborFaceTet = false;
-		size_t mFracturedNeighborFaceTetId = -1;
-
-		std::vector<size_t> mTetrahedraToDelete;
 		std::vector<Tetrahedra> mNewTetrahedra;
 
-		std::array<double, 4> mVertexDistToPlane;
-
-		const glm::dvec3 mFracturePlaneNormal;
+		glm::dvec3 mFracturePlaneNormal;
 		const glm::dvec3 mFractureNodePosition;
 		size_t mFractureNodeIdx = -1;
-		size_t mNegativeFractureNodeIdx = -1;
 		size_t & mTetIdCounter;
 		std::unordered_map<size_t, Tetrahedra>& mIdToTetrahedra;
+		std::unordered_set<size_t> mTetrahedraIdsToDelete;
 		std::vector<Tetrahedra>& mTetrahedra;
 		std::vector<Vertex>& mVertices;
 	};
