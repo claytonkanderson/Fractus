@@ -2,6 +2,7 @@
 #include "TestDeformation.hpp"
 #include "DeformationAPI.h"
 #include "ProtoConverter.hpp"
+#include <fstream>
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -110,7 +111,7 @@ namespace TestDeformation
 	public:
 		void Run(IronGames::SimulationSummary* summary) override
 		{
-			int maxNumVertices = 10;
+			int maxNumVertices = 20;
 			int maxNumTetrahedra = 10;
 
 			double lambda = 2.65e6f;
@@ -177,58 +178,73 @@ namespace TestDeformation
 	public:
 		void Run(IronGames::SimulationSummary* summary) override
 		{
-			int maxNumVertices = 10;
-			int maxNumTetrahedra = 10;
+			std::ifstream file;
+			file.open("D:/UnityProjects/3D_Template/Assets/Resources/Bowl.obj");
+
+			std::vector<float> positions;
+			std::vector<int> indices;
+
+const float positionScale = 2.0f;
+const float heightOffset = 2.0f;
+
+			std::string line;
+			float x, y, z;
+			int i0, i1, i2, i3;
+			char c;
+			while (std::getline(file, line))
+			{
+				std::istringstream iss(line);
+
+				iss >> c;
+
+				if (c == 'v')
+				{
+					iss >> x >> y >> z;
+
+					positions.push_back(positionScale * x);
+					positions.push_back(positionScale * y + heightOffset);
+					positions.push_back(positionScale * z);
+				}
+				else if (c == 't')
+				{
+					iss >> i0 >> i1 >> i2 >> i3;
+					indices.push_back(i0 - 1);
+					indices.push_back(i1 - 1);
+					indices.push_back(i2 - 1);
+					indices.push_back(i3 - 1);
+				}
+			}
+
+			int numVertices = positions.size() / 3;
+			int numTetrahedra = indices.size() / 4;
+
+			int maxNumVertices = 2 * numVertices;
+			int maxNumTetrahedra = 2 * numTetrahedra;
 
 			double lambda = 2.65e6f;
 			double psi = 397.f;
 			double phi = 264.f;
 			double mu = 3.97e6f;
-			double density = 5013.f;
+			double density = 1013.f;
 			double timestep = 0.0001f;
-			double toughness = 10.f;
+			double toughness = 13.2f;
 
-			std::vector<float> positions = {
-			0, 25 + 0, 0,
-			1, 25 + 0.5f, 0,
-			0, 25 + 1, 0,
-			0, 25 + 0.5f, 1
-			};
-			positions.resize(3 * (maxNumVertices + 10));
-
-			std::vector<int> indices = {
-				0, 1, 2, 3
-			};
-			indices.resize(4 * (maxNumTetrahedra + 10));
-
-			Initialize(positions.data(), 4, maxNumVertices, indices.data(), 1, maxNumTetrahedra, lambda, psi, mu, phi, toughness, density);
+			Initialize(positions.data(), numVertices, maxNumVertices, indices.data(), numTetrahedra, maxNumTetrahedra, lambda, psi, mu, phi, toughness, density);
 			TestDeformation::TetraGroup* group = (TestDeformation::TetraGroup*)mData;
 
 			float maxEigenvalue = -1;
 			float maxEigenvalueTime = 0.0f;
 
-			try {
+			//try {
 				for (int i = 0; i < 3000; i++)
 				{
 					group->Update(timestep);
-
-					for (const auto& vertex : group->mVertices)
-					{
-						if (vertex.mLargestEigenvalue > maxEigenvalue)
-						{
-							maxEigenvalue = vertex.mLargestEigenvalue;
-							maxEigenvalueTime = i * timestep;
-						}
-					}
 				}
-			}
-			catch (const std::exception& e)
-			{
-				std::cout << "Error occurred during Test Case Two : " << e.what() << std::endl;
-			}
-
-			*summary = group->mSummary;
-			std::cout << "Max Eigenvalue : " << maxEigenvalue << " time " << maxEigenvalueTime << "s." << std::endl;
+			//}
+			//catch (const std::exception& e)
+			//{
+			//	std::cout << "Error occurred during Test Case Three : " << e.what() << std::endl;
+			//}
 		}
 	};
 };
@@ -240,7 +256,7 @@ TestDeformation::TestFractureManager::TestFractureManager(IronGames::SimulationS
 {
 	mTestCases.push_back(new TestCaseOne());
 	mTestCases.push_back(new TestCaseTwo());
-	mTestCases.push_back(new TestCaseThree());
+//	mTestCases.push_back(new TestCaseThree());
 }
 
 ////////////////////////////////////////////////////////////////////////////////

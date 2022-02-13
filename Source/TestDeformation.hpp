@@ -104,6 +104,8 @@ namespace TestDeformation
 		size_t GetNonFractureNode(const glm::ivec2& edge) const;
 		void PlaneIntersectTetrahedraEdges(std::vector<glm::ivec2>& outVertexIds, std::vector<double>& parametricDistance) const;
 
+		void CalculateVerticesDistToPlane(const glm::dvec3 & normal);
+
 	private:
 		size_t mTetrahedraIdx = -1;
 
@@ -121,10 +123,14 @@ namespace TestDeformation
 		std::vector<size_t> mTetrahedraToDelete;
 		std::vector<Tetrahedra> mNewTetrahedra;
 
+		std::array<double, 4> mVertexDistToPlane;
+
 		const glm::dvec3 mFracturePlaneNormal;
 		const glm::dvec3 mFractureNodePosition;
 		size_t mFractureNodeIdx = -1;
 		size_t mNegativeFractureNodeIdx = -1;
+		size_t & mTetIdCounter;
+		std::unordered_map<size_t, Tetrahedra>& mIdToTetrahedra;
 		std::vector<Tetrahedra>& mTetrahedra;
 		std::vector<Vertex>& mVertices;
 	};

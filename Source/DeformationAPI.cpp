@@ -118,11 +118,11 @@ extern "C" int __declspec(dllexport) __stdcall Deform(
 
 	TestDeformation::TetraGroup* group = (TestDeformation::TetraGroup*)mData;
 
-	for (const auto& tet : group->mTetrahedra)
-	{
-		if (tet.mVolume <= 1e-6f)
-			return 1;
-	}
+	//for (const auto& tet : group->mTetrahedra)
+	//{
+	//	if (tet.mVolume <= 1e-6f)
+	//		return 1;
+	//}
 
 	for (int i = 0; i < numSteps; i++)
 	{
@@ -136,17 +136,17 @@ extern "C" int __declspec(dllexport) __stdcall Deform(
 		}
 	}
 
-	for (const auto& tet : group->mTetrahedra)
-	{
-		if (tet.mVolume <= 1e-6f)
-			return 2;
-	}
+	//for (const auto& tet : group->mTetrahedra)
+	//{
+	//	if (tet.mVolume <= 1e-6f)
+	//		return 2;
+	//}
 
-	for (const auto& vertex : group->mVertices)
-	{
-		if (vertex.mMass <= 1e-6f)
-			return 3;
-	}
+	//for (const auto& vertex : group->mVertices)
+	//{
+	//	if (vertex.mMass <= 1e-6f)
+	//		return 3;
+	//}
 
 	// End simulation
 
