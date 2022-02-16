@@ -43,7 +43,6 @@ extern "C" int __declspec(dllexport) __stdcall Initialize(
 	group->mMaxNumVertices = maxNumVertices;
 	// Could reserve the max memory here
 	group->mVertices.resize(numVertices);
-	group->mTetrahedra.resize(numTetrahedra);
 
 	auto positions = reinterpret_cast<float*>(vertexPositions);
 	auto indices = reinterpret_cast<int*>(tetrahedraIndices);
@@ -58,11 +57,14 @@ extern "C" int __declspec(dllexport) __stdcall Initialize(
 
 	for (int i = 0; i < numTetrahedra; i++)
 	{
-		auto& tetrahedra = group->mTetrahedra[i];
+		TestDeformation::Tetrahedra tetrahedra;
+
 		tetrahedra.mIndices[0] = indices[4 * i];
 		tetrahedra.mIndices[1] = indices[4 * i + 1];
 		tetrahedra.mIndices[2] = indices[4 * i + 2];
 		tetrahedra.mIndices[3] = indices[4 * i + 3];
+
+		group->mIdToTetrahedra[group->mTetIdCounter++] = tetrahedra;
 	}
 
 	if (group->mDensity <= 1e-6)
@@ -70,11 +72,11 @@ extern "C" int __declspec(dllexport) __stdcall Initialize(
 
 	group->ComputeDerivedQuantities();
 
-	for (const auto& tet : group->mTetrahedra)
+	for (const auto& pair : group->mIdToTetrahedra)
 	{
-		if (tet.mVolume <= 1e-6)
+		if (pair.second.mVolume <= 1e-6)
 			return 1;
-		if (tet.mMass <= 1e-6)
+		if (pair.second.mMass <= 1e-6)
 			return -2;
 	}
 
@@ -151,7 +153,7 @@ extern "C" int __declspec(dllexport) __stdcall Deform(
 	// End simulation
 
 	*numVertices = group->mVertices.size();
-	*numTetrahedra = group->mTetrahedra.size();
+	*numTetrahedra = group->mIdToTetrahedra.size();
 
 	for (int i = 0; i < group->mVertices.size(); i++)
 	{
@@ -177,12 +179,16 @@ extern "C" int __declspec(dllexport) __stdcall Deform(
 	}
 
 	// Optimize - don't need to loop over all tet's, only the new ones
-	for (int i = 0; i < group->mTetrahedra.size(); i++)
+	size_t counter = 0;
+	for (const auto & pair : group->mIdToTetrahedra)
 	{
-		indices[4 * i + 0] = group->mTetrahedra[i].mIndices[0];
-		indices[4 * i + 1] = group->mTetrahedra[i].mIndices[1];
-		indices[4 * i + 2] = group->mTetrahedra[i].mIndices[2];
-		indices[4 * i + 3] = group->mTetrahedra[i].mIndices[3];
+		const auto& tetrahedra = pair.second;
+		indices[4 * counter + 0] = tetrahedra.mIndices[0];
+		indices[4 * counter + 1] = tetrahedra.mIndices[1];
+		indices[4 * counter + 2] = tetrahedra.mIndices[2];
+		indices[4 * counter + 3] = tetrahedra.mIndices[3];
+		
+		counter++;
 	}
 
 	return 0;

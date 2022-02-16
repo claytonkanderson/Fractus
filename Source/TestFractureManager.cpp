@@ -22,8 +22,9 @@ namespace TestDeformation
 			vert->set_mass(vertex.mMass);
 		}
 
-		for (const auto& tetrahedra : group.mTetrahedra)
+		for (const auto& pair : group.mIdToTetrahedra)
 		{
+			const auto& tetrahedra = pair.second;
 			auto& tet = *frame->add_tetrahedra();
 			tet.set_mass(tetrahedra.mMass);
 			tet.set_volume(tetrahedra.mVolume);
@@ -46,7 +47,9 @@ namespace TestDeformation
 			}
 		}
 	}
-
+	
+	// Two tetrahedra with a shared face.
+	// Fracture occurs on all nodes in the shared face with planes such that they will be snapped to that face.
 	class TestCaseOne : public TestCase
 	{
 	public:
@@ -86,19 +89,19 @@ namespace TestDeformation
 			{
 				SaveFrame(summary, *group);
 				InsertFracture(&summary->mutable_frames()->at(0), 0, fracturePlane);
-				TestDeformation::FractureContext context(fracturePlane, 0, group->mTetrahedra, group->mVertices);
+				TestDeformation::FractureContext context(fracturePlane, 0, group->mIdToTetrahedra, group->mVertices, group->mTetIdCounter);
 				context.Fracture();
 			}
 			{
 				SaveFrame(summary, *group);
 				InsertFracture(&summary->mutable_frames()->at(1), 1, fracturePlane);
-				TestDeformation::FractureContext context(fracturePlane, 1, group->mTetrahedra, group->mVertices);
+				TestDeformation::FractureContext context(fracturePlane, 1, group->mIdToTetrahedra, group->mVertices, group->mTetIdCounter);
 				context.Fracture();
 			}
 			{
 				SaveFrame(summary, *group);
 				InsertFracture(&summary->mutable_frames()->at(2), 2, fracturePlane);
-				TestDeformation::FractureContext context(fracturePlane, 2, group->mTetrahedra, group->mVertices);
+				TestDeformation::FractureContext context(fracturePlane, 2, group->mIdToTetrahedra, group->mVertices, group->mTetIdCounter);
 				context.Fracture();
 			}
 
@@ -141,7 +144,7 @@ namespace TestDeformation
 			TestDeformation::TetraGroup* group = (TestDeformation::TetraGroup*)mData;
 
 			for (auto& vert : group->mVertices)
-				vert.mVelocity += glm::vec3(0, -10, 0);
+				vert.mVelocity += glm::vec3(0, -1, 0);
 
 			group->mSaveEveryXSteps = 1;
 
@@ -149,7 +152,7 @@ namespace TestDeformation
 			float maxEigenvalueTime = 0.0f;
 
 			try {
-				for (int i = 0; i < 3000; i++)
+				for (int i = 0; i < 6000; i++)
 				{
 					group->Update(timestep);
 
@@ -247,6 +250,210 @@ const float heightOffset = 2.0f;
 			//}
 		}
 	};
+
+	// Two tetrahedra with a shared face.
+	// A single fracture event occurs on a non-shared node to split the shared face in two with edge snapping.
+	// so that 4 tetrahedra are expected as the result.
+	class TestCaseFour : public TestCase
+	{
+	public:
+		void Run(IronGames::SimulationSummary* summary) override
+		{
+			int maxNumVertices = 10;
+			int maxNumTetrahedra = 10;
+
+			double lambda = 2.65e6f;
+			double psi = 397.f;
+			double phi = 264.f;
+			double mu = 3.97e6f;
+			double density = 5013.f;
+			double timestep = 0.0001f;
+			double toughness = 10.f;
+
+			std::vector<float> positions = {
+			0, 0, 0,
+			1, 0.5f, 0,
+			0, 1, 0,
+			0, 0.5f, 1,
+			-0.5f, 0.5f, -1.2f
+			};
+			positions.resize(3 * (maxNumVertices + 10));
+
+			std::vector<int> indices = {
+				0, 1, 2, 3,
+				0, 1, 4, 2
+			};
+			indices.resize(4 * (maxNumTetrahedra + 10));
+
+			Initialize(positions.data(), 5, maxNumVertices, indices.data(), 2, maxNumTetrahedra, lambda, psi, mu, phi, toughness, density);
+			TestDeformation::TetraGroup* group = (TestDeformation::TetraGroup*)mData;
+
+			const glm::vec3 fracturePlane(0.0f, 1.0f, 0.0f);
+
+			auto fracturingVertId = 3;
+			{
+				SaveFrame(summary, *group);
+				InsertFracture(&summary->mutable_frames()->at(0), fracturingVertId, fracturePlane);
+				TestDeformation::FractureContext context(fracturePlane, fracturingVertId, group->mIdToTetrahedra, group->mVertices, group->mTetIdCounter);
+				context.Fracture();
+			}
+
+			SaveFrame(summary, *group);
+		}
+	};
+	
+	// Two tetrahedra with a shared face.
+	// A single fracture event occurs on a non-shared node to split the shared face in two.
+	// so that 6 tetrahedra are expected as the result.
+	class TestCaseFive : public TestCase
+	{
+	public:
+		void Run(IronGames::SimulationSummary* summary) override
+		{
+			int maxNumVertices = 10;
+			int maxNumTetrahedra = 10;
+
+			double lambda = 2.65e6f;
+			double psi = 397.f;
+			double phi = 264.f;
+			double mu = 3.97e6f;
+			double density = 5013.f;
+			double timestep = 0.0001f;
+			double toughness = 10.f;
+
+			std::vector<float> positions = {
+			0, 0, 0,
+			1, 0.5f, 0,
+			0, 1, 0,
+			0, 0.5f, 1,
+			-0.5f, 0.5f, -1.2f
+			};
+			positions.resize(3 * (maxNumVertices + 10));
+
+			std::vector<int> indices = {
+				0, 1, 2, 3,
+				0, 1, 4, 2
+			};
+			indices.resize(4 * (maxNumTetrahedra + 10));
+
+			Initialize(positions.data(), 5, maxNumVertices, indices.data(), 2, maxNumTetrahedra, lambda, psi, mu, phi, toughness, density);
+			TestDeformation::TetraGroup* group = (TestDeformation::TetraGroup*)mData;
+
+			const glm::vec3 fracturePlane = glm::normalize(glm::vec3(0.0f, 0.8f, 0.2f));
+
+			auto fracturingVertId = 3;
+			{
+				SaveFrame(summary, *group);
+				InsertFracture(&summary->mutable_frames()->at(0), fracturingVertId, fracturePlane);
+				TestDeformation::FractureContext context(fracturePlane, fracturingVertId, group->mIdToTetrahedra, group->mVertices, group->mTetIdCounter);
+				context.Fracture();
+			}
+
+			SaveFrame(summary, *group);
+		}
+	};
+
+	// Two tetrahedra with a shared face.
+	// A single fracture event occurs on a shared node that does not split the shared face.
+	// The plane does not intersect one of the tetrahedra.
+	class TestCaseSix : public TestCase
+	{
+	public:
+		void Run(IronGames::SimulationSummary* summary) override
+		{
+			int maxNumVertices = 10;
+			int maxNumTetrahedra = 10;
+
+			double lambda = 2.65e6f;
+			double psi = 397.f;
+			double phi = 264.f;
+			double mu = 3.97e6f;
+			double density = 5013.f;
+			double timestep = 0.0001f;
+			double toughness = 10.f;
+
+			std::vector<float> positions = {
+			0, 0, 0,
+			1, 0.5f, 0,
+			0, 1, 0,
+			0, 0.5f, 1,
+			-0.5f, 0.5f, -1.2f
+			};
+			positions.resize(3 * (maxNumVertices + 10));
+
+			std::vector<int> indices = {
+				0, 1, 2, 3,
+				0, 1, 4, 2
+			};
+			indices.resize(4 * (maxNumTetrahedra + 10));
+
+			Initialize(positions.data(), 5, maxNumVertices, indices.data(), 2, maxNumTetrahedra, lambda, psi, mu, phi, toughness, density);
+			TestDeformation::TetraGroup* group = (TestDeformation::TetraGroup*)mData;
+
+			const glm::vec3 fracturePlane = glm::normalize(glm::vec3(0.0f, 0.8f, 0.5f));
+
+			auto fracturingVertId = 0;
+			{
+				SaveFrame(summary, *group);
+				InsertFracture(&summary->mutable_frames()->at(0), fracturingVertId, fracturePlane);
+				TestDeformation::FractureContext context(fracturePlane, fracturingVertId, group->mIdToTetrahedra, group->mVertices, group->mTetIdCounter);
+				context.Fracture();
+			}
+
+			SaveFrame(summary, *group);
+		}
+	};
+
+	// Two tetrahedra with a shared face.
+	// A single fracture event occurs on a shared node that splits the shared face.
+	// Six tetrahedra are expected.
+	class TestCaseSeven : public TestCase
+	{
+	public:
+		void Run(IronGames::SimulationSummary* summary) override
+		{
+			int maxNumVertices = 10;
+			int maxNumTetrahedra = 10;
+
+			double lambda = 2.65e6f;
+			double psi = 397.f;
+			double phi = 264.f;
+			double mu = 3.97e6f;
+			double density = 5013.f;
+			double timestep = 0.0001f;
+			double toughness = 10.f;
+
+			std::vector<float> positions = {
+			0, 0, 0,
+			1, 0.5f, 0,
+			0, 1, 0,
+			0, 0.5f, 1,
+			-0.5f, 0.5f, -1.2f
+			};
+			positions.resize(3 * (maxNumVertices + 10));
+
+			std::vector<int> indices = {
+				0, 1, 2, 3,
+				0, 1, 4, 2
+			};
+			indices.resize(4 * (maxNumTetrahedra + 10));
+
+			Initialize(positions.data(), 5, maxNumVertices, indices.data(), 2, maxNumTetrahedra, lambda, psi, mu, phi, toughness, density);
+			TestDeformation::TetraGroup* group = (TestDeformation::TetraGroup*)mData;
+
+			const glm::vec3 fracturePlane = glm::normalize(glm::vec3(-0.2f, 0.8f, 0.0f));
+
+			auto fracturingVertId = 1;
+			{
+				SaveFrame(summary, *group);
+				InsertFracture(&summary->mutable_frames()->at(0), fracturingVertId, fracturePlane);
+				TestDeformation::FractureContext context(fracturePlane, fracturingVertId, group->mIdToTetrahedra, group->mVertices, group->mTetIdCounter);
+				context.Fracture();
+			}
+
+			SaveFrame(summary, *group);
+		}
+	};
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -256,7 +463,13 @@ TestDeformation::TestFractureManager::TestFractureManager(IronGames::SimulationS
 {
 	mTestCases.push_back(new TestCaseOne());
 	mTestCases.push_back(new TestCaseTwo());
-//	mTestCases.push_back(new TestCaseThree());
+
+	//mTestCases.push_back(new TestCaseThree());
+	
+	mTestCases.push_back(new TestCaseFour());
+	mTestCases.push_back(new TestCaseFive());
+	mTestCases.push_back(new TestCaseSix());
+	mTestCases.push_back(new TestCaseSeven());
 }
 
 ////////////////////////////////////////////////////////////////////////////////

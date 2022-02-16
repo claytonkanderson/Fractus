@@ -66,15 +66,14 @@ namespace TestDeformation
 		FractureContext(
 			const glm::vec3 & fracturePlaneNormal,
 			size_t fractureVertexIdx,
-			std::vector<Tetrahedra> & tetrahedra,
+			std::unordered_map<size_t, Tetrahedra>& idToTetrahedra,
 			std::vector<Vertex> & vertices,
-			size_t & tetIdCounter,
-			std::unordered_map<size_t, Tetrahedra> & idToTetrahedra)
+			size_t & tetIdCounter
+		)
 			: 
 			mFracturePlaneNormal(fracturePlaneNormal),
 			mFractureNodePosition(vertices[fractureVertexIdx].mPosition),
 			mFractureNodeIdx(fractureVertexIdx),
-			mTetrahedra(tetrahedra),
 			mVertices(vertices),
 			mTetIdCounter(tetIdCounter),
 			mIdToTetrahedra(idToTetrahedra)
@@ -85,18 +84,6 @@ namespace TestDeformation
 		void Fracture();
 
 	private:
-		void DetermineSnapping();
-
-		void FaceSnappedFracture();
-		void EdgeSnappedFracture();
-
-		void FractureTetrahedra(size_t tetIdx);
-		void AssignTetToSide(const glm::dvec3 & normal);
-		void RegularFracture(const std::array<glm::ivec2, 2> & edgeIds, const std::array<double, 2> & parametricDistance);
-		void NeighborFaceFracture(const glm::ivec3 & faceId, const std::vector<size_t> & newNodeIds, const std::vector<glm::ivec2> & splitEdges, const glm::dvec3 & planeNormal);
-		void NeighborEdgeFracture(const glm::ivec2 & edgeId, size_t newNodeId, const glm::dvec3 & planeNormal);
-		void CalculateSnappedFaceNormal();
-		void CalculateSnappedEdgeNormal();
 		size_t CloneVertex(size_t vertexId);
 		size_t CreateEdgeVertex(const glm::ivec2 & edgeId, double parametricDistance);
 		
@@ -106,9 +93,6 @@ namespace TestDeformation
 		bool IsIsolatedEdge(const glm::ivec2& edgeId) const;
 		std::vector<size_t> GetTetrahedraNeighbors(size_t nodeIdx) const;
 		size_t GetNonFractureNode(const glm::ivec2& edge) const;
-		void PlaneIntersectTetrahedraEdges(std::vector<glm::ivec2>& outVertexIds, std::vector<double>& parametricDistance) const;
-
-		void CalculateVerticesDistToPlane(const glm::dvec3 & normal);
 
 	private:
 		std::vector<Tetrahedra> mNewTetrahedra;
@@ -119,7 +103,6 @@ namespace TestDeformation
 		size_t & mTetIdCounter;
 		std::unordered_map<size_t, Tetrahedra>& mIdToTetrahedra;
 		std::unordered_set<size_t> mTetrahedraIdsToDelete;
-		std::vector<Tetrahedra>& mTetrahedra;
 		std::vector<Vertex>& mVertices;
 	};
 
@@ -156,7 +139,8 @@ namespace TestDeformation
 		int mSaveEveryXSteps = 1;
 		double mSimulationTime = 0;
 
-		std::vector<Tetrahedra> mTetrahedra;
+		size_t mTetIdCounter = 0;
+		std::unordered_map<size_t, Tetrahedra> mIdToTetrahedra;
 		std::vector<Vertex> mVertices;
 
 		IronGames::SimulationSummary mSummary;

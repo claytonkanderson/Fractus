@@ -126,9 +126,10 @@ namespace TestDeformation
             }
         }
 
-		for (size_t tetIdx = 0; tetIdx < mTetrahedra.size(); tetIdx++)
+		for (auto & pair : mIdToTetrahedra)
 		{
-            auto& tetrahedra = mTetrahedra[tetIdx];
+            size_t tetIdx = pair.first;
+            auto& tetrahedra = pair.second;
             auto& v0 = mVertices[tetrahedra.mIndices[0]];
             auto& v1 = mVertices[tetrahedra.mIndices[1]];
             auto& v2 = mVertices[tetrahedra.mIndices[2]];
@@ -373,41 +374,38 @@ namespace TestDeformation
         size_t numVertices = mVertices.size();
         if (numVertices < mMaxNumVertices)
         {
-            for (size_t idx = 0; idx < numVertices; idx++)
-            {
-                if (mVertices[idx].mLargestEigenvalue > mToughness)
-                    FractureNode(idx, mVertices[idx].mPrincipalEigenVector);
+            //for (size_t idx = 0; idx < numVertices; idx++)
+            //{
+            //    if (mVertices[idx].mLargestEigenvalue > mToughness)
+            //        FractureNode(idx, mVertices[idx].mPrincipalEigenVector);
 
-                if (mVertices.size() >= mMaxNumVertices)
-                    break;
-            }
-
-            /*
+            //    if (mVertices.size() >= mMaxNumVertices)
+            //        break;
+            //}
             
-                        // let's try fracturing only the highest eigenvalue and only allowing one fracture per frame
+            // let's try fracturing only the highest eigenvalue and only allowing one fracture per frame
 
-            float maxEigenValue = -1;
-            size_t maxEigenValueNodeId = -1;
+			float maxEigenValue = -1;
+			size_t maxEigenValueNodeId = -1;
 
-            for (size_t idx = 0; idx < numVertices; idx++)
-            {
-                if (mVertices[idx].mLargestEigenvalue > mToughness)
-                {
-                    if (mVertices[idx].mLargestEigenvalue > maxEigenValue)
-                    {
-                        maxEigenValue = mVertices[idx].mLargestEigenvalue;
-                        maxEigenValueNodeId = idx;
-                    }
-                }
+			for (size_t idx = 0; idx < numVertices; idx++)
+			{
+				if (mVertices[idx].mLargestEigenvalue > mToughness)
+				{
+					if (mVertices[idx].mLargestEigenvalue > maxEigenValue)
+					{
+						maxEigenValue = mVertices[idx].mLargestEigenvalue;
+						maxEigenValueNodeId = idx;
+					}
+				}
 
-                if (mVertices.size() >= mMaxNumVertices)
-                    break;
-            }
+				if (mVertices.size() >= mMaxNumVertices)
+					break;
+			}
 
-            if (maxEigenValueNodeId != -1)
-                FractureNode(maxEigenValueNodeId, mVertices[maxEigenValueNodeId].mPrincipalEigenVector);
+			if (maxEigenValueNodeId != -1)
+				FractureNode(maxEigenValueNodeId, mVertices[maxEigenValueNodeId].mPrincipalEigenVector);
             
-            */
 
             ComputeDerivedQuantities();
         }
@@ -443,8 +441,9 @@ namespace TestDeformation
             vert.mInvMass = 0.0f;
         }
 
-        for (auto & tetrahedra : mTetrahedra)
+        for (auto & pair : mIdToTetrahedra)
         {
+            auto& tetrahedra = pair.second;
             auto& m0 = mVertices[tetrahedra.mIndices[0]].mMaterialCoordinates;
             auto& m1 = mVertices[tetrahedra.mIndices[1]].mMaterialCoordinates;
             auto& m2 = mVertices[tetrahedra.mIndices[2]].mMaterialCoordinates;
@@ -468,7 +467,10 @@ namespace TestDeformation
                     m3 - m0));
 
             if (tetrahedra.mVolume <= 0.0f)
-				std::cout << "Tetrahedra volume " << tetrahedra.mVolume << std::endl;
+            {
+                throw std::exception("Zero volume tetrahedra encountered.");
+                std::cout << "Tetrahedra volume " << tetrahedra.mVolume << std::endl;
+            }
 
             tetrahedra.mMass = mDensity * tetrahedra.mVolume;
 
@@ -489,7 +491,7 @@ namespace TestDeformation
     void TetraGroup::FractureNode(size_t fractureNodeIdx, const glm::dvec3& fracturePlaneNormal)
     {
         std::cout << "Fracture Node " << fractureNodeIdx << std::endl;
-        FractureContext context(fracturePlaneNormal, fractureNodeIdx, mTetrahedra, mVertices);
+        FractureContext context(fracturePlaneNormal, fractureNodeIdx, mIdToTetrahedra, mVertices, mTetIdCounter);
         context.Fracture();
     }
     
@@ -539,9 +541,11 @@ namespace TestDeformation
     {
         std::vector<size_t> indices;
 
-        for (size_t tetIdx = 0; tetIdx < mTetrahedra.size(); tetIdx++)
+        for (const auto & pair : mIdToTetrahedra)
         {
-            if (mTetrahedra[tetIdx].ContainsVertexIndex(nodeIdx))
+            size_t tetIdx = pair.first;
+            const auto& tet = pair.second;
+            if (tet.ContainsVertexIndex(nodeIdx))
                 indices.push_back(tetIdx);
         }
 
@@ -596,18 +600,19 @@ namespace TestDeformation
     std::vector<size_t> TetraGroup::GetTetrahedraNeighbors(size_t tetrahedraIdx) const
     {
         std::vector<size_t> neighborIds;
-        const auto& tet = mTetrahedra[tetrahedraIdx];
+        const auto& tet = mIdToTetrahedra.at(tetrahedraIdx);
 
-        for (int i = 0; i < mTetrahedra.size(); i++)
+        for (const auto & pair : mIdToTetrahedra)
         {
-            if (i == tetrahedraIdx)
+            size_t tetIdx = pair.first;
+            if (tetIdx == tetrahedraIdx)
                 continue;
 
-            const auto& neighborCandidate = mTetrahedra[i];
+            const auto& neighborCandidate = pair.second;
             for (const auto& nodeIdx : neighborCandidate.mIndices)
             {
                 if (tet.ContainsVertexIndex(nodeIdx))
-                    neighborIds.push_back(i);
+                    neighborIds.push_back(tetIdx);
             }
         }
 
@@ -794,253 +799,364 @@ namespace TestDeformation
             return std::abs(glm::acos(glm::dot(projectedEdgeDir, edgeDir)));
         }
 
-        enum FractureOptions
+        size_t FindFaceNeighbor(
+            const std::unordered_map<size_t, Tetrahedra>& tetrahedra,
+            size_t mainTetId,
+            const glm::ivec3 & faceId
+        )
+        {
+            for (const auto& pair : tetrahedra)
+            {
+                auto tetId = pair.first;
+                if (tetId == mainTetId)
+                    continue;
+
+                const auto& tet = pair.second;
+                if (tet.ContainsFaceIndex(faceId))
+                    return tetId;
+            }
+
+            return -1;
+        }
+
+        std::vector<size_t> FindEdgeNeighbors(
+            const std::unordered_map<size_t, Tetrahedra>& tetrahedra,
+            const glm::ivec2& edgeId
+        )
+        {
+            std::vector<size_t> neighborIds;
+
+            for (const auto& pair : tetrahedra)
+            {
+                auto tetId = pair.first;
+                const auto& tet = pair.second;
+                if (tet.ContainsEdgeIndex(edgeId))
+                    neighborIds.push_back(tetId);
+            }
+
+            return neighborIds;
+        }
+
+        enum class FractureOptions
         {
             ePositiveSide,
             eNegativeSide,
             eFracture
         };
 
+		double DistPointPlane(
+			const glm::vec3& point,
+			const glm::vec3& planeNormal,
+			const glm::vec3& planePosition
+		)
+		{
+			gte::Vector3<float> normal
+			{
+				planeNormal.x,
+				planeNormal.y,
+				planeNormal.z
+			};
+			gte::Vector3<float> origin
+			{
+			   planePosition.x,
+			   planePosition.y,
+			   planePosition.z
+			};
+			gte::Plane3<float> plane(normal, origin);
 
-        namespace
+			gte::Vector3<float> position
+			{
+			   point.x,
+			   point.y,
+			   point.z
+			};
+
+			// Get signed distance of all vertices to plane
+			gte::DCPQuery<float, gte::Vector3<float>, gte::Plane3<float>> distanceQuery;
+			auto results = distanceQuery(position, plane);
+			return results.signedDistance;
+		}
+
+        // If this returns false we will create a new node
+        // instead of snapping to the existing one
+        // This should only return false if there's another tet that will be assigned ot the + side or
+        // that the fracture plane will split the tet.
+        bool NoPositiveNodeEdgeCase(
+            const std::unordered_set<size_t>& neighborTets,
+            const std::unordered_map<size_t, Tetrahedra>& idToTetrahedra,
+            const std::vector<Vertex> & vertices,
+            const glm::vec3& fracturePlanePosition,
+            const glm::vec3& fracturePlaneNormal)
         {
-            double DistPointPlane(
-                const glm::vec3& point,
-                const glm::vec3& planeNormal,
-                const glm::vec3& planePosition
-            )
+            for (const auto& neighborId : neighborTets)
             {
-                gte::Vector3<float> normal
-                {
-                    planeNormal.x,
-                    planeNormal.y,
-                    planeNormal.z
-                };
-                gte::Vector3<float> origin
-                {
-                   planePosition.x,
-                   planePosition.y,
-                   planePosition.z
-                };
-                gte::Plane3<float> plane(normal, origin);
+                const auto& tet = idToTetrahedra.at(neighborId);
 
-                gte::Vector3<float> position
+                for (const auto& nodeId : tet.mIndices)
                 {
-                   point.x,
-                   point.y,
-                   point.z
-                };
-
-                // Get signed distance of all vertices to plane
-                gte::DCPQuery<float, gte::Vector3<float>, gte::Plane3<float>> distanceQuery;
-                auto results = distanceQuery(position, plane);
-                return results.signedDistance;
+                    auto d = DistPointPlane(vertices[nodeId].mPosition, fracturePlaneNormal, fracturePlanePosition);
+                    if (d > 0.2)
+                    {
+                        std::cout << "Returning false for the no positive node edge case because d = " << d << "." << std::endl;
+                        return false;
+                    }
+                }
             }
+
+            std::cout << "Returning true for the no positive node edge case." << std::endl;
+            return true;
         }
     }
 
     void FractureContext::Fracture()
     {
-        {
-            const auto& neighbors = GetTetrahedraNeighbors(mFractureNodeIdx);
-            const double cDistanceTolerance = 0.05;
-            const double cAngularSeparation = 0.1; // radians? double check what values paper uses
+		const auto& neighbors = GetTetrahedraNeighbors(mFractureNodeIdx);
+        std::unordered_set<size_t> neighborSet(neighbors.begin(), neighbors.end());
 
-            // it would be nice to be able to set these tolerances to large numbers to force always snapping
-            // i don't think we have this capabilitiy atm
+		const double cDistanceTolerance = 0.2;
+		const double cAngularSeparation = 0.34; // radians? double check what values paper uses
 
-            std::array<double, 4> nodeDistToPlane;
-            std::array<double, 3> edgeAngleToPlane; // really only care about the 3 edges connected to the fracture node
-            std::vector<EdgeIntersection> edgeIntersections;
+		// it would be nice to be able to set these tolerances to large numbers to force always snapping
+		// i don't think we have this capabilitiy atm
 
-            bool snapToEdge = false;
-            glm::ivec2 snapEdgeId;
-            bool snapToFace = false;
-            glm::ivec3 snapFaceId;
+		std::array<double, 4> nodeDistToPlane;
+		std::array<double, 3> edgeAngleToPlane; // really only care about the 3 edges connected to the fracture node
+		std::vector<EdgeIntersection> edgeIntersections;
 
-            size_t negativeFractureNodeId = -1;
+		bool snapToEdge = false;
+		glm::ivec2 snapEdgeId;
+		bool snapToFace = false;
+		glm::ivec3 snapFaceId;
 
-            auto inputStateFunctor = [&](const Tetrahedra& tet, size_t fractureNodeId)
+		size_t negativeFractureNodeId = -1;
+
+		auto inputStateFunctor = [&](const Tetrahedra& tet, size_t fractureNodeId)
+		{
+			const auto& edges = tet.GetEdges();
+
+			for (size_t i = 0; i < 4; i++)
+				nodeDistToPlane[i] = DistPointPlane(mVertices[tet.mIndices[i]].mPosition, mFracturePlaneNormal, mFractureNodePosition);
+
+			const auto& otherNodes = tet.GetOtherVertices(fractureNodeId);
+
+			for (size_t i = 0; i < 3; i++)
+			{
+				auto edgeId = GetEdgeId(fractureNodeId, otherNodes[i]);
+				edgeAngleToPlane[i] = AngleEdgePlane(glm::normalize(mVertices[edgeId[1]].mPosition - mVertices[edgeId[0]].mPosition), mFracturePlaneNormal);
+			}
+		};
+
+		// we won't always fracture, so the negative node is computed lazily
+		auto getNegativeFractureNodeId = [&]()
+		{
+            if (negativeFractureNodeId == -1)
             {
-                const auto& edges = tet.GetEdges();
-
-                for (size_t i = 0; i < 4; i++)
-                    nodeDistToPlane[i] = DistPointPlane(mVertices[tet.mIndices[i]].mPosition, mFracturePlaneNormal, mFractureNodePosition);
-                
-                const auto& otherNodes = tet.GetOtherVertices(fractureNodeId);
-
-                for (size_t i = 0; i < 3; i++)
-                {
-                    auto edgeId = GetEdgeId(fractureNodeId, otherNodes[i]);
-                    edgeAngleToPlane[i] = AngleEdgePlane(glm::normalize(mVertices[edgeId[1]].mPosition - mVertices[edgeId[0]].mPosition), mFracturePlaneNormal);
-                }
-            };
-
-            // we won't always fracture, so the negative node is computed lazily
-            auto getNegativeFractureNodeId = [&]()
-            {
-                if (negativeFractureNodeId == -1)
-                    negativeFractureNodeId = CloneVertex(mFractureNodeIdx);
-
-                return negativeFractureNodeId;
-            };
-
-            auto checkTolerances = [&](const auto& tet, size_t fractureNodeId)
-            {
-                size_t numDistanceTriggered = 0;
-                std::vector<size_t> closeVertexIndices;
-
-                for (size_t i = 0; i < nodeDistToPlane.size(); i++)
-                {
-                    if (tet.mIndices[i] == fractureNodeId)
-                        continue;
-
-                    if (std::abs(nodeDistToPlane[i]) <= cDistanceTolerance)
-                    {
-                        numDistanceTriggered++;
-                        closeVertexIndices.push_back(tet.mIndices[i]);
-                    }
-                }
-
-                if (numDistanceTriggered != 0)
-                {
-                    if (numDistanceTriggered == 1)
-                    {
-                        snapToEdge = true;
-                        snapEdgeId = GetEdgeId(fractureNodeId, closeVertexIndices[0]);
-                        return;
-                    }
-                    else if (numDistanceTriggered == 2)
-                    {
-                        snapToFace = true;
-                        snapFaceId = GetFaceId(fractureNodeId, closeVertexIndices[0], closeVertexIndices[1]);
-                        return;
-                    }
-                    else
-                    {
-                        std::cout << "Small tet!" << std::endl;
-                        return;
-                    }
-                }
-
-                const auto& otherNodes = tet.GetOtherVertices(fractureNodeId);
-                std::vector<size_t> snappedVertexIds;
-
-                for (size_t i = 0; i < 3; i++)
-                {
-                    auto angle = edgeAngleToPlane[i];
-                    if (angle < cAngularSeparation || angle >(glm::pi<float>() - cAngularSeparation))
-                        snappedVertexIds.push_back(otherNodes[i]);
-                }
-
-                if (snappedVertexIds.empty())
-                {
-                    // this is the no snap, regular fracture case
-                    return;
-                }
-                else if (snappedVertexIds.size() == 1)
-                {
-                    snapToEdge = true;
-                    snapEdgeId = GetEdgeId(mFractureNodeIdx, snappedVertexIds[0]);
-                    return;
-                }
-                else if (snappedVertexIds.size() == 2)
-                {
-                    snapToFace = true;
-                    snapFaceId = GetFaceId(fractureNodeId, snappedVertexIds[0], snappedVertexIds[1]);
-                    return;
-                }
+                if (NoPositiveNodeEdgeCase(neighborSet, mIdToTetrahedra, mVertices, mFractureNodePosition, mFracturePlaneNormal))
+                    negativeFractureNodeId = mFractureNodeIdx;
                 else
-                {
-                    // poorly conditioned tet
-                    std::cout << "Very poorly conditioned tet as determined by angular threshold." << std::endl;
-                }
-            };
+					negativeFractureNodeId = CloneVertex(mFractureNodeIdx);
+            }
 
-            auto determineFractureOption = [&]()
+			return negativeFractureNodeId;
+		};
+
+		auto checkTolerances = [&](const auto& tet, size_t fractureNodeId)
+		{
+			size_t numDistanceTriggered = 0;
+			std::vector<size_t> closeVertexIndices;
+
+			for (size_t i = 0; i < nodeDistToPlane.size(); i++)
+			{
+				if (tet.mIndices[i] == fractureNodeId)
+					continue;
+
+				if (std::abs(nodeDistToPlane[i]) <= cDistanceTolerance)
+				{
+					numDistanceTriggered++;
+					closeVertexIndices.push_back(tet.mIndices[i]);
+				}
+			}
+
+			if (numDistanceTriggered != 0)
+			{
+				if (numDistanceTriggered == 1)
+				{
+					snapToEdge = true;
+					snapEdgeId = GetEdgeId(fractureNodeId, closeVertexIndices[0]);
+					return;
+				}
+				else if (numDistanceTriggered == 2)
+				{
+					snapToFace = true;
+					snapFaceId = GetFaceId(fractureNodeId, closeVertexIndices[0], closeVertexIndices[1]);
+					return;
+				}
+				else
+				{
+					std::cout << "Small tet!" << std::endl;
+					return;
+				}
+			}
+
+			const auto& otherNodes = tet.GetOtherVertices(fractureNodeId);
+			std::vector<size_t> snappedVertexIds;
+
+			for (size_t i = 0; i < 3; i++)
+			{
+				auto angle = edgeAngleToPlane[i];
+				if (angle < cAngularSeparation || angle >(glm::pi<float>() - cAngularSeparation))
+					snappedVertexIds.push_back(otherNodes[i]);
+			}
+
+			if (snappedVertexIds.empty())
+			{
+				// this is the no snap, regular fracture case
+				return;
+			}
+			else if (snappedVertexIds.size() == 1)
+			{
+				snapToEdge = true;
+				snapEdgeId = GetEdgeId(mFractureNodeIdx, snappedVertexIds[0]);
+				return;
+			}
+			else if (snappedVertexIds.size() == 2)
+			{
+				snapToFace = true;
+				snapFaceId = GetFaceId(fractureNodeId, snappedVertexIds[0], snappedVertexIds[1]);
+				return;
+			}
+			else
+			{
+				// poorly conditioned tet
+				std::cout << "Very poorly conditioned tet as determined by angular threshold." << std::endl;
+			}
+		};
+
+		auto determineFractureOption = [&]()
+		{
+			size_t numPos = 0;
+			size_t numNeg = 0;
+
+			for (const auto& dist : nodeDistToPlane)
+			{
+				if (dist <= 1e-5)
+					numNeg++;
+				if (dist >= -1e-5)
+					numPos++;
+			}
+
+			if (numPos == 4)
+				return FractureOptions::ePositiveSide;
+			if (numNeg == 4)
+				return FractureOptions::eNegativeSide;
+
+			return FractureOptions::eFracture;
+		};
+
+        while (!neighborSet.empty())
+		{
+            std::cout << "Num neighbors : " << neighborSet.size() << std::endl;
+
+            auto fracturingTetId = *neighborSet.begin();
+
+			// Clear shared state
+			snapToEdge = false;
+			snapToFace = false;
+			edgeIntersections.clear();
+
+			// Start fracturing
+			const auto& tet = mIdToTetrahedra[fracturingTetId];
+			inputStateFunctor(tet, mFractureNodeIdx);
+
+			checkTolerances(tet, mFractureNodeIdx);
+			if (snapToEdge)
+			{
+				auto edge = glm::normalize(mVertices[snapEdgeId[0]].mPosition - mVertices[snapEdgeId[1]].mPosition);
+				mFracturePlaneNormal = glm::normalize(mFracturePlaneNormal - glm::dot(mFracturePlaneNormal, edge) * edge);
+
+				inputStateFunctor(tet, mFractureNodeIdx);
+			}
+			else if (snapToFace)
+			{
+				const auto& p0 = mVertices[snapFaceId.x].mPosition;
+				const auto& p1 = mVertices[snapFaceId.y].mPosition;
+				const auto& p2 = mVertices[snapFaceId.z].mPosition;
+
+				auto faceNormal = glm::normalize(glm::cross(p2 - p0, p1 - p0));
+
+				if (glm::dot(faceNormal, mFracturePlaneNormal) < 0)
+					faceNormal *= -1.0;
+
+				mFracturePlaneNormal = faceNormal;
+				inputStateFunctor(tet, mFractureNodeIdx);
+			}
+
+            if (snapToFace)
+                std::cout << "Snapping to Face" << std::endl;
+            else if (snapToEdge)
+                std::cout << "Snapping to Edge" << std::endl;
+            else
+                std::cout << "No snapping" << std::endl;
+
+			// Check whether we want to fracture this tet
+			auto option = determineFractureOption();
+			if (option == FractureOptions::ePositiveSide)
+			{
+                std::cout << "Assigning to positive side" << std::endl;
+				// Assign Tet to Side
+				mNewTetrahedra.push_back(tet);
+				mTetrahedraIdsToDelete.insert(fracturingTetId);
+			}
+			else if (option == FractureOptions::eNegativeSide)
+			{
+                std::cout << "Assigning to negative side" << std::endl;
+
+				auto negativeFractureNodeIdx = getNegativeFractureNodeId();
+
+				// Assign Tet to Side
+				auto copy = tet;
+				copy.ReplaceVertex(mFractureNodeIdx, negativeFractureNodeIdx);
+				mNewTetrahedra.push_back(copy);
+				mTetrahedraIdsToDelete.insert(fracturingTetId);
+			}
+            else
             {
-                size_t numPos = 0;
-                size_t numNeg = 0;
+                // if snap to edge, only intersect the one other edge
 
-                for (const auto& dist : nodeDistToPlane)
-                {
-                    if (dist <= 0)
-                        numNeg++;
-                    if (dist >= 0)
-                        numPos++;
-                }
-
-                if (numPos == 4)
-                    return FractureOptions::ePositiveSide;
-                if (numNeg == 4)
-                    return FractureOptions::eNegativeSide;
-
-                return FractureOptions::eFracture;
-            };
-
-            for (size_t tetIdx = 0; tetIdx < neighbors.size(); tetIdx++)
-            {
-                // Clear shared state
-                snapToEdge = false;
-                snapToFace = false;
-                edgeIntersections.clear();
-
-                // Start fracturing
-                auto fracturingTetId = neighbors[tetIdx];
-                const auto& tet = mTetrahedra[fracturingTetId];
-                inputStateFunctor(tet, mFractureNodeIdx);
-
-                checkTolerances(tet, mFractureNodeIdx);
                 if (snapToEdge)
                 {
-                    auto edge = glm::normalize(mVertices[snapEdgeId[0]].mPosition - mVertices[snapEdgeId[1]].mPosition);
-                    mFracturePlaneNormal = glm::normalize(mFracturePlaneNormal - glm::dot(mFracturePlaneNormal, edge) * edge);
-
-                    inputStateFunctor(tet, mFractureNodeIdx);
-                }
-                else if (snapToFace)
-                {
-                    const auto& p0 = mVertices[snapFaceId.x].mPosition;
-                    const auto& p1 = mVertices[snapFaceId.y].mPosition;
-                    const auto& p2 = mVertices[snapFaceId.z].mPosition;
-
-                    auto faceNormal = glm::normalize(glm::cross(p2 - p0, p1 - p0));
-
-                    if (glm::dot(faceNormal, mFracturePlaneNormal) < 0)
-                        faceNormal *= -1.0;
-
-                    mFracturePlaneNormal = faceNormal;
-                    inputStateFunctor(tet, mFractureNodeIdx);
-                }
-
-                // Check whether we want to fracture this tet
-                auto option = determineFractureOption();
-                if (option == FractureOptions::ePositiveSide)
-                {
-                    // Assign Tet to Side
-                    mNewTetrahedra.push_back(tet);
-                    mTetrahedraIdsToDelete.insert(fracturingTetId);
-                }
-                else if (option == FractureOptions::eNegativeSide)
-                {
-                    auto negativeFractureNodeIdx = getNegativeFractureNodeId();
-
-                    // Assign Tet to Side
-                    auto copy = tet;
-                    copy.ReplaceVertex(mFractureNodeIdx, negativeFractureNodeIdx);
-                    mNewTetrahedra.push_back(copy);
-                    mTetrahedraIdsToDelete.insert(fracturingTetId);
-                }
-
-                // Intersect edges opposite to fracture node
-                const auto& otherNodes = tet.GetOtherVertices(mFractureNodeIdx);
-                for (size_t otherNode : otherNodes)
-                {
-                    auto edgeId = GetEdgeId(mFractureNodeIdx, otherNode);
+                    const auto& otherNodes = tet.GetOtherVertices(mFractureNodeIdx, snapEdgeId[0] == mFractureNodeIdx ? snapEdgeId[1] : snapEdgeId[0]);
+                    auto edgeId = GetEdgeId(otherNodes[0], otherNodes[1]);
                     double d;
                     if (PlaneIntersectEdge(mFractureNodePosition, mFracturePlaneNormal, mVertices[edgeId[0]].mPosition, mVertices[edgeId[1]].mPosition, d, nullptr))
                         edgeIntersections.push_back({ d, edgeId });
                 }
+                else
+                {
+                    // Intersect edges opposite to fracture node
+                    const auto& otherNodes = tet.GetOtherVertices(mFractureNodeIdx);
+
+                    {
+                        auto edgeId = GetEdgeId(otherNodes[0], otherNodes[1]);
+                        double d;
+                        if (PlaneIntersectEdge(mFractureNodePosition, mFracturePlaneNormal, mVertices[edgeId[0]].mPosition, mVertices[edgeId[1]].mPosition, d, nullptr))
+                            edgeIntersections.push_back({ d, edgeId });
+                    }
+                    {
+                        auto edgeId = GetEdgeId(otherNodes[0], otherNodes[2]);
+                        double d;
+                        if (PlaneIntersectEdge(mFractureNodePosition, mFracturePlaneNormal, mVertices[edgeId[0]].mPosition, mVertices[edgeId[1]].mPosition, d, nullptr))
+                            edgeIntersections.push_back({ d, edgeId });
+                    }
+                    {
+                        auto edgeId = GetEdgeId(otherNodes[1], otherNodes[2]);
+                        double d;
+                        if (PlaneIntersectEdge(mFractureNodePosition, mFracturePlaneNormal, mVertices[edgeId[0]].mPosition, mVertices[edgeId[1]].mPosition, d, nullptr))
+                            edgeIntersections.push_back({ d, edgeId });
+                    }
+                }
+
+                std::cout << "Num edge intersections : " << edgeIntersections.size() << std::endl;
 
                 if (edgeIntersections.size() == 0)
                 {
@@ -1063,7 +1179,7 @@ namespace TestDeformation
                     size_t newEdgeNode = CreateEdgeVertex(splitEdgeId, intersection.mParam);
                     size_t snappedNodeId = (snapEdgeId[0] == mFractureNodeIdx ? snapEdgeId[1] : snapEdgeId[0]);
 
-                    mTetrahedraIdsToDelete.insert(neighbors[tetIdx]);
+                    mTetrahedraIdsToDelete.insert(fracturingTetId);
 
                     if (IsIsolatedEdge(splitEdgeId))
                     {
@@ -1071,20 +1187,65 @@ namespace TestDeformation
                         size_t negativeNewEdgeNode = CloneVertex(positiveNewEdgeNode);
 
                         mNewTetrahedra.push_back(Tetrahedra(mFractureNodeIdx, snappedNodeId, positiveNewEdgeNode, positiveSplitEdgeNode));
-                        mNewTetrahedra.push_back(Tetrahedra(mFractureNodeIdx, snappedNodeId, negativeNewEdgeNode, negativeSplitEdgeNode));
+                        mNewTetrahedra.push_back(Tetrahedra(negativeFractureNodeIdx, snappedNodeId, negativeNewEdgeNode, negativeSplitEdgeNode));
                     }
                     else
                     {
                         mNewTetrahedra.push_back(Tetrahedra(mFractureNodeIdx, snappedNodeId, newEdgeNode, positiveSplitEdgeNode));
-                        mNewTetrahedra.push_back(Tetrahedra(mFractureNodeIdx, snappedNodeId, newEdgeNode, negativeSplitEdgeNode));
+                        mNewTetrahedra.push_back(Tetrahedra(negativeFractureNodeIdx, snappedNodeId, newEdgeNode, negativeSplitEdgeNode));
 
-                        const auto& fracturedFaceIds = tet.GetOtherVertices(mFractureNodeIdx);
-                        NeighborFaceFracture(GetFaceId(fracturedFaceIds[0], fracturedFaceIds[1], fracturedFaceIds[2]), { newEdgeNode }, { splitEdgeId }, mFracturePlaneNormal);
-                        NeighborEdgeFracture(splitEdgeId, newEdgeNode, mFracturePlaneNormal);
+                        // case 1 - the face neighbor does not contain the snapped node, but does contain the fracture node
+                        // this face contains the fracture node, and both nodes from the split edge
+                        // for this case, tet0 contains (mFractureNodeIdx, the new edge node, the positive edge node, and the other node in the neighbor tet)
+                        //              , tet1 contains (negative fracture node, the new edge node, the negative edge node, and the other node in the neighbor tet)
+                        auto faceId0 = GetFaceId(mFractureNodeIdx, splitEdgeId[0], splitEdgeId[1]);
+                        auto faceNeighborId0 = FindFaceNeighbor(mIdToTetrahedra, fracturingTetId, faceId0);
+                        if (faceNeighborId0 != -1)
+                        {
+                            const auto& neighborTet = mIdToTetrahedra.at(faceNeighborId0);
+                            mTetrahedraIdsToDelete.insert(faceNeighborId0);
+                            mNewTetrahedra.push_back(Tetrahedra(mFractureNodeIdx, newEdgeNode, positiveSplitEdgeNode, neighborTet.GetOtherVertex({ (size_t)faceId0[0], (size_t)faceId0[1], (size_t)faceId0[2] })));
+                            mNewTetrahedra.push_back(Tetrahedra(negativeFractureNodeIdx, newEdgeNode, negativeSplitEdgeNode, neighborTet.GetOtherVertex({ (size_t)faceId0[0], (size_t)faceId0[1], (size_t)faceId0[2] })));
+                        }
+
+                        // case 2 - the face neighbor does not contain the fracture node, but does contain the snapped node
+                        // this face contains the snapped node, and both nodes from the split edge
+                        // for this case, tet0 contains (snapped edge node, the new edge node, the positive edge node, and the other node in the neighbor tet)
+                        //              , tet1 contains (snapped edge node, the new edge node, the negative edge node, and the other node in the neighbor tet)
+                        auto faceId1 = GetFaceId(snappedNodeId, splitEdgeId[0], splitEdgeId[1]);
+                        auto faceNeighborId1 = FindFaceNeighbor(mIdToTetrahedra, fracturingTetId, faceId1);
+                        if (faceNeighborId1 != -1)
+                        {
+                            const auto& neighborTet = mIdToTetrahedra.at(faceNeighborId1);
+                            mTetrahedraIdsToDelete.insert(faceNeighborId1);
+                            mNewTetrahedra.push_back(Tetrahedra(snappedNodeId, newEdgeNode, positiveSplitEdgeNode, neighborTet.GetOtherVertex({ (size_t)faceId1[0], (size_t)faceId1[1], (size_t)faceId1[2] })));
+                            mNewTetrahedra.push_back(Tetrahedra(snappedNodeId, newEdgeNode, negativeSplitEdgeNode, neighborTet.GetOtherVertex({ (size_t)faceId1[0], (size_t)faceId1[1], (size_t)faceId1[2] })));
+                        }
+
+                        const auto& edgeNeighbors = FindEdgeNeighbors(mIdToTetrahedra, splitEdgeId);
+
+                        for (size_t neighborId : edgeNeighbors)
+                        {
+                            if (neighborId == fracturingTetId || neighborId == faceNeighborId0 || neighborId == faceNeighborId1)
+                                continue;
+
+                            const auto& edgeNeighorTet = mIdToTetrahedra[neighborId];
+                            const auto& remainingNodes = edgeNeighorTet.GetOtherVertices(splitEdgeId[0], splitEdgeId[1]);
+                            size_t posEdgeNode;
+                            size_t negEdgeNode;
+                            SeparateNodes(posEdgeNode, negEdgeNode, { (size_t)splitEdgeId[0], (size_t)splitEdgeId[1] }, mFractureNodePosition, mFracturePlaneNormal);
+
+                            mTetrahedraIdsToDelete.insert(neighborId);
+
+                            mNewTetrahedra.push_back(Tetrahedra(newEdgeNode, remainingNodes[0], remainingNodes[1], posEdgeNode));
+                            mNewTetrahedra.push_back(Tetrahedra(newEdgeNode, remainingNodes[0], remainingNodes[1], negEdgeNode));
+                        }
                     }
                 }
                 else if (edgeIntersections.size() == 2)
                 {
+                    const auto& otherNodes = tet.GetOtherVertices(mFractureNodeIdx);
+
                     // regular fracture
                     auto negativeFractureNodeIdx = getNegativeFractureNodeId();
 
@@ -1095,6 +1256,9 @@ namespace TestDeformation
                     auto edgeVertex0 = CreateEdgeVertex(edgeId0, edgeIntersections[0].mParam);
                     auto edgeVertex1 = CreateEdgeVertex(edgeId1, edgeIntersections[1].mParam);
 
+                    std::unordered_set<size_t> nonEdgeNeighbors{ fracturingTetId };
+
+                    // This remains just for validation, can remove later
                     std::vector<size_t> positiveVertices;
                     std::vector<size_t> negativeVertices;
                     SeparateNodes(positiveVertices, negativeVertices, { otherNodes[0], otherNodes[1], otherNodes[2] }, mFractureNodePosition, mFracturePlaneNormal);
@@ -1108,175 +1272,180 @@ namespace TestDeformation
                         throw std::exception("Expected 2 positive, 1 negative or 1 positive, 2 negative vertices during regular fracture.");
                     }
 
-                    auto dp = mFractureNodeIdx;
-                    auto dm = negativeFractureNodeIdx;
-                    auto ep = edgeVertex0;
-                    auto em = edgeVertex0;
-                    auto fp = edgeVertex1;
-                    auto fm = edgeVertex1;
+                    // 7 unique nodes for the regular fracture case
+                    // + fracture node
+                    // - fracture node
+                    // the node common to the two split edges
+                    // new edge node 0
+                    // the tetrahedral node that is on the same edge as the new edge node 0 and is not the common node
+                    // new edge node 1
+                    // the tetrahedral node ... new edge node 1 ... not common node
+                    //
+                    // if the common node is on the + side of the fracture plane, then we're in 'config 1' if not, we're in 'config 2'
+                    // config 1 = 1 positive node , 2 negative
+                    // config 2 = 2 positive nodes, 1 negative
 
-                    if (IsIsolatedEdge(edgeId0))
-                        em = CloneVertex(ep);
+					auto posFractureNode = mFractureNodeIdx;
+					auto negFractureNode = getNegativeFractureNodeId();
+					auto commonNode = GetCommonVertexFromEdges(edgeId0, edgeId1);
+					auto newEdgeNode0 = edgeVertex0;
+					auto edge0Node = (commonNode == edgeId0[0] ? edgeId0[1] : edgeId0[0]);
+					auto newEdgeNode1 = edgeVertex1;
+					auto edge1Node = (commonNode == edgeId1[0] ? edgeId1[1] : edgeId1[0]);
 
-                    if (IsIsolatedEdge(edgeId1))
-                        fm = CloneVertex(fp);
+					// Only for isolated edges, doesn't affect neighbors
+					size_t negNewEdgeNode0 = newEdgeNode0;
+					size_t negNewEdgeNode1 = newEdgeNode1;
 
-                    if (positiveVertices.size() == 1 && negativeVertices.size() == 2)
-                    {
-                        auto a = positiveVertices[0];
-                        auto b = negativeVertices[0];
-                        auto c = negativeVertices[1];
+					if (IsIsolatedEdge(edgeId0))
+						negNewEdgeNode0 = CloneVertex(newEdgeNode0);
 
-                        mNewTetrahedra.push_back(Tetrahedra(a, dp, ep, fp));
-                        mNewTetrahedra.push_back(Tetrahedra(b, fm, em, dm));
-                        mNewTetrahedra.push_back(Tetrahedra(b, c, fm, dm));
-                    }
-                    else if (positiveVertices.size() == 2 && negativeVertices.size() == 1)
-                    {
-                        auto a = negativeVertices[0];
-                        auto b = positiveVertices[0];
-                        auto c = positiveVertices[1];
+					if (IsIsolatedEdge(edgeId1))
+						negNewEdgeNode1 = CloneVertex(newEdgeNode1);
 
-                        mNewTetrahedra.push_back(Tetrahedra(a, dm, em, fm));
-                        mNewTetrahedra.push_back(Tetrahedra(b, fp, ep, dp));
-                        mNewTetrahedra.push_back(Tetrahedra(b, c, fp, dp));
-                    }
+					auto d = DistPointPlane(mVertices[commonNode].mPosition, mFracturePlaneNormal, mFractureNodePosition);
+					if (d < 0)
+					{
+						if (!(negativeVertices.size() == 1 && positiveVertices.size() == 2))
+							throw std::exception("Expected 2 positive, 1 negative vertices during regular fracture.");
 
-                    // Mark this one for deletion
+						std::swap(posFractureNode, negFractureNode);
+						std::swap(newEdgeNode0, negNewEdgeNode0);
+						std::swap(newEdgeNode1, negNewEdgeNode1);
+					}
+
+					// We choose the (newEdgeNode0, edge1Node) to be the diagonal edge
                     mTetrahedraIdsToDelete.insert(fracturingTetId);
+					mNewTetrahedra.push_back(Tetrahedra(posFractureNode, commonNode, newEdgeNode0, newEdgeNode1));
+					mNewTetrahedra.push_back(Tetrahedra(negFractureNode, negNewEdgeNode0, edge0Node, edge1Node));
+					mNewTetrahedra.push_back(Tetrahedra(negFractureNode, negNewEdgeNode0, negNewEdgeNode1, edge1Node));
 
-                    NeighborFaceFracture(GetFaceId(otherNodes[0], otherNodes[1], otherNodes[2]), { edgeVertex0, edgeVertex1 }, { edgeId0, edgeId1}, mFracturePlaneNormal);
-                    NeighborEdgeFracture(edgeId0, edgeVertex0, mFracturePlaneNormal);
-                    NeighborEdgeFracture(edgeId1, edgeVertex1, mFracturePlaneNormal);
+					// the first face neighbor, containing the fracture node, and both nodes from a single split edge
+					{
+						auto fracturedFaceId = GetFaceId(mFractureNodeIdx, edgeId0[0], edgeId0[1]);
+						auto faceNeighborId = FindFaceNeighbor(mIdToTetrahedra, fracturingTetId, fracturedFaceId);
+						if (faceNeighborId != -1)
+						{
+							const auto& faceNeighborTet = mIdToTetrahedra[faceNeighborId];
+							mNewTetrahedra.push_back(Tetrahedra(posFractureNode, newEdgeNode0, commonNode, faceNeighborTet.GetOtherVertex({ (size_t)mFractureNodeIdx, (size_t)edgeId0[0], (size_t)edgeId0[1] })));
+							mNewTetrahedra.push_back(Tetrahedra(negFractureNode, newEdgeNode0, edge0Node, faceNeighborTet.GetOtherVertex( { (size_t)mFractureNodeIdx, (size_t)edgeId0[0], (size_t)edgeId0[1] })));
+							mTetrahedraIdsToDelete.insert(faceNeighborId);
+                            nonEdgeNeighbors.insert(faceNeighborId);
+						}
+					}
+					// the second face neighbor, containing the fracture node, and both nodes from the other split edge
+					{
+						auto fracturedFaceId = GetFaceId(mFractureNodeIdx, edgeId1[0], edgeId1[1]);
+						auto faceNeighborId = FindFaceNeighbor(mIdToTetrahedra, fracturingTetId, fracturedFaceId);
+						if (faceNeighborId != -1)
+						{
+							const auto& faceNeighborTet = mIdToTetrahedra[faceNeighborId];
+							mNewTetrahedra.push_back(Tetrahedra(posFractureNode, newEdgeNode1, commonNode, faceNeighborTet.GetOtherVertex({ (size_t)mFractureNodeIdx, (size_t)edgeId1[0], (size_t)edgeId1[1] })));
+							mNewTetrahedra.push_back(Tetrahedra(negFractureNode, newEdgeNode1, edge1Node, faceNeighborTet.GetOtherVertex( { (size_t)mFractureNodeIdx, (size_t)edgeId1[0], (size_t)edgeId1[1] })));
+							mTetrahedraIdsToDelete.insert(faceNeighborId);
+                            nonEdgeNeighbors.insert(faceNeighborId);
+						}
+					}
+					// the third face neighbor, containing the nodes that are not the fracture node
+					{
+						auto fracturedFaceId = GetFaceId(commonNode, edge0Node, edge1Node);
+						auto faceNeighborId = FindFaceNeighbor(mIdToTetrahedra, fracturingTetId, fracturedFaceId);
+						if (faceNeighborId != -1)
+						{
+							const auto& faceNeighborTet = mIdToTetrahedra[faceNeighborId];
+							auto otherNode = faceNeighborTet.GetOtherVertex({ (size_t)commonNode, (size_t)edge0Node, (size_t)edge1Node });
+							mNewTetrahedra.push_back(Tetrahedra(commonNode, newEdgeNode0, newEdgeNode1, otherNode));
+							// newEdgeNode0 and edge1Node form the diagonal
+							mNewTetrahedra.push_back(Tetrahedra(edge0Node, newEdgeNode0, edge1Node, otherNode));
+							mNewTetrahedra.push_back(Tetrahedra(newEdgeNode1, newEdgeNode0, edge1Node, otherNode));
+							mTetrahedraIdsToDelete.insert(faceNeighborId);
+                            nonEdgeNeighbors.insert(faceNeighborId);
+						}
+					}
+
+                    // TODO think about whether we can remove the separate nodes below in favor of using the previously defined nodes above
+                    {
+                        const auto& edgeNeighbors = FindEdgeNeighbors(mIdToTetrahedra, edgeId0);
+
+                        for (size_t neighborId : edgeNeighbors)
+                        {
+                            if (nonEdgeNeighbors.find(neighborId) != nonEdgeNeighbors.end())
+                                continue;
+
+                            const auto& edgeNeighorTet = mIdToTetrahedra[neighborId];
+                            const auto& remainingNodes = edgeNeighorTet.GetOtherVertices(edgeId0[0], edgeId0[1]);
+                            size_t posEdgeNode;
+                            size_t negEdgeNode;
+                            SeparateNodes(posEdgeNode, negEdgeNode, { (size_t)edgeId0[0], (size_t)edgeId0[1] }, mFractureNodePosition, mFracturePlaneNormal);
+
+                            mTetrahedraIdsToDelete.insert(neighborId);
+
+                            mNewTetrahedra.push_back(Tetrahedra(edgeVertex0, remainingNodes[0], remainingNodes[1], posEdgeNode));
+                            mNewTetrahedra.push_back(Tetrahedra(edgeVertex0, remainingNodes[0], remainingNodes[1], negEdgeNode));
+                        }
+                    }
+                    {
+                        const auto& edgeNeighbors = FindEdgeNeighbors(mIdToTetrahedra, edgeId1);
+
+                        for (size_t neighborId : edgeNeighbors)
+                        {
+                            if (nonEdgeNeighbors.find(neighborId) != nonEdgeNeighbors.end())
+                                continue;
+
+                            const auto& edgeNeighorTet = mIdToTetrahedra[neighborId];
+                            const auto& remainingNodes = edgeNeighorTet.GetOtherVertices(edgeId1[0], edgeId1[1]);
+                            size_t posEdgeNode;
+                            size_t negEdgeNode;
+                            SeparateNodes(posEdgeNode, negEdgeNode, { (size_t)edgeId1[0], (size_t)edgeId1[1] }, mFractureNodePosition, mFracturePlaneNormal);
+
+                            mTetrahedraIdsToDelete.insert(neighborId);
+
+                            mNewTetrahedra.push_back(Tetrahedra(edgeVertex1, remainingNodes[0], remainingNodes[1], posEdgeNode));
+                            mNewTetrahedra.push_back(Tetrahedra(edgeVertex1, remainingNodes[0], remainingNodes[1], negEdgeNode));
+                        }
+                    }
                 }
                 else
                 {
                     // tetrahedra is small
                 }
-
-                for (auto tetId : mTetrahedraIdsToDelete)
-                    mIdToTetrahedra.erase(tetId);
-                mTetrahedraIdsToDelete.clear();
-
-                for (auto& tet : mNewTetrahedra)
-                    mIdToTetrahedra[mTetIdCounter++] = tet;
-                mNewTetrahedra.clear();
             }
-        }
-    }
 
-    ////////////////////////////////////////////////////////////////////////////////
-    
-    void FractureContext::NeighborFaceFracture(
-        const glm::ivec3& faceId,
-        const std::vector<size_t>& newNodeIds,
-        const std::vector<glm::ivec2>& splitEdges,
-        const glm::dvec3& planeNormal)
-    {
-        // Find face neighbor if it exists
-        size_t neighborTetId = -1;
-        for (size_t tetId = 0; tetId < mTetrahedra.size(); tetId++)
-        {
-            if (tetId == mTetrahedraIdx)
-                continue;
+            std::cout << "Num tet to delete : " << mTetrahedraIdsToDelete.size() << std::endl;
+            std::cout << "Num tet to add : " << mNewTetrahedra.size() << std::endl;
 
-            if (mTetrahedra[tetId].ContainsFaceIndex(faceId))
+            for (auto tetId : mTetrahedraIdsToDelete)
             {
-                neighborTetId = tetId;
-                break;
+                mIdToTetrahedra.erase(tetId);
+                neighborSet.erase(tetId);
             }
-        }
 
-        // no neighbor exists on the fractured face
-        if (neighborTetId == -1)
-            return;
+			for (auto& tet : mNewTetrahedra)
+				mIdToTetrahedra[mTetIdCounter++] = tet;
 
-        mFracturedNeighborFaceTetId = neighborTetId;
-        mTetrahedraToDelete.push_back(mFracturedNeighborFaceTetId);
-        const auto& neighborTet = mTetrahedra[mFracturedNeighborFaceTetId];
+            // verify that all nodes are referenced by at least one tet
+            {
+                std::unordered_set<size_t> vertexIds;
 
-        if (newNodeIds.size() == 1)
-        {
-            if (!mSnapToEdge)
-                throw std::exception("Neighbor face fracture expected snapped to edge but it was not.");
+                for (const auto& pair : mIdToTetrahedra)
+                {
+                    for (const auto& vertexId : pair.second.mIndices)
+                        vertexIds.insert(vertexId);
+                }
 
-            auto snappedNodeId = GetNonFractureNode(mSnappingEdgeId);
-            if (!neighborTet.ContainsVertexIndex(snappedNodeId))
-                throw std::exception("Single new node neighbor face fracture, expected the neighbor tet to contain the snapping node but it did not.");
+                for (size_t id = 0; id < mVertices.size(); id++)
+                {
+                    if (vertexIds.find(id) == vertexIds.end())
+                    {
+						std::cout << "Vertex id : " << id << std::endl;
+						throw std::exception("Isolated vertex detected.");
+                    }
+                }
+            }
 
-            // the snapped vertex should be in the face that is being fracture
-            std::vector<size_t> vertices;
-            if (faceId[0] != snappedNodeId)
-                vertices.push_back(faceId[0]);
-            if (faceId[1] != snappedNodeId)
-                vertices.push_back(faceId[1]);
-            if (faceId[2] != snappedNodeId)
-                vertices.push_back(faceId[2]);
-
-            size_t positiveVertex;
-            size_t negativeVertex;
-            SeparateNodes(positiveVertex, negativeVertex, { vertices[0], vertices[1] }, mFractureNodePosition, mSnappedEdgeNormal);
-
-            auto otherNode = neighborTet.GetOtherVertex({vertices[0], vertices[1], snappedNodeId});
-
-
-            mNewTetrahedra.push_back(Tetrahedra(positiveVertex, snappedNodeId, newNodeIds[0], otherNode));
-            mNewTetrahedra.push_back(Tetrahedra(negativeVertex, snappedNodeId, newNodeIds[0], otherNode));
-
-            return;
-        }
-        
-        if (newNodeIds.size() == 2)
-        {
-            // these three vertices form a triangle and should form a tetrahedra with the vertex not present in the fractured face
-            auto a = GetCommonVertexFromEdges(splitEdges[0], splitEdges[1]);
-            auto e = newNodeIds[0];
-            auto f = newNodeIds[1];
-
-            auto o = neighborTet.GetOtherVertex({ (size_t)faceId[0], (size_t)faceId[1], (size_t)faceId[2] });
-
-            // let c be on the edge that e split,
-            // let d be on the edge that f split.
-            // a is on both these edges
-            // newNodesIds[0] is on the 0th split edge, so splitEdges[0] 
-            auto c = (splitEdges[0][0] == a ? splitEdges[0][1] : splitEdges[0][0]);
-            auto d = (splitEdges[1][0] == a ? splitEdges[1][1] : splitEdges[1][0]);
-
-            mNewTetrahedra.push_back(Tetrahedra(a, e, f, o));
-            mNewTetrahedra.push_back(Tetrahedra(e, f, d, o));
-            mNewTetrahedra.push_back(Tetrahedra(e, d, c, o));
-
-            return;
-        }
-
-        throw std::exception("Attempted neighbor face fracture with invalid number of new node ids.");
-    }
-
-    ////////////////////////////////////////////////////////////////////////////////
-
-    void FractureContext::NeighborEdgeFracture(const glm::ivec2& edgeId, size_t newNodeId, const glm::dvec3& planeNormal)
-    {
-        // need to get all tetrahedra that contain this edge and are not the original tet or the face tet
-        std::vector<size_t> neighborTetrahedraIds;
-        for (size_t neighborTetId = 0; neighborTetId < mTetrahedra.size(); neighborTetId++)
-        {
-            if (neighborTetId == mTetrahedraIdx || (mFracturedNeighborFaceTet && neighborTetId == mFracturedNeighborFaceTetId))
-                continue;
-            
-            const auto& neighborTet = mTetrahedra[neighborTetId];
-            if (!neighborTet.ContainsEdgeIndex(edgeId))
-                continue;
-
-            mTetrahedraToDelete.push_back(neighborTetId);
-            
-            auto otherNodes = neighborTet.GetOtherVertices(edgeId[0], edgeId[1]);
-            size_t posEdgeNode;
-            size_t negEdgeNode;
-            SeparateNodes(posEdgeNode, negEdgeNode, { (size_t)edgeId[0], (size_t)edgeId[1] }, mFractureNodePosition, planeNormal);
-
-            mNewTetrahedra.push_back(Tetrahedra(newNodeId, otherNodes[0], otherNodes[1], posEdgeNode));
-            mNewTetrahedra.push_back(Tetrahedra(newNodeId, otherNodes[0], otherNodes[1], negEdgeNode));
-        }
+            mTetrahedraIdsToDelete.clear();
+            mNewTetrahedra.clear();
+		}
     }
 
     ////////////////////////////////////////////////////////////////////////////////
@@ -1401,9 +1570,16 @@ namespace TestDeformation
 		if (!results.intersect)
 			return false;
 
+        if (isnan(results.parameter))
+            throw std::exception("Nan detected in plane-edge intersection.");
+
+        std::cout << "Result parameter : " << results.parameter << std::endl;
+
         double param = results.parameter / (glm::distance(edgePos0, edgePos1));
 
-        if (param <= 0 || param >= 1)
+        std::cout << "Scaled Result parameter : " << param << std::endl;
+
+        if (param <= 0 || param >= 1.0)
             return false;
 
 		d = param;
@@ -1416,24 +1592,6 @@ namespace TestDeformation
 		}
 
 		return true;
-
-        // plane equation is (p - p0) * n = 0, where n is the normal vector
-        // line equation is p = l0 + v * t, where v is the direction vector of the line
-        // compute d = (p0 - l0) * n / (l * n)
-        // intersection is at p = l0 + v * d
-        // if d == 0, plane contains line
-        //auto edgeDirVec = glm::normalize(edgePos1 - edgePos0);
-
-        //d = glm::dot((planePos - edgePos0), planeNormal) / glm::dot(edgeDirVec, planeNormal);
-
-        //// Outside the line segment
-        //if (d <= 0 || d > 1)
-        //    return false;
-
-        //if (intersectionPos)
-        //    *intersectionPos = edgePos0 + d * edgeDirVec;
-
-        //return true;
     }
 
     ////////////////////////////////////////////////////////////////////////////////
@@ -1442,8 +1600,9 @@ namespace TestDeformation
     {
         size_t counter = 0;
 
-        for (const auto& tet : mTetrahedra)
+        for (const auto& pair : mIdToTetrahedra)
         {
+            const auto& tet = pair.second;
             if (tet.ContainsEdgeIndex(edgeId))
                 counter++;
         }
@@ -1460,9 +1619,11 @@ namespace TestDeformation
     {
         std::vector<size_t> neighborIds;
 
-        for (size_t tetId = 0; tetId < mTetrahedra.size(); tetId++)
+        for (const auto & pair : mIdToTetrahedra)
         {
-            if (mTetrahedra[tetId].ContainsVertexIndex(nodeIdx))
+            size_t tetId = pair.first;
+            const auto& tetrahedra = pair.second;
+            if (tetrahedra.ContainsVertexIndex(nodeIdx))
                 neighborIds.push_back(tetId);
         }
 
