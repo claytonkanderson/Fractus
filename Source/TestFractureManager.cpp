@@ -50,22 +50,13 @@ namespace TestDeformation
 	
 	// Two tetrahedra with a shared face.
 	// Fracture occurs on all nodes in the shared face with planes such that they will be snapped to that face.
-	class TestCaseOne : public TestCase
+	class SimpleCaseThreeFractures : public TestCase
 	{
+		using TestCase::TestCase;
+
 	public:
 		void Run(IronGames::SimulationSummary* summary) override
 		{
-			int maxNumVertices = 10;
-			int maxNumTetrahedra = 10;
-
-			double lambda = 2.65e6f;
-			double psi = 397.f;
-			double phi = 264.f;
-			double mu = 3.97e6f;
-			double density = 5013.f;
-			double timestep = 0.0001f;
-			double toughness = 10.f;
-
 			std::vector<float> positions = {
 			0, 0, 0,
 			1, 0.5f, 0,
@@ -73,15 +64,15 @@ namespace TestDeformation
 			0, 0.5f, 1,
 			-0.5f, 0.5f, -1.2f
 			};
-			positions.resize(3 * (maxNumVertices + 10));
+			positions.resize(3 * (mMaxNumVertices + 10));
 
 			std::vector<int> indices = {
 				0, 1, 2, 3,
 				0, 1, 4, 2
 			};
-			indices.resize(4 * (maxNumTetrahedra + 10));
+			indices.resize(4 * (mMaxNumTetrahedra + 10));
 
-			Initialize(positions.data(), 5, maxNumVertices, indices.data(), 2, maxNumTetrahedra, lambda, psi, mu, phi, toughness, density);
+			Initialize(positions.data(), 5, mMaxNumVertices, indices.data(), 2, mMaxNumTetrahedra, mLambda, mPsi, mMu, mPhi, mToughness, mDensity);
 			TestDeformation::TetraGroup* group = (TestDeformation::TetraGroup*)mData;
 
 			const glm::vec3 fracturePlane(0.0f, 0.0f, 1.0f);
@@ -109,27 +100,22 @@ namespace TestDeformation
 		}
 	};
 
-	class TestCaseTwo : public TestCase
+	class UpdateCaseTwoTetrahedra : public TestCase
 	{
+		using TestCase::TestCase;
+
 	public:
+
 		void Run(IronGames::SimulationSummary* summary) override
 		{
 			int maxNumVertices = 20;
 			int maxNumTetrahedra = 10;
 
-			double lambda = 2.65e6f;
-			double psi = 397.f;
-			double phi = 264.f;
-			double mu = 3.97e6f;
-			double density = 5013.f;
-			double timestep = 0.0001f;
-			double toughness = 10.f;
-
 			std::vector<float> positions = {
 			0,1+ 0, 0,
 			1,1+ 0.5f, 0,
 			0,1+ 1, 0,
-			0,1+ 0.5f, 1,
+			0.4f,1+ 0.5f, 1,
 			-0.5f,1+ 0.5f, -1.2f
 			};
 			positions.resize(3 * (maxNumVertices + 10));
@@ -140,7 +126,7 @@ namespace TestDeformation
 			};
 			indices.resize(4 * (maxNumTetrahedra + 10));
 
-			Initialize(positions.data(), 5, maxNumVertices, indices.data(), 2, maxNumTetrahedra, lambda, psi, mu, phi, toughness, density);
+			Initialize(positions.data(), 5, maxNumVertices, indices.data(), 2, maxNumTetrahedra, mLambda, mPsi, mMu, mPhi, mToughness, mDensity);
 			TestDeformation::TetraGroup* group = (TestDeformation::TetraGroup*)mData;
 
 			for (auto& vert : group->mVertices)
@@ -154,14 +140,14 @@ namespace TestDeformation
 			try {
 				for (int i = 0; i < 6000; i++)
 				{
-					group->Update(timestep);
+					group->Update(mTimestep);
 
 					for (const auto& vertex : group->mVertices)
 					{
 						if (vertex.mLargestEigenvalue > maxEigenvalue)
 						{
 							maxEigenvalue = vertex.mLargestEigenvalue;
-							maxEigenvalueTime = i * timestep;
+							maxEigenvalueTime = i * mTimestep;
 						}
 					}
 				}
@@ -176,8 +162,10 @@ namespace TestDeformation
 		}
 	};
 
-	class TestCaseThree : public TestCase
+	class UpdateCaseBowl : public TestCase
 	{
+		using TestCase::TestCase;
+
 	public:
 		void Run(IronGames::SimulationSummary* summary) override
 		{
@@ -224,24 +212,16 @@ const float heightOffset = 2.0f;
 			int maxNumVertices = 2 * numVertices;
 			int maxNumTetrahedra = 2 * numTetrahedra;
 
-			double lambda = 2.65e6f;
-			double psi = 397.f;
-			double phi = 264.f;
-			double mu = 3.97e6f;
-			double density = 1013.f;
-			double timestep = 0.0001f;
-			double toughness = 13.2f;
-
-			Initialize(positions.data(), numVertices, maxNumVertices, indices.data(), numTetrahedra, maxNumTetrahedra, lambda, psi, mu, phi, toughness, density);
+			Initialize(positions.data(), numVertices, maxNumVertices, indices.data(), numTetrahedra, maxNumTetrahedra, mLambda, mPsi, mMu, mPhi, mToughness, mDensity);
 			TestDeformation::TetraGroup* group = (TestDeformation::TetraGroup*)mData;
 
 			float maxEigenvalue = -1;
 			float maxEigenvalueTime = 0.0f;
 
 			//try {
-				for (int i = 0; i < 3000; i++)
+				for (int i = 0; i < 1; i++)
 				{
-					group->Update(timestep);
+					group->Update(mTimestep);
 				}
 			//}
 			//catch (const std::exception& e)
@@ -254,21 +234,14 @@ const float heightOffset = 2.0f;
 	// Two tetrahedra with a shared face.
 	// A single fracture event occurs on a non-shared node to split the shared face in two with edge snapping.
 	// so that 4 tetrahedra are expected as the result.
-	class TestCaseFour : public TestCase
+	class SimpleCaseEdgeSnappedFracture : public TestCase
 	{
+		using TestCase::TestCase;
 	public:
 		void Run(IronGames::SimulationSummary* summary) override
 		{
 			int maxNumVertices = 10;
 			int maxNumTetrahedra = 10;
-
-			double lambda = 2.65e6f;
-			double psi = 397.f;
-			double phi = 264.f;
-			double mu = 3.97e6f;
-			double density = 5013.f;
-			double timestep = 0.0001f;
-			double toughness = 10.f;
 
 			std::vector<float> positions = {
 			0, 0, 0,
@@ -285,7 +258,7 @@ const float heightOffset = 2.0f;
 			};
 			indices.resize(4 * (maxNumTetrahedra + 10));
 
-			Initialize(positions.data(), 5, maxNumVertices, indices.data(), 2, maxNumTetrahedra, lambda, psi, mu, phi, toughness, density);
+			Initialize(positions.data(), 5, maxNumVertices, indices.data(), 2, maxNumTetrahedra, mLambda, mPsi, mMu, mPhi, mToughness, mDensity);
 			TestDeformation::TetraGroup* group = (TestDeformation::TetraGroup*)mData;
 
 			const glm::vec3 fracturePlane(0.0f, 1.0f, 0.0f);
@@ -305,21 +278,14 @@ const float heightOffset = 2.0f;
 	// Two tetrahedra with a shared face.
 	// A single fracture event occurs on a non-shared node to split the shared face in two.
 	// so that 6 tetrahedra are expected as the result.
-	class TestCaseFive : public TestCase
+	class SimpleCaseRegularFracture : public TestCase
 	{
+		using TestCase::TestCase;
 	public:
 		void Run(IronGames::SimulationSummary* summary) override
 		{
 			int maxNumVertices = 10;
 			int maxNumTetrahedra = 10;
-
-			double lambda = 2.65e6f;
-			double psi = 397.f;
-			double phi = 264.f;
-			double mu = 3.97e6f;
-			double density = 5013.f;
-			double timestep = 0.0001f;
-			double toughness = 10.f;
 
 			std::vector<float> positions = {
 			0, 0, 0,
@@ -336,7 +302,7 @@ const float heightOffset = 2.0f;
 			};
 			indices.resize(4 * (maxNumTetrahedra + 10));
 
-			Initialize(positions.data(), 5, maxNumVertices, indices.data(), 2, maxNumTetrahedra, lambda, psi, mu, phi, toughness, density);
+			Initialize(positions.data(), 5, maxNumVertices, indices.data(), 2, maxNumTetrahedra, mLambda, mPsi, mMu, mPhi, mToughness, mDensity);
 			TestDeformation::TetraGroup* group = (TestDeformation::TetraGroup*)mData;
 
 			const glm::vec3 fracturePlane = glm::normalize(glm::vec3(0.0f, 0.8f, 0.2f));
@@ -356,21 +322,14 @@ const float heightOffset = 2.0f;
 	// Two tetrahedra with a shared face.
 	// A single fracture event occurs on a shared node that does not split the shared face.
 	// The plane does not intersect one of the tetrahedra.
-	class TestCaseSix : public TestCase
+	class SimpleCaseSharedNodeSingleFracture : public TestCase
 	{
+		using TestCase::TestCase;
 	public:
 		void Run(IronGames::SimulationSummary* summary) override
 		{
 			int maxNumVertices = 10;
 			int maxNumTetrahedra = 10;
-
-			double lambda = 2.65e6f;
-			double psi = 397.f;
-			double phi = 264.f;
-			double mu = 3.97e6f;
-			double density = 5013.f;
-			double timestep = 0.0001f;
-			double toughness = 10.f;
 
 			std::vector<float> positions = {
 			0, 0, 0,
@@ -387,7 +346,7 @@ const float heightOffset = 2.0f;
 			};
 			indices.resize(4 * (maxNumTetrahedra + 10));
 
-			Initialize(positions.data(), 5, maxNumVertices, indices.data(), 2, maxNumTetrahedra, lambda, psi, mu, phi, toughness, density);
+			Initialize(positions.data(), 5, maxNumVertices, indices.data(), 2, maxNumTetrahedra, mLambda, mPsi, mMu, mPhi, mToughness, mDensity);
 			TestDeformation::TetraGroup* group = (TestDeformation::TetraGroup*)mData;
 
 			const glm::vec3 fracturePlane = glm::normalize(glm::vec3(0.0f, 0.8f, 0.5f));
@@ -407,21 +366,14 @@ const float heightOffset = 2.0f;
 	// Two tetrahedra with a shared face.
 	// A single fracture event occurs on a shared node that splits the shared face.
 	// Six tetrahedra are expected.
-	class TestCaseSeven : public TestCase
+	class SimpleCaseSharedNodeRegularFracture : public TestCase
 	{
+		using TestCase::TestCase;
 	public:
 		void Run(IronGames::SimulationSummary* summary) override
 		{
 			int maxNumVertices = 10;
 			int maxNumTetrahedra = 10;
-
-			double lambda = 2.65e6f;
-			double psi = 397.f;
-			double phi = 264.f;
-			double mu = 3.97e6f;
-			double density = 5013.f;
-			double timestep = 0.0001f;
-			double toughness = 10.f;
 
 			std::vector<float> positions = {
 			0, 0, 0,
@@ -438,7 +390,7 @@ const float heightOffset = 2.0f;
 			};
 			indices.resize(4 * (maxNumTetrahedra + 10));
 
-			Initialize(positions.data(), 5, maxNumVertices, indices.data(), 2, maxNumTetrahedra, lambda, psi, mu, phi, toughness, density);
+			Initialize(positions.data(), 5, maxNumVertices, indices.data(), 2, maxNumTetrahedra, mLambda, mPsi, mMu, mPhi, mToughness, mDensity);
 			TestDeformation::TetraGroup* group = (TestDeformation::TetraGroup*)mData;
 
 			const glm::vec3 fracturePlane = glm::normalize(glm::vec3(-0.2f, 0.8f, 0.0f));
@@ -454,6 +406,180 @@ const float heightOffset = 2.0f;
 			SaveFrame(summary, *group);
 		}
 	};
+
+	class UpdateCaseTwoTetVelocityTensile : public TestCase
+	{
+		using TestCase::TestCase;
+	public:
+		void Run(IronGames::SimulationSummary* summary) override
+		{
+			int maxNumVertices = 10;
+			int maxNumTetrahedra = 10;
+
+			std::vector<float> positions = {
+			0, 0, 0,
+			1, 0.5f, 0,
+			0, 1, 0,
+			0, 0.5f, 1,
+			-0.5f, 0.5f, -1.2f
+			};
+			positions.resize(3 * (maxNumVertices + 10));
+
+			std::vector<int> indices = {
+				0, 1, 2, 3,
+				0, 1, 4, 2
+			};
+			indices.resize(4 * (maxNumTetrahedra + 10));
+
+			Initialize(positions.data(), 5, maxNumVertices, indices.data(), 2, maxNumTetrahedra, mLambda, mPsi, mMu, mPhi, mToughness, mDensity);
+			TestDeformation::TetraGroup* group = (TestDeformation::TetraGroup*)mData;
+
+			double speed = 1;
+			group->mVertices[3].mVelocity += glm::vec3(0, 0, speed);
+			group->mVertices[4].mVelocity += glm::vec3(0, 0, -speed);
+
+			group->mSaveEveryXSteps = 1;
+
+			float maxEigenvalue = -1;
+			float maxEigenvalueTime = 0.0f;
+
+			try {
+				for (int i = 0; i < 100; i++)
+				{
+					group->Update(mTimestep);
+
+					for (const auto& vertex : group->mVertices)
+					{
+						if (vertex.mLargestEigenvalue > maxEigenvalue)
+						{
+							maxEigenvalue = vertex.mLargestEigenvalue;
+							maxEigenvalueTime = i * mTimestep;
+						}
+					}
+				}
+			}
+			catch (const std::exception& e)
+			{
+				std::cout << "Error occurred during Test Case Two : " << e.what() << std::endl;
+			}
+
+			*summary = group->mSummary;
+			std::cout << "Max Eigenvalue : " << maxEigenvalue << " time " << maxEigenvalueTime << "s." << std::endl;
+		}
+	};
+
+	class SimpleCaseSingleTetTensile : public TestCase
+	{
+		using TestCase::TestCase;
+	public:
+		void Run(IronGames::SimulationSummary* summary) override
+		{
+			std::vector<float> positions = {
+			0, 0, 0,
+			1, 0.5f, 0,
+			0, 1, 0,
+			0.4f, 0.5f, 1
+			};
+			positions.resize(3 * (mMaxNumVertices + 10));
+
+			std::vector<int> indices = {
+				0, 1, 2, 3
+			};
+			indices.resize(4 * (mMaxNumTetrahedra + 10));
+
+			Initialize(positions.data(), 4, mMaxNumVertices, indices.data(), 1, mMaxNumTetrahedra, mLambda, mPsi, mMu, mPhi, mToughness, mDensity);
+			TestDeformation::TetraGroup* group = (TestDeformation::TetraGroup*)mData;
+
+			double speed = 1;
+			group->mVertices[3].mVelocity += glm::vec3(0, 0, speed);
+
+			group->mSaveEveryXSteps = 1;
+
+			float maxEigenvalue = -1;
+			float maxEigenvalueTime = 0.0f;
+
+			try {
+				for (int i = 0; i < 100; i++)
+				{
+					group->Update(mTimestep);
+
+					for (const auto& vertex : group->mVertices)
+					{
+						if (vertex.mLargestEigenvalue > maxEigenvalue)
+						{
+							maxEigenvalue = vertex.mLargestEigenvalue;
+							maxEigenvalueTime = i * mTimestep;
+						}
+					}
+				}
+			}
+			catch (const std::exception& e)
+			{
+				std::cout << "Error occurred during Test Case Two : " << e.what() << std::endl;
+			}
+
+			*summary = group->mSummary;
+			std::cout << "Max Eigenvalue : " << maxEigenvalue << " time " << maxEigenvalueTime << "s." << std::endl;
+		}
+	};
+
+	class SimpleCaseSingleTetCompressive : public TestCase
+	{
+		using TestCase::TestCase;
+	public:
+		void Run(IronGames::SimulationSummary* summary) override
+		{
+			int maxNumVertices = 10;
+			int maxNumTetrahedra = 10;
+
+			std::vector<float> positions = {
+			0, 0, 0,
+			1, 0.5f, 0,
+			0, 1, 0,
+			0.4f, 0.5f, 1
+			};
+			positions.resize(3 * (maxNumVertices + 10));
+
+			std::vector<int> indices = {
+				0, 1, 2, 3
+			};
+			indices.resize(4 * (maxNumTetrahedra + 10));
+
+			Initialize(positions.data(), 4, maxNumVertices, indices.data(), 1, maxNumTetrahedra, mLambda, mPsi, mMu, mPhi, mToughness, mDensity);
+			TestDeformation::TetraGroup* group = (TestDeformation::TetraGroup*)mData;
+
+			double speed = 1;
+			group->mVertices[3].mVelocity += glm::vec3(0, 0, -speed);
+
+			group->mSaveEveryXSteps = 1;
+
+			float maxEigenvalue = -1;
+			float maxEigenvalueTime = 0.0f;
+
+			try {
+				for (int i = 0; i < 100; i++)
+				{
+					group->Update(mTimestep);
+
+					for (const auto& vertex : group->mVertices)
+					{
+						if (vertex.mLargestEigenvalue > maxEigenvalue)
+						{
+							maxEigenvalue = vertex.mLargestEigenvalue;
+							maxEigenvalueTime = i * mTimestep;
+						}
+					}
+				}
+			}
+			catch (const std::exception& e)
+			{
+				std::cout << "Error occurred during Test Case Two : " << e.what() << std::endl;
+			}
+
+			*summary = group->mSummary;
+			std::cout << "Max Eigenvalue : " << maxEigenvalue << " time " << maxEigenvalueTime << "s." << std::endl;
+		}
+	};
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -461,15 +587,20 @@ const float heightOffset = 2.0f;
 TestDeformation::TestFractureManager::TestFractureManager(IronGames::SimulationSummaries* summaries)
 	: mSummaries(summaries)
 {
-	mTestCases.push_back(new TestCaseOne());
-	mTestCases.push_back(new TestCaseTwo());
+	bool breakOnFailure = true;
 
-	//mTestCases.push_back(new TestCaseThree());
+	mTestCases.push_back(new SimpleCaseThreeFractures(breakOnFailure));
+	mTestCases.push_back(new UpdateCaseTwoTetrahedra(breakOnFailure));
+
+	mTestCases.push_back(new UpdateCaseBowl(breakOnFailure));
 	
-	mTestCases.push_back(new TestCaseFour());
-	mTestCases.push_back(new TestCaseFive());
-	mTestCases.push_back(new TestCaseSix());
-	mTestCases.push_back(new TestCaseSeven());
+	mTestCases.push_back(new SimpleCaseEdgeSnappedFracture(breakOnFailure));
+	mTestCases.push_back(new SimpleCaseRegularFracture(breakOnFailure));
+	mTestCases.push_back(new SimpleCaseSharedNodeSingleFracture(breakOnFailure));
+	mTestCases.push_back(new SimpleCaseSharedNodeRegularFracture(breakOnFailure));
+	mTestCases.push_back(new UpdateCaseTwoTetVelocityTensile(breakOnFailure));
+	mTestCases.push_back(new SimpleCaseSingleTetTensile(breakOnFailure));
+	mTestCases.push_back(new SimpleCaseSingleTetCompressive(breakOnFailure));
 }
 
 ////////////////////////////////////////////////////////////////////////////////

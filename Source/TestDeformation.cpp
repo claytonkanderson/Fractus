@@ -259,18 +259,18 @@ namespace TestDeformation
                     fMinus[i] += pMat[j] * innerProductMinus;
                 }
 
-                //fPlus[i] *= -tetrahedra.mVolume * 0.5f;
-                //fMinus[i] *= -tetrahedra.mVolume * 0.5f;
-                fPlus[i] *= tetrahedra.mVolume * 0.5f;
-                fMinus[i] *= tetrahedra.mVolume * 0.5f;
+                fPlus[i] *= -tetrahedra.mVolume * 0.5f;
+                fMinus[i] *= -tetrahedra.mVolume * 0.5f;
+                //fPlus[i] *= tetrahedra.mVolume * 0.5f;
+                //fMinus[i] *= tetrahedra.mVolume * 0.5f;
             }
 
             for (int i = 0; i < 4; i++)
             {
-                //mVertices[tetrahedra.mIndices[i]].mCompressiveForces.push_back(fMinus[i]);
-                //mVertices[tetrahedra.mIndices[i]].mTensileForces.push_back(fPlus[i]);
-                mVertices[tetrahedra.mIndices[i]].mCompressiveForces.push_back(fPlus[i]);
-                mVertices[tetrahedra.mIndices[i]].mTensileForces.push_back(fMinus[i]);
+                mVertices[tetrahedra.mIndices[i]].mCompressiveForces.push_back(fMinus[i]);
+                mVertices[tetrahedra.mIndices[i]].mTensileForces.push_back(fPlus[i]);
+                //mVertices[tetrahedra.mIndices[i]].mCompressiveForces.push_back(fPlus[i]);
+                //mVertices[tetrahedra.mIndices[i]].mTensileForces.push_back(fMinus[i]);
             }
 
             if (saveFrame)
@@ -398,14 +398,13 @@ namespace TestDeformation
 						maxEigenValueNodeId = idx;
 					}
 				}
-
-				if (mVertices.size() >= mMaxNumVertices)
-					break;
 			}
 
-			if (maxEigenValueNodeId != -1)
-				FractureNode(maxEigenValueNodeId, mVertices[maxEigenValueNodeId].mPrincipalEigenVector);
-            
+            if (maxEigenValueNodeId != -1)
+            {
+                std::cout << "Max eigen value : " << maxEigenValue << std::endl;
+                FractureNode(maxEigenValueNodeId, mVertices[maxEigenValueNodeId].mPrincipalEigenVector);
+            }
 
             ComputeDerivedQuantities();
         }
@@ -930,6 +929,8 @@ namespace TestDeformation
 
 		size_t negativeFractureNodeId = -1;
 
+        bool noPositiveEdgeCase = NoPositiveNodeEdgeCase(neighborSet, mIdToTetrahedra, mVertices, mFractureNodePosition, mFracturePlaneNormal);
+
 		auto inputStateFunctor = [&](const Tetrahedra& tet, size_t fractureNodeId)
 		{
 			const auto& edges = tet.GetEdges();
@@ -951,7 +952,7 @@ namespace TestDeformation
 		{
             if (negativeFractureNodeId == -1)
             {
-                if (NoPositiveNodeEdgeCase(neighborSet, mIdToTetrahedra, mVertices, mFractureNodePosition, mFracturePlaneNormal))
+                if (noPositiveEdgeCase)
                     negativeFractureNodeId = mFractureNodeIdx;
                 else
 					negativeFractureNodeId = CloneVertex(mFractureNodeIdx);

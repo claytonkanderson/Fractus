@@ -18,6 +18,9 @@ int main(int argc, const char* argv[])
 	IronGames::SimulationSummaries summaries;
 
 	TestDeformation::TestFractureManager testManager(&summaries);
+	//testManager.RunTestCase(1);
+	//testManager.RunTestCase(8);
+	//testManager.RunTestCase(9);
 	testManager.RunAllTestCases();
 
 	// write to file...
