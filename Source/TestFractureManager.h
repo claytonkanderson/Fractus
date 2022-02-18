@@ -1,5 +1,6 @@
 #pragma once
 #include "core.pb.h"
+#include "TestDeformation.hpp"
 #include <vector>
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -13,6 +14,8 @@ namespace TestDeformation
 			: mBreakOnFailure(breakOnFailure) {}
 
 		virtual void Run(IronGames::SimulationSummary* /*summary*/) {}
+		
+		void Update(TestDeformation::TetraGroup& group);
 
 	protected:
 		double mLambda = 2.65e6f;

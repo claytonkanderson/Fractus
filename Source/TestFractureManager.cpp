@@ -47,7 +47,37 @@ namespace TestDeformation
 			}
 		}
 	}
+
+	void GetTwoTetrahedraConfiguration(std::vector<float>& outPositions, std::vector<int>& outIndices, float yOffset = 0.0f)
+	{
+		outPositions = {
+			0, yOffset + 0, 0,
+			1, yOffset + 0.5f, 0,
+			0, yOffset + 1, 0,
+			0.4f, yOffset + 0.5f, 1,
+			-0.5f, yOffset + 0.5f, -1.2f
+		};
+
+		outIndices = {
+			0, 1, 2, 3,
+			0, 1, 4, 2
+		};
+	}
 	
+	void GetSingleTetrahedraConfiguration(std::vector<float>& outPositions, std::vector<int>& outIndices, float yOffset = 0.0f)
+	{
+		outPositions = {
+			0, yOffset + 0, 0,
+			1, yOffset + 0.5f, 0,
+			0, yOffset + 1, 0,
+			0.4f, yOffset + 0.5f, 1,
+		};
+
+		outIndices = {
+			0, 1, 2, 3
+		};
+	}
+
 	// Two tetrahedra with a shared face.
 	// Fracture occurs on all nodes in the shared face with planes such that they will be snapped to that face.
 	class SimpleCaseThreeFractures : public TestCase
@@ -57,19 +87,10 @@ namespace TestDeformation
 	public:
 		void Run(IronGames::SimulationSummary* summary) override
 		{
-			std::vector<float> positions = {
-			0, 0, 0,
-			1, 0.5f, 0,
-			0, 1, 0,
-			0, 0.5f, 1,
-			-0.5f, 0.5f, -1.2f
-			};
+			std::vector<float> positions;
+			std::vector<int> indices;
+			GetTwoTetrahedraConfiguration(positions, indices);
 			positions.resize(3 * (mMaxNumVertices + 10));
-
-			std::vector<int> indices = {
-				0, 1, 2, 3,
-				0, 1, 4, 2
-			};
 			indices.resize(4 * (mMaxNumTetrahedra + 10));
 
 			Initialize(positions.data(), 5, mMaxNumVertices, indices.data(), 2, mMaxNumTetrahedra, mLambda, mPsi, mMu, mPhi, mToughness, mDensity);
@@ -108,25 +129,16 @@ namespace TestDeformation
 
 		void Run(IronGames::SimulationSummary* summary) override
 		{
-			int maxNumVertices = 20;
-			int maxNumTetrahedra = 10;
+			mMaxNumVertices = 20;
+			mMaxNumTetrahedra = 10;
 
-			std::vector<float> positions = {
-			0,1+ 0, 0,
-			1,1+ 0.5f, 0,
-			0,1+ 1, 0,
-			0.4f,1+ 0.5f, 1,
-			-0.5f,1+ 0.5f, -1.2f
-			};
-			positions.resize(3 * (maxNumVertices + 10));
+			std::vector<float> positions;
+			std::vector<int> indices;
+			GetTwoTetrahedraConfiguration(positions, indices, 1.0f);
+			positions.resize(3 * (mMaxNumVertices + 10));
+			indices.resize(4 * (mMaxNumTetrahedra + 10));
 
-			std::vector<int> indices = {
-				0, 1, 2, 3,
-				0, 1, 4, 2
-			};
-			indices.resize(4 * (maxNumTetrahedra + 10));
-
-			Initialize(positions.data(), 5, maxNumVertices, indices.data(), 2, maxNumTetrahedra, mLambda, mPsi, mMu, mPhi, mToughness, mDensity);
+			Initialize(positions.data(), 5, mMaxNumVertices, indices.data(), 2, mMaxNumTetrahedra, mLambda, mPsi, mMu, mPhi, mToughness, mDensity);
 			TestDeformation::TetraGroup* group = (TestDeformation::TetraGroup*)mData;
 
 			for (auto& vert : group->mVertices)
@@ -137,24 +149,20 @@ namespace TestDeformation
 			float maxEigenvalue = -1;
 			float maxEigenvalueTime = 0.0f;
 
-			try {
-				for (int i = 0; i < 6000; i++)
-				{
-					group->Update(mTimestep);
+			for (int i = 0; i < 6000; i++)
+			{
+				group->Update(mTimestep);
 
-					for (const auto& vertex : group->mVertices)
+				Update(*group);
+
+				for (const auto& vertex : group->mVertices)
+				{
+					if (vertex.mLargestEigenvalue > maxEigenvalue)
 					{
-						if (vertex.mLargestEigenvalue > maxEigenvalue)
-						{
-							maxEigenvalue = vertex.mLargestEigenvalue;
-							maxEigenvalueTime = i * mTimestep;
-						}
+						maxEigenvalue = vertex.mLargestEigenvalue;
+						maxEigenvalueTime = i * mTimestep;
 					}
 				}
-			}
-			catch (const std::exception& e)
-			{
-				std::cout << "Error occurred during Test Case Two : " << e.what() << std::endl;
 			}
 
 			*summary = group->mSummary;
@@ -218,16 +226,8 @@ const float heightOffset = 2.0f;
 			float maxEigenvalue = -1;
 			float maxEigenvalueTime = 0.0f;
 
-			//try {
-				for (int i = 0; i < 1; i++)
-				{
-					group->Update(mTimestep);
-				}
-			//}
-			//catch (const std::exception& e)
-			//{
-			//	std::cout << "Error occurred during Test Case Three : " << e.what() << std::endl;
-			//}
+			for (int i =0 ; i < 1; i++)
+				Update(*group);
 		}
 	};
 
@@ -240,25 +240,11 @@ const float heightOffset = 2.0f;
 	public:
 		void Run(IronGames::SimulationSummary* summary) override
 		{
-			int maxNumVertices = 10;
-			int maxNumTetrahedra = 10;
+			std::vector<float> positions;
+			std::vector<int> indices;
+			GetTwoTetrahedraConfiguration(positions, indices);
 
-			std::vector<float> positions = {
-			0, 0, 0,
-			1, 0.5f, 0,
-			0, 1, 0,
-			0, 0.5f, 1,
-			-0.5f, 0.5f, -1.2f
-			};
-			positions.resize(3 * (maxNumVertices + 10));
-
-			std::vector<int> indices = {
-				0, 1, 2, 3,
-				0, 1, 4, 2
-			};
-			indices.resize(4 * (maxNumTetrahedra + 10));
-
-			Initialize(positions.data(), 5, maxNumVertices, indices.data(), 2, maxNumTetrahedra, mLambda, mPsi, mMu, mPhi, mToughness, mDensity);
+			Initialize(positions.data(), 5, mMaxNumVertices, indices.data(), 2, mMaxNumTetrahedra, mLambda, mPsi, mMu, mPhi, mToughness, mDensity);
 			TestDeformation::TetraGroup* group = (TestDeformation::TetraGroup*)mData;
 
 			const glm::vec3 fracturePlane(0.0f, 1.0f, 0.0f);
@@ -284,25 +270,11 @@ const float heightOffset = 2.0f;
 	public:
 		void Run(IronGames::SimulationSummary* summary) override
 		{
-			int maxNumVertices = 10;
-			int maxNumTetrahedra = 10;
+			std::vector<float> positions;
+			std::vector<int> indices;
+			GetTwoTetrahedraConfiguration(positions, indices);
 
-			std::vector<float> positions = {
-			0, 0, 0,
-			1, 0.5f, 0,
-			0, 1, 0,
-			0, 0.5f, 1,
-			-0.5f, 0.5f, -1.2f
-			};
-			positions.resize(3 * (maxNumVertices + 10));
-
-			std::vector<int> indices = {
-				0, 1, 2, 3,
-				0, 1, 4, 2
-			};
-			indices.resize(4 * (maxNumTetrahedra + 10));
-
-			Initialize(positions.data(), 5, maxNumVertices, indices.data(), 2, maxNumTetrahedra, mLambda, mPsi, mMu, mPhi, mToughness, mDensity);
+			Initialize(positions.data(), 5, mMaxNumVertices, indices.data(), 2, mMaxNumTetrahedra, mLambda, mPsi, mMu, mPhi, mToughness, mDensity);
 			TestDeformation::TetraGroup* group = (TestDeformation::TetraGroup*)mData;
 
 			const glm::vec3 fracturePlane = glm::normalize(glm::vec3(0.0f, 0.8f, 0.2f));
@@ -328,25 +300,11 @@ const float heightOffset = 2.0f;
 	public:
 		void Run(IronGames::SimulationSummary* summary) override
 		{
-			int maxNumVertices = 10;
-			int maxNumTetrahedra = 10;
+			std::vector<float> positions;
+			std::vector<int> indices;
+			GetTwoTetrahedraConfiguration(positions, indices);
 
-			std::vector<float> positions = {
-			0, 0, 0,
-			1, 0.5f, 0,
-			0, 1, 0,
-			0, 0.5f, 1,
-			-0.5f, 0.5f, -1.2f
-			};
-			positions.resize(3 * (maxNumVertices + 10));
-
-			std::vector<int> indices = {
-				0, 1, 2, 3,
-				0, 1, 4, 2
-			};
-			indices.resize(4 * (maxNumTetrahedra + 10));
-
-			Initialize(positions.data(), 5, maxNumVertices, indices.data(), 2, maxNumTetrahedra, mLambda, mPsi, mMu, mPhi, mToughness, mDensity);
+			Initialize(positions.data(), 5, mMaxNumVertices, indices.data(), 2, mMaxNumTetrahedra, mLambda, mPsi, mMu, mPhi, mToughness, mDensity);
 			TestDeformation::TetraGroup* group = (TestDeformation::TetraGroup*)mData;
 
 			const glm::vec3 fracturePlane = glm::normalize(glm::vec3(0.0f, 0.8f, 0.5f));
@@ -372,25 +330,11 @@ const float heightOffset = 2.0f;
 	public:
 		void Run(IronGames::SimulationSummary* summary) override
 		{
-			int maxNumVertices = 10;
-			int maxNumTetrahedra = 10;
+			std::vector<float> positions;
+			std::vector<int> indices;
+			GetTwoTetrahedraConfiguration(positions, indices);
 
-			std::vector<float> positions = {
-			0, 0, 0,
-			1, 0.5f, 0,
-			0, 1, 0,
-			0, 0.5f, 1,
-			-0.5f, 0.5f, -1.2f
-			};
-			positions.resize(3 * (maxNumVertices + 10));
-
-			std::vector<int> indices = {
-				0, 1, 2, 3,
-				0, 1, 4, 2
-			};
-			indices.resize(4 * (maxNumTetrahedra + 10));
-
-			Initialize(positions.data(), 5, maxNumVertices, indices.data(), 2, maxNumTetrahedra, mLambda, mPsi, mMu, mPhi, mToughness, mDensity);
+			Initialize(positions.data(), 5, mMaxNumVertices, indices.data(), 2, mMaxNumTetrahedra, mLambda, mPsi, mMu, mPhi, mToughness, mDensity);
 			TestDeformation::TetraGroup* group = (TestDeformation::TetraGroup*)mData;
 
 			const glm::vec3 fracturePlane = glm::normalize(glm::vec3(-0.2f, 0.8f, 0.0f));
@@ -413,25 +357,11 @@ const float heightOffset = 2.0f;
 	public:
 		void Run(IronGames::SimulationSummary* summary) override
 		{
-			int maxNumVertices = 10;
-			int maxNumTetrahedra = 10;
+			std::vector<float> positions;
+			std::vector<int> indices;
+			GetTwoTetrahedraConfiguration(positions, indices);
 
-			std::vector<float> positions = {
-			0, 0, 0,
-			1, 0.5f, 0,
-			0, 1, 0,
-			0, 0.5f, 1,
-			-0.5f, 0.5f, -1.2f
-			};
-			positions.resize(3 * (maxNumVertices + 10));
-
-			std::vector<int> indices = {
-				0, 1, 2, 3,
-				0, 1, 4, 2
-			};
-			indices.resize(4 * (maxNumTetrahedra + 10));
-
-			Initialize(positions.data(), 5, maxNumVertices, indices.data(), 2, maxNumTetrahedra, mLambda, mPsi, mMu, mPhi, mToughness, mDensity);
+			Initialize(positions.data(), 5, mMaxNumVertices, indices.data(), 2, mMaxNumTetrahedra, mLambda, mPsi, mMu, mPhi, mToughness, mDensity);
 			TestDeformation::TetraGroup* group = (TestDeformation::TetraGroup*)mData;
 
 			double speed = 1;
@@ -443,24 +373,18 @@ const float heightOffset = 2.0f;
 			float maxEigenvalue = -1;
 			float maxEigenvalueTime = 0.0f;
 
-			try {
-				for (int i = 0; i < 100; i++)
-				{
-					group->Update(mTimestep);
+			for (int i = 0; i < 100; i++)
+			{
+				Update(*group);
 
-					for (const auto& vertex : group->mVertices)
+				for (const auto& vertex : group->mVertices)
+				{
+					if (vertex.mLargestEigenvalue > maxEigenvalue)
 					{
-						if (vertex.mLargestEigenvalue > maxEigenvalue)
-						{
-							maxEigenvalue = vertex.mLargestEigenvalue;
-							maxEigenvalueTime = i * mTimestep;
-						}
+						maxEigenvalue = vertex.mLargestEigenvalue;
+						maxEigenvalueTime = i * mTimestep;
 					}
 				}
-			}
-			catch (const std::exception& e)
-			{
-				std::cout << "Error occurred during Test Case Two : " << e.what() << std::endl;
 			}
 
 			*summary = group->mSummary;
@@ -474,18 +398,9 @@ const float heightOffset = 2.0f;
 	public:
 		void Run(IronGames::SimulationSummary* summary) override
 		{
-			std::vector<float> positions = {
-			0, 0, 0,
-			1, 0.5f, 0,
-			0, 1, 0,
-			0.4f, 0.5f, 1
-			};
-			positions.resize(3 * (mMaxNumVertices + 10));
-
-			std::vector<int> indices = {
-				0, 1, 2, 3
-			};
-			indices.resize(4 * (mMaxNumTetrahedra + 10));
+			std::vector<float> positions;
+			std::vector<int> indices;
+			GetSingleTetrahedraConfiguration(positions, indices);
 
 			Initialize(positions.data(), 4, mMaxNumVertices, indices.data(), 1, mMaxNumTetrahedra, mLambda, mPsi, mMu, mPhi, mToughness, mDensity);
 			TestDeformation::TetraGroup* group = (TestDeformation::TetraGroup*)mData;
@@ -498,24 +413,18 @@ const float heightOffset = 2.0f;
 			float maxEigenvalue = -1;
 			float maxEigenvalueTime = 0.0f;
 
-			try {
-				for (int i = 0; i < 100; i++)
-				{
-					group->Update(mTimestep);
+			for (int i = 0; i < 100; i++)
+			{
+				Update(*group);
 
-					for (const auto& vertex : group->mVertices)
+				for (const auto& vertex : group->mVertices)
+				{
+					if (vertex.mLargestEigenvalue > maxEigenvalue)
 					{
-						if (vertex.mLargestEigenvalue > maxEigenvalue)
-						{
-							maxEigenvalue = vertex.mLargestEigenvalue;
-							maxEigenvalueTime = i * mTimestep;
-						}
+						maxEigenvalue = vertex.mLargestEigenvalue;
+						maxEigenvalueTime = i * mTimestep;
 					}
 				}
-			}
-			catch (const std::exception& e)
-			{
-				std::cout << "Error occurred during Test Case Two : " << e.what() << std::endl;
 			}
 
 			*summary = group->mSummary;
@@ -529,23 +438,11 @@ const float heightOffset = 2.0f;
 	public:
 		void Run(IronGames::SimulationSummary* summary) override
 		{
-			int maxNumVertices = 10;
-			int maxNumTetrahedra = 10;
+			std::vector<float> positions;
+			std::vector<int> indices;
+			GetSingleTetrahedraConfiguration(positions, indices);
 
-			std::vector<float> positions = {
-			0, 0, 0,
-			1, 0.5f, 0,
-			0, 1, 0,
-			0.4f, 0.5f, 1
-			};
-			positions.resize(3 * (maxNumVertices + 10));
-
-			std::vector<int> indices = {
-				0, 1, 2, 3
-			};
-			indices.resize(4 * (maxNumTetrahedra + 10));
-
-			Initialize(positions.data(), 4, maxNumVertices, indices.data(), 1, maxNumTetrahedra, mLambda, mPsi, mMu, mPhi, mToughness, mDensity);
+			Initialize(positions.data(), 4, mMaxNumVertices, indices.data(), 1, mMaxNumTetrahedra, mLambda, mPsi, mMu, mPhi, mToughness, mDensity);
 			TestDeformation::TetraGroup* group = (TestDeformation::TetraGroup*)mData;
 
 			double speed = 1;
@@ -556,30 +453,43 @@ const float heightOffset = 2.0f;
 			float maxEigenvalue = -1;
 			float maxEigenvalueTime = 0.0f;
 
-			try {
-				for (int i = 0; i < 100; i++)
-				{
-					group->Update(mTimestep);
+			for (int i = 0; i < 100; i++)
+			{
+				Update(*group);
 
-					for (const auto& vertex : group->mVertices)
+				for (const auto& vertex : group->mVertices)
+				{
+					if (vertex.mLargestEigenvalue > maxEigenvalue)
 					{
-						if (vertex.mLargestEigenvalue > maxEigenvalue)
-						{
-							maxEigenvalue = vertex.mLargestEigenvalue;
-							maxEigenvalueTime = i * mTimestep;
-						}
+						maxEigenvalue = vertex.mLargestEigenvalue;
+						maxEigenvalueTime = i * mTimestep;
 					}
 				}
-			}
-			catch (const std::exception& e)
-			{
-				std::cout << "Error occurred during Test Case Two : " << e.what() << std::endl;
 			}
 
 			*summary = group->mSummary;
 			std::cout << "Max Eigenvalue : " << maxEigenvalue << " time " << maxEigenvalueTime << "s." << std::endl;
 		}
 	};
+
+	////////////////////////////////////////////////////////////////////////////////
+
+	void TestCase::Update(TestDeformation::TetraGroup& group)
+	{
+		if (mBreakOnFailure)
+		{
+			group.Update(mTimestep);
+			return;
+		}
+
+		try {
+			group.Update(mTimestep);
+		}
+		catch (const std::exception& e)
+		{
+			std::cout << "Error while updating : " << e.what() << std::endl;
+		}
+	}
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -616,7 +526,11 @@ TestDeformation::TestFractureManager::~TestFractureManager()
 void TestDeformation::TestFractureManager::RunAllTestCases()
 {
 	for (int i = 0; i < mTestCases.size(); i++)
+	{
+		std::cout << std::endl;
+		std::cout << "Beginning test case " << i << "." << std::endl;
 		RunTestCase(i);
+	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////
