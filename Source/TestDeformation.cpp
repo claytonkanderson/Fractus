@@ -96,16 +96,12 @@ namespace TestDeformation
         const int32_t sortType = -1; // -1 is decreasing order, so the first is the largest
         const bool aggressive = false;
 
-        //auto* frame = (mSummary ? mSummary->add_frames() : nullptr);
         auto frame = mSummary.add_frames();
 
-        //bool saveFrame = (mStepsSinceLastSave >= mSaveEveryXSteps && mSummary);
         bool saveFrame = true;
-
         if (saveFrame)
             frame->set_time(mSimulationTime);
 
-        //
         gte::SymmetricEigensolver3x3<double> solver;
 
         for (auto& vertex : mVertices)
@@ -348,9 +344,6 @@ namespace TestDeformation
             double largestEigenvalue = eigenvalues[0];
             dvec3 principalEigenVector = dvec3(eigenvectors[0][0], eigenvectors[0][1], eigenvectors[0][2]);
 
-            //if (largestEigenvalue > mToughness)
-            //    std::cout << " Large eigen " << std::endl;
-
             mVertices[vertexIdx].mPrincipalEigenVector = principalEigenVector;
             mVertices[vertexIdx].mLargestEigenvalue = largestEigenvalue;
 
@@ -384,26 +377,33 @@ namespace TestDeformation
             //}
             
             // let's try fracturing only the highest eigenvalue and only allowing one fracture per frame
+            struct FractureAttempt
+            {
+                size_t mVertexId = 0;
+                double mLargestEigenValue = 0;
+            };
 
-			float maxEigenValue = -1;
-			size_t maxEigenValueNodeId = -1;
+            std::vector<FractureAttempt> fractureAttempts;
 
 			for (size_t idx = 0; idx < numVertices; idx++)
 			{
 				if (mVertices[idx].mLargestEigenvalue > mToughness)
 				{
-					if (mVertices[idx].mLargestEigenvalue > maxEigenValue)
-					{
-						maxEigenValue = mVertices[idx].mLargestEigenvalue;
-						maxEigenValueNodeId = idx;
-					}
+                    fractureAttempts.push_back({ idx, mVertices[idx].mLargestEigenvalue });
 				}
 			}
 
-            if (maxEigenValueNodeId != -1)
+            std::sort(fractureAttempts.begin(), fractureAttempts.end(), [](const FractureAttempt& a, const FractureAttempt & b) 
+                {
+                    return a.mLargestEigenValue > b.mLargestEigenValue;
+                });
+
+            for (const auto& attempt : fractureAttempts)
             {
-                std::cout << "Max eigen value : " << maxEigenValue << std::endl;
-                FractureNode(maxEigenValueNodeId, mVertices[maxEigenValueNodeId].mPrincipalEigenVector);
+                std::cout << "Fracture Node " << attempt.mVertexId << std::endl;
+                FractureContext context(mVertices[attempt.mVertexId].mPrincipalEigenVector, attempt.mVertexId, mIdToTetrahedra, mVertices, mTetIdCounter);
+                if (context.Fracture())
+                    break;
             }
 
             ComputeDerivedQuantities();
@@ -880,13 +880,21 @@ namespace TestDeformation
         // instead of snapping to the existing one
         // This should only return false if there's another tet that will be assigned ot the + side or
         // that the fracture plane will split the tet.
-        bool NoPositiveNodeEdgeCase(
+        bool RejectFractureDueToSpatialTolerances(
             const std::unordered_set<size_t>& neighborTets,
             const std::unordered_map<size_t, Tetrahedra>& idToTetrahedra,
             const std::vector<Vertex> & vertices,
             const glm::vec3& fracturePlanePosition,
             const glm::vec3& fracturePlaneNormal)
         {
+            bool seenPositive = false;
+            bool seenNegative = false;
+            
+            // So if all nodes are within this distance to the plane,
+            // then we aren't going to fracture.
+            // So making this value larger means we fracture less often.
+            const double tolerance = 0.3;
+
             for (const auto& neighborId : neighborTets)
             {
                 const auto& tet = idToTetrahedra.at(neighborId);
@@ -894,11 +902,14 @@ namespace TestDeformation
                 for (const auto& nodeId : tet.mIndices)
                 {
                     auto d = DistPointPlane(vertices[nodeId].mPosition, fracturePlaneNormal, fracturePlanePosition);
-                    if (d > 0.2)
-                    {
-                        std::cout << "Returning false for the no positive node edge case because d = " << d << "." << std::endl;
+
+                    if (d > tolerance)
+                        seenPositive = true;
+                    if (d < -tolerance)
+                        seenNegative = true;
+
+                    if (seenPositive && seenNegative)
                         return false;
-                    }
                 }
             }
 
@@ -907,7 +918,7 @@ namespace TestDeformation
         }
     }
 
-    void FractureContext::Fracture()
+    bool FractureContext::Fracture()
     {
 		const auto& neighbors = GetTetrahedraNeighbors(mFractureNodeIdx);
         std::unordered_set<size_t> neighborSet(neighbors.begin(), neighbors.end());
@@ -929,8 +940,6 @@ namespace TestDeformation
 
 		size_t negativeFractureNodeId = -1;
 
-        bool noPositiveEdgeCase = NoPositiveNodeEdgeCase(neighborSet, mIdToTetrahedra, mVertices, mFractureNodePosition, mFracturePlaneNormal);
-
 		auto inputStateFunctor = [&](const Tetrahedra& tet, size_t fractureNodeId)
 		{
 			const auto& edges = tet.GetEdges();
@@ -951,12 +960,7 @@ namespace TestDeformation
 		auto getNegativeFractureNodeId = [&]()
 		{
             if (negativeFractureNodeId == -1)
-            {
-                if (noPositiveEdgeCase)
-                    negativeFractureNodeId = mFractureNodeIdx;
-                else
-					negativeFractureNodeId = CloneVertex(mFractureNodeIdx);
-            }
+				negativeFractureNodeId = CloneVertex(mFractureNodeIdx);
 
 			return negativeFractureNodeId;
 		};
@@ -1054,43 +1058,46 @@ namespace TestDeformation
 			return FractureOptions::eFracture;
 		};
 
+        if (RejectFractureDueToSpatialTolerances(neighborSet, mIdToTetrahedra, mVertices, mFractureNodePosition, mFracturePlaneNormal))
+        {
+            std::cout << "Rejecting fracture due to spatial tolerances." << std::endl;
+            return false;
+        }
+
         while (!neighborSet.empty())
 		{
+            // Clear shared state
+            snapToEdge = false;
+            snapToFace = false;
+            edgeIntersections.clear();
+
             std::cout << "Num neighbors : " << neighborSet.size() << std::endl;
 
             auto fracturingTetId = *neighborSet.begin();
+            const auto& tet = mIdToTetrahedra[fracturingTetId];
+            inputStateFunctor(tet, mFractureNodeIdx);
+            checkTolerances(tet, mFractureNodeIdx);
+            if (snapToEdge)
+            {
+                auto edge = glm::normalize(mVertices[snapEdgeId[0]].mPosition - mVertices[snapEdgeId[1]].mPosition);
+                mFracturePlaneNormal = glm::normalize(mFracturePlaneNormal - glm::dot(mFracturePlaneNormal, edge) * edge);
 
-			// Clear shared state
-			snapToEdge = false;
-			snapToFace = false;
-			edgeIntersections.clear();
+                inputStateFunctor(tet, mFractureNodeIdx);
+            }
+            else if (snapToFace)
+            {
+                const auto& p0 = mVertices[snapFaceId.x].mPosition;
+                const auto& p1 = mVertices[snapFaceId.y].mPosition;
+                const auto& p2 = mVertices[snapFaceId.z].mPosition;
 
-			// Start fracturing
-			const auto& tet = mIdToTetrahedra[fracturingTetId];
-			inputStateFunctor(tet, mFractureNodeIdx);
+                auto faceNormal = glm::normalize(glm::cross(p2 - p0, p1 - p0));
 
-			checkTolerances(tet, mFractureNodeIdx);
-			if (snapToEdge)
-			{
-				auto edge = glm::normalize(mVertices[snapEdgeId[0]].mPosition - mVertices[snapEdgeId[1]].mPosition);
-				mFracturePlaneNormal = glm::normalize(mFracturePlaneNormal - glm::dot(mFracturePlaneNormal, edge) * edge);
+                if (glm::dot(faceNormal, mFracturePlaneNormal) < 0)
+                    faceNormal *= -1.0;
 
-				inputStateFunctor(tet, mFractureNodeIdx);
-			}
-			else if (snapToFace)
-			{
-				const auto& p0 = mVertices[snapFaceId.x].mPosition;
-				const auto& p1 = mVertices[snapFaceId.y].mPosition;
-				const auto& p2 = mVertices[snapFaceId.z].mPosition;
-
-				auto faceNormal = glm::normalize(glm::cross(p2 - p0, p1 - p0));
-
-				if (glm::dot(faceNormal, mFracturePlaneNormal) < 0)
-					faceNormal *= -1.0;
-
-				mFracturePlaneNormal = faceNormal;
-				inputStateFunctor(tet, mFractureNodeIdx);
-			}
+                mFracturePlaneNormal = faceNormal;
+                inputStateFunctor(tet, mFractureNodeIdx);
+            }
 
             if (snapToFace)
                 std::cout << "Snapping to Face" << std::endl;
@@ -1098,6 +1105,8 @@ namespace TestDeformation
                 std::cout << "Snapping to Edge" << std::endl;
             else
                 std::cout << "No snapping" << std::endl;
+
+			// Start fracturing
 
 			// Check whether we want to fracture this tet
 			auto option = determineFractureOption();
@@ -1412,9 +1421,6 @@ namespace TestDeformation
                 }
             }
 
-            std::cout << "Num tet to delete : " << mTetrahedraIdsToDelete.size() << std::endl;
-            std::cout << "Num tet to add : " << mNewTetrahedra.size() << std::endl;
-
             for (auto tetId : mTetrahedraIdsToDelete)
             {
                 mIdToTetrahedra.erase(tetId);
@@ -1447,6 +1453,8 @@ namespace TestDeformation
             mTetrahedraIdsToDelete.clear();
             mNewTetrahedra.clear();
 		}
+
+        return true;
     }
 
     ////////////////////////////////////////////////////////////////////////////////

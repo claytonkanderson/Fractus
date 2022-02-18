@@ -15,7 +15,7 @@ namespace TestDeformation
 
 		virtual void Run(IronGames::SimulationSummary* /*summary*/) {}
 		
-		void Update(TestDeformation::TetraGroup& group);
+		bool Update(TestDeformation::TetraGroup& group);
 
 	protected:
 		double mLambda = 2.65e6f;

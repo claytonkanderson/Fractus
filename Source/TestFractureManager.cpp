@@ -55,7 +55,7 @@ namespace TestDeformation
 			1, yOffset + 0.5f, 0,
 			0, yOffset + 1, 0,
 			0.4f, yOffset + 0.5f, 1,
-			-0.5f, yOffset + 0.5f, -1.2f
+			0.45f, yOffset + 0.5f, -1.2f
 		};
 
 		outIndices = {
@@ -151,9 +151,11 @@ namespace TestDeformation
 
 			for (int i = 0; i < 6000; i++)
 			{
-				group->Update(mTimestep);
+				if (i == 3684)
+					std::cout << "Here" << std::endl;
 
-				Update(*group);
+				if (!Update(*group))
+					break;
 
 				for (const auto& vertex : group->mVertices)
 				{
@@ -226,8 +228,13 @@ const float heightOffset = 2.0f;
 			float maxEigenvalue = -1;
 			float maxEigenvalueTime = 0.0f;
 
-			for (int i =0 ; i < 1; i++)
-				Update(*group);
+			for (int i = 0; i < 1; i++)
+			{
+				if (!Update(*group))
+					break;
+			}
+
+			*summary = group->mSummary;
 		}
 	};
 
@@ -375,7 +382,8 @@ const float heightOffset = 2.0f;
 
 			for (int i = 0; i < 100; i++)
 			{
-				Update(*group);
+				if (!Update(*group))
+					break;
 
 				for (const auto& vertex : group->mVertices)
 				{
@@ -415,7 +423,8 @@ const float heightOffset = 2.0f;
 
 			for (int i = 0; i < 100; i++)
 			{
-				Update(*group);
+				if (!Update(*group))
+					break;
 
 				for (const auto& vertex : group->mVertices)
 				{
@@ -455,7 +464,58 @@ const float heightOffset = 2.0f;
 
 			for (int i = 0; i < 100; i++)
 			{
-				Update(*group);
+				if (!Update(*group))
+					break;
+
+				for (const auto& vertex : group->mVertices)
+				{
+					if (vertex.mLargestEigenvalue > maxEigenvalue)
+					{
+						maxEigenvalue = vertex.mLargestEigenvalue;
+						maxEigenvalueTime = i * mTimestep;
+					}
+				}
+			}
+
+			*summary = group->mSummary;
+			std::cout << "Max Eigenvalue : " << maxEigenvalue << " time " << maxEigenvalueTime << "s." << std::endl;
+		}
+	};
+
+	class UpdateCaseTwoTetVelocityTensileSingleNode : public TestCase
+	{
+		using TestCase::TestCase;
+	public:
+		void Run(IronGames::SimulationSummary* summary) override
+		{
+			std::vector<float> positions = {
+				-0.5f, 0.0f, 1.0f,
+				0.5f, 0.0f, 1.0f,
+				0.0f, 1.0f, 1.0f,
+				0.0f, 0.5f, 0.0f,
+				-0.5f, 0.0f, -1.0f,
+				0.5f, 0.0f, -1.0f,
+				0.0f, 1.0f, -1.0f,
+			};
+
+			std::vector<int> indices = {
+				0, 1, 2, 3,
+				3, 4, 5, 6
+			};
+
+			Initialize(positions.data(), 7, mMaxNumVertices, indices.data(), 2, mMaxNumTetrahedra, mLambda, mPsi, mMu, mPhi, mToughness, mDensity);
+			TestDeformation::TetraGroup* group = (TestDeformation::TetraGroup*)mData;
+
+			group->mVertices[0].mVelocity += glm::vec3(0, 0, 1);
+			group->mSaveEveryXSteps = 1;
+
+			float maxEigenvalue = -1;
+			float maxEigenvalueTime = 0.0f;
+
+			for (int i = 0; i < 100; i++)
+			{
+				if (!Update(*group))
+					break;
 
 				for (const auto& vertex : group->mVertices)
 				{
@@ -474,12 +534,12 @@ const float heightOffset = 2.0f;
 
 	////////////////////////////////////////////////////////////////////////////////
 
-	void TestCase::Update(TestDeformation::TetraGroup& group)
+	bool TestCase::Update(TestDeformation::TetraGroup& group)
 	{
 		if (mBreakOnFailure)
 		{
 			group.Update(mTimestep);
-			return;
+			return true;
 		}
 
 		try {
@@ -488,7 +548,10 @@ const float heightOffset = 2.0f;
 		catch (const std::exception& e)
 		{
 			std::cout << "Error while updating : " << e.what() << std::endl;
+			return false;
 		}
+
+		return true;
 	}
 };
 
@@ -497,12 +560,10 @@ const float heightOffset = 2.0f;
 TestDeformation::TestFractureManager::TestFractureManager(IronGames::SimulationSummaries* summaries)
 	: mSummaries(summaries)
 {
-	bool breakOnFailure = true;
+	bool breakOnFailure = false;
 
 	mTestCases.push_back(new SimpleCaseThreeFractures(breakOnFailure));
 	mTestCases.push_back(new UpdateCaseTwoTetrahedra(breakOnFailure));
-
-	mTestCases.push_back(new UpdateCaseBowl(breakOnFailure));
 	
 	mTestCases.push_back(new SimpleCaseEdgeSnappedFracture(breakOnFailure));
 	mTestCases.push_back(new SimpleCaseRegularFracture(breakOnFailure));
@@ -511,6 +572,9 @@ TestDeformation::TestFractureManager::TestFractureManager(IronGames::SimulationS
 	mTestCases.push_back(new UpdateCaseTwoTetVelocityTensile(breakOnFailure));
 	mTestCases.push_back(new SimpleCaseSingleTetTensile(breakOnFailure));
 	mTestCases.push_back(new SimpleCaseSingleTetCompressive(breakOnFailure));
+	mTestCases.push_back(new UpdateCaseTwoTetVelocityTensileSingleNode(breakOnFailure));
+
+	mTestCases.push_back(new UpdateCaseBowl(breakOnFailure));
 }
 
 ////////////////////////////////////////////////////////////////////////////////

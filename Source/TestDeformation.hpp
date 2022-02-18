@@ -81,7 +81,8 @@ namespace TestDeformation
 
 		}
 
-		void Fracture();
+		// Returns true if fracturing occurred
+		bool Fracture();
 
 	private:
 		size_t CloneVertex(size_t vertexId);
