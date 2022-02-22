@@ -12,6 +12,31 @@
 
 namespace TestDeformation
 {
+	glm::ivec2 GetEdgeId(size_t idx1, size_t idx2)
+	{
+		if (idx1 == idx2)
+		{
+			std::cout << "Attempting to get edge for the same vertice twice." << std::endl;
+			return glm::ivec2();
+		}
+
+		if (idx1 < idx2)
+			return glm::ivec2(idx1, idx2);
+		return glm::ivec2(idx2, idx1);
+	}
+	
+	// TODO - move to util somewhere
+	glm::ivec3 GetFaceId(size_t idx1, size_t idx2, size_t idx3)
+	{
+		if (idx1 == idx2 || idx1 == idx3 || idx2 == idx3)
+			throw std::exception("Attempted to get a face with duplicate vertex ids.");
+
+		std::array<int, 3> verts{ idx1, idx2, idx3 };
+		std::sort(verts.begin(), verts.end());
+
+		return glm::ivec3(verts[0], verts[1], verts[2]);
+	}
+
 	class Vertex
 	{
 	public:

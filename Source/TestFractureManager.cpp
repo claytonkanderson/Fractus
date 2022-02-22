@@ -131,6 +131,7 @@ namespace TestDeformation
 		{
 			mMaxNumVertices = 20;
 			mMaxNumTetrahedra = 10;
+			mToughness = 100;
 
 			std::vector<float> positions;
 			std::vector<int> indices;
@@ -371,6 +372,8 @@ const float heightOffset = 2.0f;
 			Initialize(positions.data(), 5, mMaxNumVertices, indices.data(), 2, mMaxNumTetrahedra, mLambda, mPsi, mMu, mPhi, mToughness, mDensity);
 			TestDeformation::TetraGroup* group = (TestDeformation::TetraGroup*)mData;
 
+			mTimestep = 0.001f;
+
 			double speed = 1;
 			group->mVertices[3].mVelocity += glm::vec3(0, 0, speed);
 			group->mVertices[4].mVelocity += glm::vec3(0, 0, -speed);
@@ -380,7 +383,7 @@ const float heightOffset = 2.0f;
 			float maxEigenvalue = -1;
 			float maxEigenvalueTime = 0.0f;
 
-			for (int i = 0; i < 100; i++)
+			for (int i = 0; i < 10000; i++)
 			{
 				if (!Update(*group))
 					break;

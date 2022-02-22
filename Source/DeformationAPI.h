@@ -66,3 +66,19 @@ extern "C" void __declspec(dllexport) __stdcall TetrahedralizeCubeIntersection(
 );
 
 ////////////////////////////////////////////////////////////////////////////////
+
+// TODO - document error codes
+extern "C" int __declspec(dllexport) __stdcall CreateSurfaceMesh(
+	float* cubeCenters, int numCubes, float* tetrahedraPositions, int numTetrahedra,
+	float* outVertexPositions, int* outNumVertices, int numMaxVertices,
+	int * outTriangleIndices, int* outNumTriangles, int numMaxTriangles);
+
+////////////////////////////////////////////////////////////////////////////////
+
+// TODO - document error codes
+extern "C" int __declspec(dllexport) __stdcall CreateTetrahedralMesh(
+	float* vertexPositions, int numVertices, int* triangleIndices, int numTriangles,
+	float* outVertexPositions, int* outNumVertices, int numMaxVertices,
+	int * outTetrahedralIndices, int* outNumTetrahedra, int numMaxTetrahedra);
+
+////////////////////////////////////////////////////////////////////////////////

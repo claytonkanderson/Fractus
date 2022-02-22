@@ -10,6 +10,10 @@
 #include <Mathematics/IntrSegment3Plane3.h>
 #include <Mathematics/AlignedBox.h>
 #include <Mathematics/DistPointHyperplane.h>
+#include <tetgen/tetgen.h>
+
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/hash.hpp>
 
 void* mData = nullptr;
 
@@ -397,6 +401,394 @@ extern "C" void __declspec(dllexport) __stdcall TetrahedralizeCubeIntersection(
 	{
 		outTetrahedraIndices[i] = triangulator.GetIndices()[i];
 	}
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+namespace
+{
+	static const std::array<glm::ivec3,12> CubeTriangleIndices = {
+		glm::ivec3(0, 2, 1), //face front
+		glm::ivec3(0, 3, 2),
+		glm::ivec3(2, 3, 4), //face top
+		glm::ivec3(2, 4, 5),
+		glm::ivec3(1, 2, 5), //face right
+		glm::ivec3(1, 5, 6),
+		glm::ivec3(0, 7, 4), //face left
+		glm::ivec3(0, 4, 3),
+		glm::ivec3(5, 4, 7), //face back
+		glm::ivec3(5, 7, 6),
+		glm::ivec3(0, 6, 7), //face bottom
+		glm::ivec3(0, 1, 6)
+	};
+
+	static const std::array<glm::vec3, 8> CubeVertexPositions =
+	{
+		glm::vec3({0, 0, 0}),
+		glm::vec3({1, 0, 0}),
+		glm::vec3({1, 1, 0}),
+		glm::vec3({0, 1, 0}),
+		glm::vec3({0, 1, 1}),
+		glm::vec3({1, 1, 1}),
+		glm::vec3({1, 0, 1}),
+		glm::vec3({0, 0, 1})
+	};
+
+	static const std::array<glm::ivec3, 4> TetrahedraIndices =
+	{
+		glm::ivec3(0, 2, 1),
+		glm::ivec3(0, 1, 3),
+		glm::ivec3(0, 3, 2),
+		glm::ivec3(1, 2, 3)
+	};
+
+	double DistPointPlane(
+		const glm::vec3& point,
+		const glm::vec3& planeNormal,
+		const glm::vec3& planePosition
+	)
+	{
+		gte::Vector3<float> normal
+		{
+			planeNormal.x,
+			planeNormal.y,
+			planeNormal.z
+		};
+		gte::Vector3<float> origin
+		{
+		   planePosition.x,
+		   planePosition.y,
+		   planePosition.z
+		};
+		gte::Plane3<float> plane(normal, origin);
+
+		gte::Vector3<float> position
+		{
+		   point.x,
+		   point.y,
+		   point.z
+		};
+
+		// Get signed distance of all vertices to plane
+		gte::DCPQuery<float, gte::Vector3<float>, gte::Plane3<float>> distanceQuery;
+		auto results = distanceQuery(position, plane);
+		return results.signedDistance;
+	}
+
+	class MeshVolume
+	{
+	public:
+		static float cRadius() { return 0.01f; };
+
+		class Tetrahedron
+		{
+		public:
+			bool Contains(const glm::vec3& pos) const
+			{
+				for (int i = 0; i < 4; i++)
+				{
+					const auto & triangle = TetrahedraIndices[i];
+					// not sure this is how the normals should be calculated
+					const auto & d0 = glm::normalize(mVertices[triangle[1]] - mVertices[triangle[0]]);
+					const auto & d1 = glm::normalize(mVertices[triangle[2]] - mVertices[triangle[0]]);
+					auto n = glm::cross(d0, d1);
+					auto signedDist = DistPointPlane(pos, n, mVertices[triangle[0]]);
+
+					if (signedDist >= -cRadius())
+						return false;
+				}
+
+				return true;
+			}
+
+		public:
+			std::array<glm::vec3, 4> mVertices;
+		};
+
+		// Contains means that a small sphere at the position is fully inside the volume.
+		bool Contains(const glm::vec3& pos) const
+		{
+			for (const auto& cubeCenter : mCubeCenters)
+			{
+				if (CubeContains(pos, cubeCenter))
+					return true;
+			}
+
+			for (const auto& tet : mTetrahedra)
+			{
+				if (tet.Contains(pos))
+					return true;
+			}
+
+			return false;
+		}
+
+	private:
+		bool CubeContains(const glm::vec3& pos, const glm::vec3& cubeCenter) const
+		{
+			auto min = cubeCenter - 0.5f * glm::vec3(1.0f);
+			auto max = cubeCenter + 0.5f * glm::vec3(1.0f);
+
+			for (int i = 0; i < 3; i++)
+			{
+				if (!(min[i] - cRadius() <= pos[i] && pos[i] <= max[i] + cRadius()))
+					return false;
+			}
+
+			return true;
+		}
+
+	public:
+		std::vector<glm::vec3> mCubeCenters;
+		std::vector<Tetrahedron> mTetrahedra;
+	};
+}
+
+extern "C" int __declspec(dllexport) __stdcall CreateSurfaceMesh(
+	float* cubeCenters, int numCubes, float* tetrahedraPositions, int numTetrahedra,
+	float* outVertexPositions, int* outNumVertices, int numMaxVertices,
+	int* outTriangleIndices, int* outNumTriangles, int numMaxTriangles)
+{
+	std::vector<glm::vec3> vertices(8*numCubes + 4*numTetrahedra);
+	std::vector<glm::ivec3> triangleIndices(12 * numCubes + 4 * numTetrahedra);
+	std::unordered_map<glm::ivec3, glm::ivec3> faceIdToOrientedFace;
+
+	int vertexCounter = 0;
+	for (int i = 0; i < numCubes; i++)
+	{
+		for (int j = 0; j < 12; j++)
+		{
+			auto orientedFace = glm::ivec3(vertexCounter + CubeTriangleIndices[j][0], vertexCounter + CubeTriangleIndices[j][1], vertexCounter + CubeTriangleIndices[j][2]);
+			auto id = TestDeformation::GetFaceId(orientedFace[0], orientedFace[1], orientedFace[2]);
+			triangleIndices.push_back(id);
+			faceIdToOrientedFace[id] = orientedFace;
+		}
+
+		glm::vec3 cubeCenter(cubeCenters[3 * i], cubeCenters[3 * i + 1], cubeCenters[3 * i + 2]);
+		for (int j = 0; j < 8; j++)
+		{
+			vertices[vertexCounter++] = cubeCenter + CubeVertexPositions[j];
+		}
+	}
+
+	for (int i = 0; i < numTetrahedra; i++)
+	{
+		for (int j = 0; j < 4; j++)
+		{
+			auto orientedFace = vertexCounter + TetrahedraIndices[j];
+			auto id = TestDeformation::GetFaceId(orientedFace[0], orientedFace[1], orientedFace[2]);
+			triangleIndices.push_back(id);
+			faceIdToOrientedFace[id] = orientedFace;
+		}
+
+		vertices[vertexCounter++] = glm::vec3(tetrahedraPositions[i * 12 + 0], tetrahedraPositions[i * 12 + 1], tetrahedraPositions[i * 12 + 2]);
+		vertices[vertexCounter++] = glm::vec3(tetrahedraPositions[i * 12 + 3], tetrahedraPositions[i * 12 + 4], tetrahedraPositions[i * 12 + 5]);
+		vertices[vertexCounter++] = glm::vec3(tetrahedraPositions[i * 12 + 6], tetrahedraPositions[i * 12 + 7], tetrahedraPositions[i * 12 + 8]);
+		vertices[vertexCounter++] = glm::vec3(tetrahedraPositions[i * 12 + 9], tetrahedraPositions[i * 12 + 10], tetrahedraPositions[i * 12 + 11]);
+	}
+	
+	std::unordered_map<int,int> oldVertIdToNewVertId;
+	std::vector<glm::vec3> uniqueVertices;
+
+	const float spatialThreshold = 0.05f;
+
+	for (int i = 0; i < vertices.size(); i++)
+	{
+		bool foundNearest = false;
+		int nearestId = -1;
+
+		for (int j = 0; j < uniqueVertices.size(); j++)
+		{
+			if (glm::distance(vertices[i], uniqueVertices[j]) < spatialThreshold)
+			{
+				foundNearest = true;
+				nearestId = j;
+				break;
+			}
+		}
+
+		if (foundNearest)
+		{
+			oldVertIdToNewVertId[i] = nearestId;
+			continue;
+		}
+
+		uniqueVertices.push_back(vertices[i]);
+		oldVertIdToNewVertId[i] = uniqueVertices.size() - 1;
+	}
+
+	if (uniqueVertices.size() > numMaxVertices)
+		return -1;
+
+	for (int i = 0; i < triangleIndices.size(); i++)
+	{
+		for (int j = 0; j < 3; j++)
+		{
+			triangleIndices[i][j] = oldVertIdToNewVertId[triangleIndices[i][j]];
+		}
+	}
+
+	std::unordered_set<glm::ivec3> uniqueTriangles;
+	std::unordered_map<glm::ivec3, glm::ivec3> uniqueFaceIdToOrientedFace;
+
+	for (const auto& triangleId : triangleIndices)
+	{
+		auto faceId = TestDeformation::GetFaceId(triangleId[0], triangleId[1], triangleId[2]);
+		if (!uniqueTriangles.insert(faceId).second)
+			continue;
+
+		uniqueFaceIdToOrientedFace[faceId] = triangleId;
+	}
+
+	// okay now we have all unique vertices and the correct triangle indices
+	MeshVolume meshVolume;
+	meshVolume.mCubeCenters.resize(numCubes);
+	for (int i = 0; i < numCubes; i++)
+		meshVolume.mCubeCenters[i] = glm::vec3(cubeCenters[3 * i + 0], cubeCenters[3 * i + 1], cubeCenters[3 * i + 2]);
+
+	meshVolume.mTetrahedra.resize(numTetrahedra);
+	for (int i = 0; i < numTetrahedra; i++)
+		for (int j = 0; j < 4; j++)
+			meshVolume.mTetrahedra[i].mVertices[j] = glm::vec3(tetrahedraPositions[12 * i + 3*j + 0], tetrahedraPositions[12 * i + 3 * j+ 1], tetrahedraPositions[12 * i + 3 * j + 2]);
+
+	// next step is to evaluate the center of each triangle for containment
+
+	for (auto iter = uniqueTriangles.begin(); iter != uniqueTriangles.end(); )
+	{
+		// triangle center
+		auto triangle = *iter;
+		glm::vec3 center = (uniqueVertices[triangle[0]] + uniqueVertices[triangle[1]] + uniqueVertices[triangle[2]]) / 3.0f;
+		if (meshVolume.Contains(center))
+			iter = uniqueTriangles.erase(iter);
+		else
+			++iter;
+	}
+
+	// finally write out data
+
+	if (uniqueTriangles.size() > numMaxTriangles)
+		return -2;
+
+	outNumVertices[0] = uniqueVertices.size();
+	outNumTriangles[0] = uniqueTriangles.size();
+
+	// could do this with direct assignment instead of loop?
+	for (int i = 0; i < uniqueVertices.size(); i++)
+	{
+		outVertexPositions[3 * i + 0] = uniqueVertices[i].x;
+		outVertexPositions[3 * i + 1] = uniqueVertices[i].y;
+		outVertexPositions[3 * i + 2] = uniqueVertices[i].z;
+	}
+
+	int triCounter = 0;
+	for (auto iter = uniqueTriangles.begin(); iter != uniqueTriangles.end(); ++iter)
+	{
+		outTriangleIndices[3 * triCounter + 0] = (*iter)[0];
+		outTriangleIndices[3 * triCounter + 1] = (*iter)[1];
+		outTriangleIndices[3 * triCounter + 2] = (*iter)[2];
+		triCounter++;
+	}
+
+	return 0;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+extern "C" int __declspec(dllexport) __stdcall CreateTetrahedralMesh(
+	float* vertexPositions, int numVertices, int* triangleIndices, int numTriangles,
+	float* outVertexPositions, int* outNumVertices, int numMaxVertices,
+	int* outTetrahedralIndices, int* outNumTetrahedra, int numMaxTetrahedra)
+{
+	// lets try assuming each triangle is a facet with one polygon
+
+	tetgenio in, out;
+	tetgenio::facet* f;
+	tetgenio::polygon* p;
+	int i;
+	in.firstnumber = 0;
+
+	in.numberofpoints = numVertices;
+	in.pointlist = new REAL[in.numberofpoints * 3];
+	for (int i = 0; i < numVertices; i++)
+	{
+		in.pointlist[3 * i + 0] = vertexPositions[3 * i + 0];
+		in.pointlist[3 * i + 1] = vertexPositions[3 * i + 1];
+		in.pointlist[3 * i + 2] = vertexPositions[3 * i + 2];
+	}
+
+	in.numberoffacets = numTriangles;
+	in.facetlist = new tetgenio::facet[in.numberoffacets];
+	in.facetmarkerlist = new int[in.numberoffacets];
+
+	for (int i = 0; i < numTriangles; i++)
+	{
+		f = &in.facetlist[i];
+		f->numberofpolygons = 1;
+		f->polygonlist = new tetgenio::polygon[f->numberofpolygons];
+		f->numberofholes = 0;
+		f->holelist = NULL;
+		p = &f->polygonlist[0];
+		p->numberofvertices = 3;
+		p->vertexlist = new int[p->numberofvertices];
+		p->vertexlist[0] = triangleIndices[3 * i + 0];
+		p->vertexlist[1] = triangleIndices[3 * i + 1];
+		p->vertexlist[2] = triangleIndices[3 * i + 2];
+
+		in.facetmarkerlist[i] = i;
+	}
+
+	// Tetrahedralize the PLC. Switches are chosen to read a PLC (p),
+	//   do quality mesh generation (q) with a specified quality bound
+	//   (1.414), and apply a maximum volume constraint (a0.1).
+	const char* switches = "pq1.414a2.0Q";
+	char* nonConstSwitches = const_cast<char*>(switches);
+
+	tetrahedralize(nonConstSwitches, &in, &out);
+
+	if (out.numberofpoints > numMaxVertices)
+		return -1;
+
+	if (out.numberoftetrahedra > numMaxTetrahedra)
+		return -2;
+
+	outNumVertices[0] = out.numberofpoints;
+	outNumTetrahedra[0] = out.numberoftetrahedra;
+
+	auto tetCornerPtr = out.tetrahedronlist;
+	auto vertexPtr = out.pointlist;
+
+	for (int tetIndex = 0; tetIndex < out.numberoftetrahedra; tetIndex++)
+	{
+		// 1-based indexing (despite the comments??)
+		auto tetOffset = out.numberofcorners * tetIndex;
+		auto v0 = tetCornerPtr[0 + tetOffset] - 1;
+		auto v1 = tetCornerPtr[1 + tetOffset] - 1;
+		auto v2 = tetCornerPtr[2 + tetOffset] - 1;
+		auto v3 = tetCornerPtr[3 + tetOffset] - 1;
+
+		outVertexPositions[12 * i + 0] = vertexPtr[3 * v0 + 0];
+		outVertexPositions[12 * i + 1] = vertexPtr[3 * v0 + 1];
+		outVertexPositions[12 * i + 2] = vertexPtr[3 * v0 + 2];
+
+		outVertexPositions[12 * i + 3] = vertexPtr[3 * v1 + 0];
+		outVertexPositions[12 * i + 4] = vertexPtr[3 * v1 + 1];
+		outVertexPositions[12 * i + 5] = vertexPtr[3 * v1 + 2];
+
+		outVertexPositions[12 * i + 6] = vertexPtr[3 * v2 + 0];
+		outVertexPositions[12 * i + 7] = vertexPtr[3 * v2 + 1];
+		outVertexPositions[12 * i + 8] = vertexPtr[3 * v2 + 2];
+
+		outVertexPositions[12 * i +  9] = vertexPtr[3 * v3 + 0];
+		outVertexPositions[12 * i + 10] = vertexPtr[3 * v3 + 1];
+		outVertexPositions[12 * i + 11] = vertexPtr[3 * v3 + 2];
+
+		outTetrahedralIndices[4 * i + 0] = v0;
+		outTetrahedralIndices[4 * i + 1] = v1;
+		outTetrahedralIndices[4 * i + 2] = v2;
+		outTetrahedralIndices[4 * i + 3] = v3;
+	}
+
+	return 0;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
