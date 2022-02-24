@@ -1,11 +1,13 @@
-#include "TestDeformation.hpp"
+#include "Deformation.hpp"
 #include "DeformationAPI.h"
+#include "MeshVolume.h"
+#include "FractureUtil.h"
 #include "ProtoConverter.hpp"
+
 #include <glm/vec4.hpp>
 #include <glm/common.hpp>
 #include <iostream>
 #include <fstream>
-
 #include <Mathematics/Delaunay3.h>
 #include <Mathematics/IntrSegment3Plane3.h>
 #include <Mathematics/AlignedBox.h>
@@ -14,6 +16,7 @@
 
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/hash.hpp>
+#include <glm/gtx/vector_angle.hpp>
 
 void* mData = nullptr;
 
@@ -36,7 +39,7 @@ extern "C" int __declspec(dllexport) __stdcall Initialize(
 	if (mData != nullptr)
 		Destroy();
 
-	TestDeformation::TetraGroup* group = new TestDeformation::TetraGroup();
+	Deformation::TetraGroup* group = new Deformation::TetraGroup();
 	mData = group;
 
 	if (density <= 1e-6)
@@ -61,7 +64,7 @@ extern "C" int __declspec(dllexport) __stdcall Initialize(
 
 	for (int i = 0; i < numTetrahedra; i++)
 	{
-		TestDeformation::Tetrahedra tetrahedra;
+		Deformation::Tetrahedra tetrahedra;
 
 		tetrahedra.mIndices[0] = indices[4 * i];
 		tetrahedra.mIndices[1] = indices[4 * i + 1];
@@ -97,7 +100,7 @@ extern "C" int __declspec(dllexport) __stdcall Initialize(
 
 extern "C" void __declspec(dllexport) __stdcall Destroy()
 {
-	TestDeformation::TetraGroup* group = (TestDeformation::TetraGroup*)mData;
+	Deformation::TetraGroup* group = (Deformation::TetraGroup*)mData;
 	group->OutputSaveFile();
 	delete group;
 	mData = nullptr;
@@ -122,7 +125,7 @@ extern "C" int __declspec(dllexport) __stdcall Deform(
 	auto forces = reinterpret_cast<float*>(vertexForces);
 	auto indices = reinterpret_cast<int*>(tetrahedraIndices);
 
-	TestDeformation::TetraGroup* group = (TestDeformation::TetraGroup*)mData;
+	Deformation::TetraGroup* group = (Deformation::TetraGroup*)mData;
 
 	//for (const auto& tet : group->mTetrahedra)
 	//{
@@ -405,145 +408,6 @@ extern "C" void __declspec(dllexport) __stdcall TetrahedralizeCubeIntersection(
 
 ////////////////////////////////////////////////////////////////////////////////
 
-namespace
-{
-	static const std::array<glm::ivec3,12> CubeTriangleIndices = {
-		glm::ivec3(0, 2, 1), //face front
-		glm::ivec3(0, 3, 2),
-		glm::ivec3(2, 3, 4), //face top
-		glm::ivec3(2, 4, 5),
-		glm::ivec3(1, 2, 5), //face right
-		glm::ivec3(1, 5, 6),
-		glm::ivec3(0, 7, 4), //face left
-		glm::ivec3(0, 4, 3),
-		glm::ivec3(5, 4, 7), //face back
-		glm::ivec3(5, 7, 6),
-		glm::ivec3(0, 6, 7), //face bottom
-		glm::ivec3(0, 1, 6)
-	};
-
-	static const std::array<glm::vec3, 8> CubeVertexPositions =
-	{
-		glm::vec3({0, 0, 0}),
-		glm::vec3({1, 0, 0}),
-		glm::vec3({1, 1, 0}),
-		glm::vec3({0, 1, 0}),
-		glm::vec3({0, 1, 1}),
-		glm::vec3({1, 1, 1}),
-		glm::vec3({1, 0, 1}),
-		glm::vec3({0, 0, 1})
-	};
-
-	static const std::array<glm::ivec3, 4> TetrahedraIndices =
-	{
-		glm::ivec3(0, 2, 1),
-		glm::ivec3(0, 1, 3),
-		glm::ivec3(0, 3, 2),
-		glm::ivec3(1, 2, 3)
-	};
-
-	double DistPointPlane(
-		const glm::vec3& point,
-		const glm::vec3& planeNormal,
-		const glm::vec3& planePosition
-	)
-	{
-		gte::Vector3<float> normal
-		{
-			planeNormal.x,
-			planeNormal.y,
-			planeNormal.z
-		};
-		gte::Vector3<float> origin
-		{
-		   planePosition.x,
-		   planePosition.y,
-		   planePosition.z
-		};
-		gte::Plane3<float> plane(normal, origin);
-
-		gte::Vector3<float> position
-		{
-		   point.x,
-		   point.y,
-		   point.z
-		};
-
-		// Get signed distance of all vertices to plane
-		gte::DCPQuery<float, gte::Vector3<float>, gte::Plane3<float>> distanceQuery;
-		auto results = distanceQuery(position, plane);
-		return results.signedDistance;
-	}
-
-	class MeshVolume
-	{
-	public:
-		static float cRadius() { return 0.01f; };
-
-		class Tetrahedron
-		{
-		public:
-			bool Contains(const glm::vec3& pos) const
-			{
-				for (int i = 0; i < 4; i++)
-				{
-					const auto & triangle = TetrahedraIndices[i];
-					// not sure this is how the normals should be calculated
-					const auto & d0 = glm::normalize(mVertices[triangle[1]] - mVertices[triangle[0]]);
-					const auto & d1 = glm::normalize(mVertices[triangle[2]] - mVertices[triangle[0]]);
-					auto n = glm::cross(d0, d1);
-					auto signedDist = DistPointPlane(pos, n, mVertices[triangle[0]]);
-
-					if (signedDist >= -cRadius())
-						return false;
-				}
-
-				return true;
-			}
-
-		public:
-			std::array<glm::vec3, 4> mVertices;
-		};
-
-		// Contains means that a small sphere at the position is fully inside the volume.
-		bool Contains(const glm::vec3& pos) const
-		{
-			for (const auto& cubeCenter : mCubeCenters)
-			{
-				if (CubeContains(pos, cubeCenter))
-					return true;
-			}
-
-			for (const auto& tet : mTetrahedra)
-			{
-				if (tet.Contains(pos))
-					return true;
-			}
-
-			return false;
-		}
-
-	private:
-		bool CubeContains(const glm::vec3& pos, const glm::vec3& cubeCenter) const
-		{
-			auto min = cubeCenter - 0.5f * glm::vec3(1.0f);
-			auto max = cubeCenter + 0.5f * glm::vec3(1.0f);
-
-			for (int i = 0; i < 3; i++)
-			{
-				if (!(min[i] - cRadius() <= pos[i] && pos[i] <= max[i] + cRadius()))
-					return false;
-			}
-
-			return true;
-		}
-
-	public:
-		std::vector<glm::vec3> mCubeCenters;
-		std::vector<Tetrahedron> mTetrahedra;
-	};
-}
-
 extern "C" int __declspec(dllexport) __stdcall CreateSurfaceMesh(
 	float* cubeCenters, int numCubes, float* tetrahedraPositions, int numTetrahedra,
 	float* outVertexPositions, int* outNumVertices, int numMaxVertices,
@@ -554,20 +418,24 @@ extern "C" int __declspec(dllexport) __stdcall CreateSurfaceMesh(
 	std::unordered_map<glm::ivec3, glm::ivec3> faceIdToOrientedFace;
 
 	int vertexCounter = 0;
+	int triCounter = 0;
 	for (int i = 0; i < numCubes; i++)
 	{
 		for (int j = 0; j < 12; j++)
 		{
-			auto orientedFace = glm::ivec3(vertexCounter + CubeTriangleIndices[j][0], vertexCounter + CubeTriangleIndices[j][1], vertexCounter + CubeTriangleIndices[j][2]);
-			auto id = TestDeformation::GetFaceId(orientedFace[0], orientedFace[1], orientedFace[2]);
-			triangleIndices.push_back(id);
+			auto orientedFace = glm::ivec3(
+				vertexCounter + Deformation::CubeTriangleIndices[j][0],
+				vertexCounter + Deformation::CubeTriangleIndices[j][1],
+				vertexCounter + Deformation::CubeTriangleIndices[j][2]);
+			auto id = Deformation::GetFaceId(orientedFace[0], orientedFace[1], orientedFace[2]);
+			triangleIndices[triCounter++] = id;
 			faceIdToOrientedFace[id] = orientedFace;
 		}
 
 		glm::vec3 cubeCenter(cubeCenters[3 * i], cubeCenters[3 * i + 1], cubeCenters[3 * i + 2]);
 		for (int j = 0; j < 8; j++)
 		{
-			vertices[vertexCounter++] = cubeCenter + CubeVertexPositions[j];
+			vertices[vertexCounter++] = cubeCenter + Deformation::CubeVertexPositions[j] - 0.5f*glm::vec3(1.0f);
 		}
 	}
 
@@ -575,9 +443,9 @@ extern "C" int __declspec(dllexport) __stdcall CreateSurfaceMesh(
 	{
 		for (int j = 0; j < 4; j++)
 		{
-			auto orientedFace = vertexCounter + TetrahedraIndices[j];
-			auto id = TestDeformation::GetFaceId(orientedFace[0], orientedFace[1], orientedFace[2]);
-			triangleIndices.push_back(id);
+			auto orientedFace = vertexCounter + Deformation::TetrahedraIndices[j];
+			auto id = Deformation::GetFaceId(orientedFace[0], orientedFace[1], orientedFace[2]);
+			triangleIndices[triCounter++] = id;
 			faceIdToOrientedFace[id] = orientedFace;
 		}
 
@@ -586,7 +454,7 @@ extern "C" int __declspec(dllexport) __stdcall CreateSurfaceMesh(
 		vertices[vertexCounter++] = glm::vec3(tetrahedraPositions[i * 12 + 6], tetrahedraPositions[i * 12 + 7], tetrahedraPositions[i * 12 + 8]);
 		vertices[vertexCounter++] = glm::vec3(tetrahedraPositions[i * 12 + 9], tetrahedraPositions[i * 12 + 10], tetrahedraPositions[i * 12 + 11]);
 	}
-	
+
 	std::unordered_map<int,int> oldVertIdToNewVertId;
 	std::vector<glm::vec3> uniqueVertices;
 
@@ -633,7 +501,16 @@ extern "C" int __declspec(dllexport) __stdcall CreateSurfaceMesh(
 
 	for (const auto& triangleId : triangleIndices)
 	{
-		auto faceId = TestDeformation::GetFaceId(triangleId[0], triangleId[1], triangleId[2]);
+		glm::ivec3 faceId;
+		try
+		{
+			faceId = Deformation::GetFaceId(triangleId[0], triangleId[1], triangleId[2]);
+		}
+		catch (const std::exception& e)
+		{
+			return -10;
+		}
+
 		if (!uniqueTriangles.insert(faceId).second)
 			continue;
 
@@ -641,7 +518,7 @@ extern "C" int __declspec(dllexport) __stdcall CreateSurfaceMesh(
 	}
 
 	// okay now we have all unique vertices and the correct triangle indices
-	MeshVolume meshVolume;
+	Deformation::MeshVolume meshVolume;
 	meshVolume.mCubeCenters.resize(numCubes);
 	for (int i = 0; i < numCubes; i++)
 		meshVolume.mCubeCenters[i] = glm::vec3(cubeCenters[3 * i + 0], cubeCenters[3 * i + 1], cubeCenters[3 * i + 2]);
@@ -680,13 +557,13 @@ extern "C" int __declspec(dllexport) __stdcall CreateSurfaceMesh(
 		outVertexPositions[3 * i + 2] = uniqueVertices[i].z;
 	}
 
-	int triCounter = 0;
+	int outTriCounter = 0;
 	for (auto iter = uniqueTriangles.begin(); iter != uniqueTriangles.end(); ++iter)
 	{
-		outTriangleIndices[3 * triCounter + 0] = (*iter)[0];
-		outTriangleIndices[3 * triCounter + 1] = (*iter)[1];
-		outTriangleIndices[3 * triCounter + 2] = (*iter)[2];
-		triCounter++;
+		outTriangleIndices[3 * outTriCounter + 0] = (*iter)[0];
+		outTriangleIndices[3 * outTriCounter + 1] = (*iter)[1];
+		outTriangleIndices[3 * outTriCounter + 2] = (*iter)[2];
+		outTriCounter++;
 	}
 
 	return 0;
@@ -704,7 +581,6 @@ extern "C" int __declspec(dllexport) __stdcall CreateTetrahedralMesh(
 	tetgenio in, out;
 	tetgenio::facet* f;
 	tetgenio::polygon* p;
-	int i;
 	in.firstnumber = 0;
 
 	in.numberofpoints = numVertices;
@@ -757,10 +633,10 @@ extern "C" int __declspec(dllexport) __stdcall CreateTetrahedralMesh(
 	auto tetCornerPtr = out.tetrahedronlist;
 	auto vertexPtr = out.pointlist;
 
-	for (int tetIndex = 0; tetIndex < out.numberoftetrahedra; tetIndex++)
+	for (int i = 0; i < out.numberoftetrahedra; i++)
 	{
 		// 1-based indexing (despite the comments??)
-		auto tetOffset = out.numberofcorners * tetIndex;
+		auto tetOffset = out.numberofcorners * i;
 		auto v0 = tetCornerPtr[0 + tetOffset] - 1;
 		auto v1 = tetCornerPtr[1 + tetOffset] - 1;
 		auto v2 = tetCornerPtr[2 + tetOffset] - 1;
@@ -792,3 +668,90 @@ extern "C" int __declspec(dllexport) __stdcall CreateTetrahedralMesh(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+
+#include <ConvexPolyhedron.h>
+
+namespace
+{
+	struct ConvexIntersection
+	{
+		float mVolume = 0;
+		glm::vec3 mForce;
+	};
+
+	bool TetrahedraIntersection(
+		const std::array<glm::vec3, 4> & tetVertices,
+		const std::array<glm::vec3, 4> & otherVertices,
+		ConvexIntersection & results)
+	{
+		std::vector<gte::Vector3<float>> convertedVerts 
+		{
+			gte::Vector3<float>{tetVertices[0].x,tetVertices[0].y, tetVertices[0].z},
+			gte::Vector3<float>{tetVertices[1].x,tetVertices[1].y, tetVertices[1].z},
+			gte::Vector3<float>{tetVertices[2].x,tetVertices[2].y, tetVertices[2].z},
+			gte::Vector3<float>{tetVertices[3].x,tetVertices[3].y, tetVertices[3].z}
+		};
+
+		std::vector<gte::Vector3<float>> convertedOtherVerts
+		{
+			gte::Vector3<float>{otherVertices[0].x, otherVertices[0].y, otherVertices[0].z},
+			gte::Vector3<float>{otherVertices[1].x, otherVertices[1].y, otherVertices[1].z},
+			gte::Vector3<float>{otherVertices[2].x, otherVertices[2].y, otherVertices[2].z},
+			gte::Vector3<float>{otherVertices[3].x, otherVertices[3].y, otherVertices[3].z}
+		};
+		
+		// Must match tetrahedra indices above
+		static const std::vector<int> indices =
+		{
+			0, 2, 1,
+			0, 1, 3,
+			0, 3, 2,
+			1, 2, 3
+		};
+
+		ConvexPolyhedron<float> poly(convertedVerts, indices);
+		ConvexPolyhedron<float> other(convertedOtherVerts, indices);
+		ConvexPolyhedron<float> intersection;
+
+		if (!poly.FindIntersection(other, intersection))
+			return false;
+
+		results.mVolume = intersection.GetVolume();
+		results.mForce = glm::vec3(0.0f);
+
+		gte::Vector3<float> forceDirection{ 0,0,0 };
+		// Tolerance for triangles to be considered the same
+		const float cAngleTolerance = 0.01f;
+
+		for (int i = 0; i < intersection.GetNumTriangles(); i++)
+		{
+			const auto& triangleNormal = intersection.GetPlane(i).normal;
+			
+			for (int j = 0; j < 4; j++)
+			{
+				const auto & v0 = convertedVerts[indices[3 * j + 0]];
+				const auto & v1 = convertedVerts[indices[3 * j + 1]];
+				const auto & v2 = convertedVerts[indices[3 * j + 2]];
+				const auto & d0 = glm::normalize(glm::vec3(v1[0], v1[1], v1[2]) - glm::vec3(v0[0], v0[1], v0[2]));
+				const auto & d1 = glm::normalize(glm::vec3(v2[0], v2[1], v2[2]) - glm::vec3(v0[0], v0[1], v0[2]));
+				auto n = glm::cross(d0, d1);
+				auto angle = glm::angle(n, glm::vec3(triangleNormal[0], triangleNormal[1], triangleNormal[2]));
+
+				// This means that we think this facet belongs to the first tet
+				if (std::abs(angle) < cAngleTolerance)
+				{
+					// calculate area of intersection triangle
+					const auto& triangle = intersection.GetTriangle(i);
+					const auto& p0 = intersection.GetPoint(triangle.GetVertex(0));
+					const auto& p1 = intersection.GetPoint(triangle.GetVertex(1));
+					const auto& p2 = intersection.GetPoint(triangle.GetVertex(2));
+					auto area = 0.5f * gte::Length(gte::Cross(p1 - p0, p2 - p0));
+
+					results.mForce += area * n;
+				}
+			}
+		}
+
+		results.mForce = glm::normalize(results.mForce);
+	}
+}

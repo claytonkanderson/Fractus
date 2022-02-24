@@ -1,12 +1,13 @@
 #include "TestFractureManager.h"
-#include "TestDeformation.hpp"
+#include "Deformation.hpp"
 #include "DeformationAPI.h"
+#include "FractureContext.h"
 #include "ProtoConverter.hpp"
 #include <fstream>
 
 ////////////////////////////////////////////////////////////////////////////////
 
-namespace TestDeformation
+namespace Deformation
 {
 	void SaveFrame(IronGames::SimulationSummary* summary, const TetraGroup& group)
 	{
@@ -94,26 +95,26 @@ namespace TestDeformation
 			indices.resize(4 * (mMaxNumTetrahedra + 10));
 
 			Initialize(positions.data(), 5, mMaxNumVertices, indices.data(), 2, mMaxNumTetrahedra, mLambda, mPsi, mMu, mPhi, mToughness, mDensity);
-			TestDeformation::TetraGroup* group = (TestDeformation::TetraGroup*)mData;
+			Deformation::TetraGroup* group = (Deformation::TetraGroup*)mData;
 
 			const glm::vec3 fracturePlane(0.0f, 0.0f, 1.0f);
 
 			{
 				SaveFrame(summary, *group);
 				InsertFracture(&summary->mutable_frames()->at(0), 0, fracturePlane);
-				TestDeformation::FractureContext context(fracturePlane, 0, group->mIdToTetrahedra, group->mVertices, group->mTetIdCounter);
+				Deformation::FractureContext context(fracturePlane, 0, group->mIdToTetrahedra, group->mVertices, group->mTetIdCounter);
 				context.Fracture();
 			}
 			{
 				SaveFrame(summary, *group);
 				InsertFracture(&summary->mutable_frames()->at(1), 1, fracturePlane);
-				TestDeformation::FractureContext context(fracturePlane, 1, group->mIdToTetrahedra, group->mVertices, group->mTetIdCounter);
+				Deformation::FractureContext context(fracturePlane, 1, group->mIdToTetrahedra, group->mVertices, group->mTetIdCounter);
 				context.Fracture();
 			}
 			{
 				SaveFrame(summary, *group);
 				InsertFracture(&summary->mutable_frames()->at(2), 2, fracturePlane);
-				TestDeformation::FractureContext context(fracturePlane, 2, group->mIdToTetrahedra, group->mVertices, group->mTetIdCounter);
+				Deformation::FractureContext context(fracturePlane, 2, group->mIdToTetrahedra, group->mVertices, group->mTetIdCounter);
 				context.Fracture();
 			}
 
@@ -140,7 +141,7 @@ namespace TestDeformation
 			indices.resize(4 * (mMaxNumTetrahedra + 10));
 
 			Initialize(positions.data(), 5, mMaxNumVertices, indices.data(), 2, mMaxNumTetrahedra, mLambda, mPsi, mMu, mPhi, mToughness, mDensity);
-			TestDeformation::TetraGroup* group = (TestDeformation::TetraGroup*)mData;
+			Deformation::TetraGroup* group = (Deformation::TetraGroup*)mData;
 
 			for (auto& vert : group->mVertices)
 				vert.mVelocity += glm::vec3(0, -1, 0);
@@ -224,7 +225,7 @@ const float heightOffset = 2.0f;
 			int maxNumTetrahedra = 2 * numTetrahedra;
 
 			Initialize(positions.data(), numVertices, maxNumVertices, indices.data(), numTetrahedra, maxNumTetrahedra, mLambda, mPsi, mMu, mPhi, mToughness, mDensity);
-			TestDeformation::TetraGroup* group = (TestDeformation::TetraGroup*)mData;
+			Deformation::TetraGroup* group = (Deformation::TetraGroup*)mData;
 
 			float maxEigenvalue = -1;
 			float maxEigenvalueTime = 0.0f;
@@ -253,7 +254,7 @@ const float heightOffset = 2.0f;
 			GetTwoTetrahedraConfiguration(positions, indices);
 
 			Initialize(positions.data(), 5, mMaxNumVertices, indices.data(), 2, mMaxNumTetrahedra, mLambda, mPsi, mMu, mPhi, mToughness, mDensity);
-			TestDeformation::TetraGroup* group = (TestDeformation::TetraGroup*)mData;
+			Deformation::TetraGroup* group = (Deformation::TetraGroup*)mData;
 
 			const glm::vec3 fracturePlane(0.0f, 1.0f, 0.0f);
 
@@ -261,7 +262,7 @@ const float heightOffset = 2.0f;
 			{
 				SaveFrame(summary, *group);
 				InsertFracture(&summary->mutable_frames()->at(0), fracturingVertId, fracturePlane);
-				TestDeformation::FractureContext context(fracturePlane, fracturingVertId, group->mIdToTetrahedra, group->mVertices, group->mTetIdCounter);
+				Deformation::FractureContext context(fracturePlane, fracturingVertId, group->mIdToTetrahedra, group->mVertices, group->mTetIdCounter);
 				context.Fracture();
 			}
 
@@ -283,7 +284,7 @@ const float heightOffset = 2.0f;
 			GetTwoTetrahedraConfiguration(positions, indices);
 
 			Initialize(positions.data(), 5, mMaxNumVertices, indices.data(), 2, mMaxNumTetrahedra, mLambda, mPsi, mMu, mPhi, mToughness, mDensity);
-			TestDeformation::TetraGroup* group = (TestDeformation::TetraGroup*)mData;
+			Deformation::TetraGroup* group = (Deformation::TetraGroup*)mData;
 
 			const glm::vec3 fracturePlane = glm::normalize(glm::vec3(0.0f, 0.8f, 0.2f));
 
@@ -291,7 +292,7 @@ const float heightOffset = 2.0f;
 			{
 				SaveFrame(summary, *group);
 				InsertFracture(&summary->mutable_frames()->at(0), fracturingVertId, fracturePlane);
-				TestDeformation::FractureContext context(fracturePlane, fracturingVertId, group->mIdToTetrahedra, group->mVertices, group->mTetIdCounter);
+				Deformation::FractureContext context(fracturePlane, fracturingVertId, group->mIdToTetrahedra, group->mVertices, group->mTetIdCounter);
 				context.Fracture();
 			}
 
@@ -313,7 +314,7 @@ const float heightOffset = 2.0f;
 			GetTwoTetrahedraConfiguration(positions, indices);
 
 			Initialize(positions.data(), 5, mMaxNumVertices, indices.data(), 2, mMaxNumTetrahedra, mLambda, mPsi, mMu, mPhi, mToughness, mDensity);
-			TestDeformation::TetraGroup* group = (TestDeformation::TetraGroup*)mData;
+			Deformation::TetraGroup* group = (Deformation::TetraGroup*)mData;
 
 			const glm::vec3 fracturePlane = glm::normalize(glm::vec3(0.0f, 0.8f, 0.5f));
 
@@ -321,7 +322,7 @@ const float heightOffset = 2.0f;
 			{
 				SaveFrame(summary, *group);
 				InsertFracture(&summary->mutable_frames()->at(0), fracturingVertId, fracturePlane);
-				TestDeformation::FractureContext context(fracturePlane, fracturingVertId, group->mIdToTetrahedra, group->mVertices, group->mTetIdCounter);
+				Deformation::FractureContext context(fracturePlane, fracturingVertId, group->mIdToTetrahedra, group->mVertices, group->mTetIdCounter);
 				context.Fracture();
 			}
 
@@ -343,7 +344,7 @@ const float heightOffset = 2.0f;
 			GetTwoTetrahedraConfiguration(positions, indices);
 
 			Initialize(positions.data(), 5, mMaxNumVertices, indices.data(), 2, mMaxNumTetrahedra, mLambda, mPsi, mMu, mPhi, mToughness, mDensity);
-			TestDeformation::TetraGroup* group = (TestDeformation::TetraGroup*)mData;
+			Deformation::TetraGroup* group = (Deformation::TetraGroup*)mData;
 
 			const glm::vec3 fracturePlane = glm::normalize(glm::vec3(-0.2f, 0.8f, 0.0f));
 
@@ -351,7 +352,7 @@ const float heightOffset = 2.0f;
 			{
 				SaveFrame(summary, *group);
 				InsertFracture(&summary->mutable_frames()->at(0), fracturingVertId, fracturePlane);
-				TestDeformation::FractureContext context(fracturePlane, fracturingVertId, group->mIdToTetrahedra, group->mVertices, group->mTetIdCounter);
+				Deformation::FractureContext context(fracturePlane, fracturingVertId, group->mIdToTetrahedra, group->mVertices, group->mTetIdCounter);
 				context.Fracture();
 			}
 
@@ -370,7 +371,7 @@ const float heightOffset = 2.0f;
 			GetTwoTetrahedraConfiguration(positions, indices);
 
 			Initialize(positions.data(), 5, mMaxNumVertices, indices.data(), 2, mMaxNumTetrahedra, mLambda, mPsi, mMu, mPhi, mToughness, mDensity);
-			TestDeformation::TetraGroup* group = (TestDeformation::TetraGroup*)mData;
+			Deformation::TetraGroup* group = (Deformation::TetraGroup*)mData;
 
 			mTimestep = 0.001f;
 
@@ -414,7 +415,7 @@ const float heightOffset = 2.0f;
 			GetSingleTetrahedraConfiguration(positions, indices);
 
 			Initialize(positions.data(), 4, mMaxNumVertices, indices.data(), 1, mMaxNumTetrahedra, mLambda, mPsi, mMu, mPhi, mToughness, mDensity);
-			TestDeformation::TetraGroup* group = (TestDeformation::TetraGroup*)mData;
+			Deformation::TetraGroup* group = (Deformation::TetraGroup*)mData;
 
 			double speed = 1;
 			group->mVertices[3].mVelocity += glm::vec3(0, 0, speed);
@@ -455,7 +456,7 @@ const float heightOffset = 2.0f;
 			GetSingleTetrahedraConfiguration(positions, indices);
 
 			Initialize(positions.data(), 4, mMaxNumVertices, indices.data(), 1, mMaxNumTetrahedra, mLambda, mPsi, mMu, mPhi, mToughness, mDensity);
-			TestDeformation::TetraGroup* group = (TestDeformation::TetraGroup*)mData;
+			Deformation::TetraGroup* group = (Deformation::TetraGroup*)mData;
 
 			double speed = 1;
 			group->mVertices[3].mVelocity += glm::vec3(0, 0, -speed);
@@ -507,7 +508,7 @@ const float heightOffset = 2.0f;
 			};
 
 			Initialize(positions.data(), 7, mMaxNumVertices, indices.data(), 2, mMaxNumTetrahedra, mLambda, mPsi, mMu, mPhi, mToughness, mDensity);
-			TestDeformation::TetraGroup* group = (TestDeformation::TetraGroup*)mData;
+			Deformation::TetraGroup* group = (Deformation::TetraGroup*)mData;
 
 			group->mVertices[0].mVelocity += glm::vec3(0, 0, 1);
 			group->mSaveEveryXSteps = 1;
@@ -537,7 +538,7 @@ const float heightOffset = 2.0f;
 
 	////////////////////////////////////////////////////////////////////////////////
 
-	bool TestCase::Update(TestDeformation::TetraGroup& group)
+	bool TestCase::Update(Deformation::TetraGroup& group)
 	{
 		if (mBreakOnFailure)
 		{
@@ -560,7 +561,7 @@ const float heightOffset = 2.0f;
 
 ////////////////////////////////////////////////////////////////////////////////
 
-TestDeformation::TestFractureManager::TestFractureManager(IronGames::SimulationSummaries* summaries)
+Deformation::TestFractureManager::TestFractureManager(IronGames::SimulationSummaries* summaries)
 	: mSummaries(summaries)
 {
 	bool breakOnFailure = false;
@@ -582,7 +583,7 @@ TestDeformation::TestFractureManager::TestFractureManager(IronGames::SimulationS
 
 ////////////////////////////////////////////////////////////////////////////////
 
-TestDeformation::TestFractureManager::~TestFractureManager()
+Deformation::TestFractureManager::~TestFractureManager()
 {
 	for (auto testCase : mTestCases)
 		delete testCase;
@@ -590,7 +591,7 @@ TestDeformation::TestFractureManager::~TestFractureManager()
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void TestDeformation::TestFractureManager::RunAllTestCases()
+void Deformation::TestFractureManager::RunAllTestCases()
 {
 	for (int i = 0; i < mTestCases.size(); i++)
 	{
@@ -602,7 +603,7 @@ void TestDeformation::TestFractureManager::RunAllTestCases()
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void TestDeformation::TestFractureManager::RunTestCase(int testNum)
+void Deformation::TestFractureManager::RunTestCase(int testNum)
 {
 	mTestCases[testNum]->Run(mSummaries->add_summaries());
 }

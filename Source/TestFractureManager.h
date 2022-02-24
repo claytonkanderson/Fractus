@@ -1,11 +1,11 @@
 #pragma once
 #include "core.pb.h"
-#include "TestDeformation.hpp"
+#include "Deformation.hpp"
 #include <vector>
 
 ////////////////////////////////////////////////////////////////////////////////
 
-namespace TestDeformation
+namespace Deformation
 {
 	class TestCase
 	{
@@ -15,16 +15,16 @@ namespace TestDeformation
 
 		virtual void Run(IronGames::SimulationSummary* /*summary*/) {}
 		
-		bool Update(TestDeformation::TetraGroup& group);
+		bool Update(Deformation::TetraGroup& group);
 
 	protected:
-		double mLambda = 2.65e6f;
-		double mPsi = 397.f;
-		double mPhi = 264.f;
-		double mMu = 3.97e6f;
-		double mDensity = 5013.f;
-		double mTimestep = 0.0001f;
-		double mToughness = 10.f;
+		float mLambda = 2.65e6f;
+		float mPsi = 397.f;
+		float mPhi = 264.f;
+		float mMu = 3.97e6f;
+		float mDensity = 5013.f;
+		float mTimestep = 0.0001f;
+		float mToughness = 10.f;
 
 		int mMaxNumVertices = 10;
 		int mMaxNumTetrahedra = 10;
