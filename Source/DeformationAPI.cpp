@@ -414,7 +414,7 @@ extern "C" int __declspec(dllexport) __stdcall CreateSurfaceMesh(
 	int* outTriangleIndices, int* outNumTriangles, int numMaxTriangles)
 {
 	std::vector<glm::vec3> vertices(8*numCubes + 4*numTetrahedra);
-	std::vector<glm::ivec3> triangleIndices(12 * numCubes + 4 * numTetrahedra);
+	std::vector<glm::ivec3> notOrientedFaceIds(12 * numCubes + 4 * numTetrahedra);
 	std::unordered_map<glm::ivec3, glm::ivec3> faceIdToOrientedFace;
 
 	int vertexCounter = 0;
@@ -428,7 +428,7 @@ extern "C" int __declspec(dllexport) __stdcall CreateSurfaceMesh(
 				vertexCounter + Deformation::CubeTriangleIndices[j][1],
 				vertexCounter + Deformation::CubeTriangleIndices[j][2]);
 			auto id = Deformation::GetFaceId(orientedFace[0], orientedFace[1], orientedFace[2]);
-			triangleIndices[triCounter++] = id;
+			notOrientedFaceIds[triCounter++] = id;
 			faceIdToOrientedFace[id] = orientedFace;
 		}
 
@@ -445,7 +445,7 @@ extern "C" int __declspec(dllexport) __stdcall CreateSurfaceMesh(
 		{
 			auto orientedFace = vertexCounter + Deformation::TetrahedraIndices[j];
 			auto id = Deformation::GetFaceId(orientedFace[0], orientedFace[1], orientedFace[2]);
-			triangleIndices[triCounter++] = id;
+			notOrientedFaceIds[triCounter++] = id;
 			faceIdToOrientedFace[id] = orientedFace;
 		}
 
@@ -488,34 +488,32 @@ extern "C" int __declspec(dllexport) __stdcall CreateSurfaceMesh(
 	if (uniqueVertices.size() > numMaxVertices)
 		return -1;
 
-	for (int i = 0; i < triangleIndices.size(); i++)
-	{
-		for (int j = 0; j < 3; j++)
-		{
-			triangleIndices[i][j] = oldVertIdToNewVertId[triangleIndices[i][j]];
-		}
-	}
+	std::unordered_map<glm::ivec3, glm::ivec3> reindexedFaceIdToOrientedFaceId;
 
-	std::unordered_set<glm::ivec3> uniqueTriangles;
-	std::unordered_map<glm::ivec3, glm::ivec3> uniqueFaceIdToOrientedFace;
-
-	for (const auto& triangleId : triangleIndices)
+	for (int i = 0; i < notOrientedFaceIds.size(); i++)
 	{
-		glm::ivec3 faceId;
+		const auto& faceId = notOrientedFaceIds[i];
+		const auto& orientedFaceId = faceIdToOrientedFace[faceId];
+
+		// Can fail if any input triangle has vertices closer together than the spatial tolerance
+		glm::ivec3 newFaceId;
 		try
 		{
-			faceId = Deformation::GetFaceId(triangleId[0], triangleId[1], triangleId[2]);
+			newFaceId = Deformation::GetFaceId(oldVertIdToNewVertId[faceId[0]], oldVertIdToNewVertId[faceId[1]], oldVertIdToNewVertId[faceId[2]]);
 		}
 		catch (const std::exception& e)
 		{
 			return -10;
 		}
 
-		if (!uniqueTriangles.insert(faceId).second)
-			continue;
-
-		uniqueFaceIdToOrientedFace[faceId] = triangleId;
+		notOrientedFaceIds[i] = newFaceId;
+		reindexedFaceIdToOrientedFaceId[newFaceId] = glm::ivec3(oldVertIdToNewVertId[orientedFaceId[0]], oldVertIdToNewVertId[orientedFaceId[1]], oldVertIdToNewVertId[orientedFaceId[2]]);
 	}
+
+	std::unordered_set<glm::ivec3> notOrientedUniqueFaceIds;
+
+	for (const auto& faceId : notOrientedFaceIds)
+		notOrientedUniqueFaceIds.insert(faceId);
 
 	// okay now we have all unique vertices and the correct triangle indices
 	Deformation::MeshVolume meshVolume;
@@ -530,24 +528,24 @@ extern "C" int __declspec(dllexport) __stdcall CreateSurfaceMesh(
 
 	// next step is to evaluate the center of each triangle for containment
 
-	for (auto iter = uniqueTriangles.begin(); iter != uniqueTriangles.end(); )
+	for (auto iter = notOrientedUniqueFaceIds.begin(); iter != notOrientedUniqueFaceIds.end(); )
 	{
 		// triangle center
 		auto triangle = *iter;
 		glm::vec3 center = (uniqueVertices[triangle[0]] + uniqueVertices[triangle[1]] + uniqueVertices[triangle[2]]) / 3.0f;
 		if (meshVolume.Contains(center))
-			iter = uniqueTriangles.erase(iter);
+			iter = notOrientedUniqueFaceIds.erase(iter);
 		else
 			++iter;
 	}
 
 	// finally write out data
 
-	if (uniqueTriangles.size() > numMaxTriangles)
+	if (notOrientedUniqueFaceIds.size() > numMaxTriangles)
 		return -2;
 
 	outNumVertices[0] = uniqueVertices.size();
-	outNumTriangles[0] = uniqueTriangles.size();
+	outNumTriangles[0] = notOrientedUniqueFaceIds.size();
 
 	// could do this with direct assignment instead of loop?
 	for (int i = 0; i < uniqueVertices.size(); i++)
@@ -558,11 +556,13 @@ extern "C" int __declspec(dllexport) __stdcall CreateSurfaceMesh(
 	}
 
 	int outTriCounter = 0;
-	for (auto iter = uniqueTriangles.begin(); iter != uniqueTriangles.end(); ++iter)
+	for (auto iter = notOrientedUniqueFaceIds.begin(); iter != notOrientedUniqueFaceIds.end(); ++iter)
 	{
-		outTriangleIndices[3 * outTriCounter + 0] = (*iter)[0];
-		outTriangleIndices[3 * outTriCounter + 1] = (*iter)[1];
-		outTriangleIndices[3 * outTriCounter + 2] = (*iter)[2];
+		const auto& faceId = (*iter);
+		const auto& orientedFace = reindexedFaceIdToOrientedFaceId[faceId];
+		outTriangleIndices[3 * outTriCounter + 0] = orientedFace[0];
+		outTriangleIndices[3 * outTriCounter + 1] = orientedFace[1];
+		outTriangleIndices[3 * outTriCounter + 2] = orientedFace[2];
 		outTriCounter++;
 	}
 
@@ -635,12 +635,11 @@ extern "C" int __declspec(dllexport) __stdcall CreateTetrahedralMesh(
 
 	for (int i = 0; i < out.numberoftetrahedra; i++)
 	{
-		// 1-based indexing (despite the comments??)
 		auto tetOffset = out.numberofcorners * i;
-		auto v0 = tetCornerPtr[0 + tetOffset] - 1;
-		auto v1 = tetCornerPtr[1 + tetOffset] - 1;
-		auto v2 = tetCornerPtr[2 + tetOffset] - 1;
-		auto v3 = tetCornerPtr[3 + tetOffset] - 1;
+		auto v0 = tetCornerPtr[0 + tetOffset];
+		auto v1 = tetCornerPtr[1 + tetOffset];
+		auto v2 = tetCornerPtr[2 + tetOffset];
+		auto v3 = tetCornerPtr[3 + tetOffset];
 
 		outVertexPositions[12 * i + 0] = vertexPtr[3 * v0 + 0];
 		outVertexPositions[12 * i + 1] = vertexPtr[3 * v0 + 1];

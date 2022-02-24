@@ -2,6 +2,8 @@
 #include "DeformationAPI.h"
 #include "TestFractureManager.h"
 #include "MeshVolume.h"
+#include "FractureUtil.h"
+
 #include <glm/vec4.hpp>
 #include <glm/common.hpp>
 #include <iostream>
@@ -22,10 +24,7 @@ int main(int argc, const char* argv[])
 	//	summaries.SerializeToOstream(&ofs);
 	//}
 
-	//extern "C" int __declspec(dllexport) __stdcall CreateSurfaceMesh(
-	//float* cubeCenters, int numCubes, float* tetrahedraPositions, int numTetrahedra,
-	//float* outVertexPositions, int* outNumVertices, int numMaxVertices,
-	//int* outTriangleIndices, int* outNumTriangles, int numMaxTriangles)
+	/* 
 	std::vector<float> cubeCenters = { 0,0,0, 1,0,0 };
 	int numCubes = 2;
 	int numTet = 0;
@@ -47,6 +46,35 @@ int main(int argc, const char* argv[])
 	vol.mTetrahedra.push_back(tet);
 
 	vol.Contains(glm::vec3(0.0f, -0.5f/3.0f, -0.5f/3.0f));
+	*/
+
+	//float* vertexPositions, int numVertices, int* triangleIndices, int numTriangles,
+	//	float* outVertexPositions, int* outNumVertices, int numMaxVertices,
+	//	int* outTetrahedralIndices, int* outNumTetrahedra, int numMaxTetrahedra)
+	std::vector<float> vertexPositions = 
+	{ 
+		0,-0.5f,-0.5f,
+		0,0.5f,-0.5f,
+		0,-0.5f,0.5f,
+		1,-0.5f,-0.5f
+	};
+	int numVertices = 4;
+	std::vector<int> triangleIndices =
+	{
+		Deformation::TetrahedraIndices[0][0], Deformation::TetrahedraIndices[0][1], Deformation::TetrahedraIndices[0][2],
+		Deformation::TetrahedraIndices[1][0], Deformation::TetrahedraIndices[1][1], Deformation::TetrahedraIndices[1][2],
+		Deformation::TetrahedraIndices[2][0], Deformation::TetrahedraIndices[2][1], Deformation::TetrahedraIndices[2][2],
+		Deformation::TetrahedraIndices[3][0], Deformation::TetrahedraIndices[3][1], Deformation::TetrahedraIndices[3][2],
+	};
+	int numTriangles = 4;
+	int maxNumVertices = 1000;
+	int maxNumTetrahedra = 1000;
+	std::vector<float> outVertexPositions(maxNumVertices);
+	std::vector<int> outTriangleIndices(4 * maxNumTetrahedra);
+	int outNumVertices;
+	int outNumTetrahedra;
+	CreateTetrahedralMesh(vertexPositions.data(), numVertices, triangleIndices.data(), numTriangles, outVertexPositions.data(),
+		&outNumVertices, maxNumVertices, outTriangleIndices.data(), &outNumTetrahedra, maxNumTetrahedra);
 
 	return 0;
 }

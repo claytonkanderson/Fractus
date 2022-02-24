@@ -20,17 +20,17 @@ namespace Deformation
 namespace Deformation
 {
 	static const std::array<glm::ivec3, 12> CubeTriangleIndices = {
-	glm::ivec3(0, 2, 1), //face front
-	glm::ivec3(0, 3, 2),
-	glm::ivec3(2, 3, 4), //face top
-	glm::ivec3(2, 4, 5),
-	glm::ivec3(1, 2, 5), //face right
-	glm::ivec3(1, 5, 6),
-	glm::ivec3(0, 7, 4), //face left
 	glm::ivec3(0, 4, 3),
-	glm::ivec3(5, 4, 7), //face back
+	glm::ivec3(0, 2, 1),
+	glm::ivec3(1, 2, 5),
+	glm::ivec3(0, 3, 2),
+	glm::ivec3(2, 3, 4),
+	glm::ivec3(2, 4, 5),
+	glm::ivec3(0, 7, 4),
+	glm::ivec3(1, 5, 6),
+	glm::ivec3(4, 7, 5),
 	glm::ivec3(5, 7, 6),
-	glm::ivec3(0, 6, 7), //face bottom
+	glm::ivec3(0, 6, 7),
 	glm::ivec3(0, 1, 6)
 	};
 
