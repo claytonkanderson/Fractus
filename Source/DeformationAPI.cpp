@@ -594,7 +594,7 @@ extern "C" int __declspec(dllexport) __stdcall CreateTetrahedralMesh(
 
 	in.numberoffacets = numTriangles;
 	in.facetlist = new tetgenio::facet[in.numberoffacets];
-	in.facetmarkerlist = new int[in.numberoffacets];
+	//in.facetmarkerlist = new int[in.numberoffacets];
 
 	for (int i = 0; i < numTriangles; i++)
 	{
@@ -607,16 +607,17 @@ extern "C" int __declspec(dllexport) __stdcall CreateTetrahedralMesh(
 		p->numberofvertices = 3;
 		p->vertexlist = new int[p->numberofvertices];
 		p->vertexlist[0] = triangleIndices[3 * i + 0];
-		p->vertexlist[1] = triangleIndices[3 * i + 1];
-		p->vertexlist[2] = triangleIndices[3 * i + 2];
+		p->vertexlist[1] = triangleIndices[3 * i + 2];
+		p->vertexlist[2] = triangleIndices[3 * i + 1];
 
-		in.facetmarkerlist[i] = i;
+		//in.facetmarkerlist[i] = 0;
 	}
 
 	// Tetrahedralize the PLC. Switches are chosen to read a PLC (p),
 	//   do quality mesh generation (q) with a specified quality bound
 	//   (1.414), and apply a maximum volume constraint (a0.1).
-	const char* switches = "pq1.414a2.0Q";
+	//const char* switches = "pq1.414a2.0";
+	const char* switches = "p";
 	char* nonConstSwitches = const_cast<char*>(switches);
 
 	tetrahedralize(nonConstSwitches, &in, &out);
@@ -633,34 +634,19 @@ extern "C" int __declspec(dllexport) __stdcall CreateTetrahedralMesh(
 	auto tetCornerPtr = out.tetrahedronlist;
 	auto vertexPtr = out.pointlist;
 
+	for (int i = 0; i < outNumVertices[0]; i++)
+	{
+		outVertexPositions[3 * i + 0] = vertexPtr[3 * i + 0];
+		outVertexPositions[3 * i + 1] = vertexPtr[3 * i + 1];
+		outVertexPositions[3 * i + 2] = vertexPtr[3 * i + 2];
+	}
+
 	for (int i = 0; i < out.numberoftetrahedra; i++)
 	{
-		auto tetOffset = out.numberofcorners * i;
-		auto v0 = tetCornerPtr[0 + tetOffset];
-		auto v1 = tetCornerPtr[1 + tetOffset];
-		auto v2 = tetCornerPtr[2 + tetOffset];
-		auto v3 = tetCornerPtr[3 + tetOffset];
-
-		outVertexPositions[12 * i + 0] = vertexPtr[3 * v0 + 0];
-		outVertexPositions[12 * i + 1] = vertexPtr[3 * v0 + 1];
-		outVertexPositions[12 * i + 2] = vertexPtr[3 * v0 + 2];
-
-		outVertexPositions[12 * i + 3] = vertexPtr[3 * v1 + 0];
-		outVertexPositions[12 * i + 4] = vertexPtr[3 * v1 + 1];
-		outVertexPositions[12 * i + 5] = vertexPtr[3 * v1 + 2];
-
-		outVertexPositions[12 * i + 6] = vertexPtr[3 * v2 + 0];
-		outVertexPositions[12 * i + 7] = vertexPtr[3 * v2 + 1];
-		outVertexPositions[12 * i + 8] = vertexPtr[3 * v2 + 2];
-
-		outVertexPositions[12 * i +  9] = vertexPtr[3 * v3 + 0];
-		outVertexPositions[12 * i + 10] = vertexPtr[3 * v3 + 1];
-		outVertexPositions[12 * i + 11] = vertexPtr[3 * v3 + 2];
-
-		outTetrahedralIndices[4 * i + 0] = v0;
-		outTetrahedralIndices[4 * i + 1] = v1;
-		outTetrahedralIndices[4 * i + 2] = v2;
-		outTetrahedralIndices[4 * i + 3] = v3;
+		outTetrahedralIndices[4 * i + 0] = tetCornerPtr[4 * i + 0];
+		outTetrahedralIndices[4 * i + 1] = tetCornerPtr[4 * i + 1];
+		outTetrahedralIndices[4 * i + 2] = tetCornerPtr[4 * i + 2];
+		outTetrahedralIndices[4 * i + 3] = tetCornerPtr[4 * i + 3];
 	}
 
 	return 0;

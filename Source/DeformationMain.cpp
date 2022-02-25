@@ -51,22 +51,26 @@ int main(int argc, const char* argv[])
 	//float* vertexPositions, int numVertices, int* triangleIndices, int numTriangles,
 	//	float* outVertexPositions, int* outNumVertices, int numMaxVertices,
 	//	int* outTetrahedralIndices, int* outNumTetrahedra, int numMaxTetrahedra)
-	std::vector<float> vertexPositions = 
-	{ 
-		0,-0.5f,-0.5f,
-		0,0.5f,-0.5f,
-		0,-0.5f,0.5f,
-		1,-0.5f,-0.5f
-	};
-	int numVertices = 4;
-	std::vector<int> triangleIndices =
+	std::vector<float> vertexPositions;
+
+	for (const auto & pos : Deformation::CubeVertexPositions)
 	{
-		Deformation::TetrahedraIndices[0][0], Deformation::TetrahedraIndices[0][1], Deformation::TetrahedraIndices[0][2],
-		Deformation::TetrahedraIndices[1][0], Deformation::TetrahedraIndices[1][1], Deformation::TetrahedraIndices[1][2],
-		Deformation::TetrahedraIndices[2][0], Deformation::TetrahedraIndices[2][1], Deformation::TetrahedraIndices[2][2],
-		Deformation::TetrahedraIndices[3][0], Deformation::TetrahedraIndices[3][1], Deformation::TetrahedraIndices[3][2],
-	};
-	int numTriangles = 4;
+		vertexPositions.push_back(pos.x - 0.5f);
+		vertexPositions.push_back(pos.y - 0.5f);
+		vertexPositions.push_back(pos.z - 0.5f);
+	}
+
+	int numVertices = vertexPositions.size() / 3;
+
+	std::vector<int> triangleIndices;
+	for (const auto & tri : Deformation::CubeTriangleIndices)
+	{
+		triangleIndices.push_back(tri[0]);
+		triangleIndices.push_back(tri[1]);
+		triangleIndices.push_back(tri[2]);
+	}
+
+	int numTriangles = triangleIndices.size() / 3;
 	int maxNumVertices = 1000;
 	int maxNumTetrahedra = 1000;
 	std::vector<float> outVertexPositions(maxNumVertices);
@@ -75,6 +79,9 @@ int main(int argc, const char* argv[])
 	int outNumTetrahedra;
 	CreateTetrahedralMesh(vertexPositions.data(), numVertices, triangleIndices.data(), numTriangles, outVertexPositions.data(),
 		&outNumVertices, maxNumVertices, outTriangleIndices.data(), &outNumTetrahedra, maxNumTetrahedra);
+
+	for (int i = 0; i < outNumVertices; i++)
+		std::cout << outVertexPositions[3*i] << ", " << outVertexPositions[3 * i + 1] << ", " << outVertexPositions[3 * i + 2] << std::endl;
 
 	return 0;
 }
