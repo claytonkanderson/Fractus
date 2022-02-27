@@ -172,6 +172,7 @@ bool Deformation::ConvexIntersection::TetrahedraIntersection(
 
 void Deformation::ConvexIntersection::ResolveCollisions(std::vector<Vertex>& vertices, std::unordered_map<size_t, Tetrahedra>& tetrahedra)
 {
+	const float cCollisionPerUnitVolume = 1e8f;
 	// Tolerance for triangles to be considered the same
 	const float cAngleTolerance = 0.05f;
 
@@ -186,15 +187,27 @@ void Deformation::ConvexIntersection::ResolveCollisions(std::vector<Vertex>& ver
 	std::vector<gte::Vector3<float>> convertedVertices(4);
 	std::vector<gte::Vector3<float>> convertedOtherVerts(4);
 
-	for (int firstTetId = 0 ; firstTetId < tetrahedra.size(); firstTetId++)
-	{
-		for (int secondTetId = firstTetId + 1; secondTetId < tetrahedra.size(); secondTetId++)
-		{
-			auto tetIter = std::next(tetrahedra.begin(), firstTetId);
-			auto otherIter = std::next(tetrahedra.begin(), secondTetId);
+	std::unordered_set<glm::ivec2> consideredPairs;
 
-			auto& firstTet = tetIter->second;
-			auto& secondTet = otherIter->second;
+	size_t tetCounter = 0;
+	for (auto& firstTetPair : tetrahedra)
+	{
+		std::cout << tetCounter++ << std::endl;
+
+		for (auto& secondTetPair : tetrahedra)
+		{
+			if (firstTetPair.first == secondTetPair.first)
+				continue;
+
+			const auto& pairId = GetEdgeId(firstTetPair.first, secondTetPair.first);
+
+			if (consideredPairs.find(pairId) != consideredPairs.end())
+				continue;
+
+			consideredPairs.insert(pairId);
+
+			auto& firstTet = firstTetPair.second;
+			auto& secondTet = secondTetPair.second;
 
 			for (int i = 0; i < 4; i++)
 			{
@@ -209,17 +222,17 @@ void Deformation::ConvexIntersection::ResolveCollisions(std::vector<Vertex>& ver
 			ConvexPolyhedron<float> other(convertedOtherVerts, indices);
 
 			// Can remove to optimize
-			for (const auto& gon : { poly, other })
-			{
-				if (!gon.ValidateHalfSpaceProperty(-1e-6))
-				{
-					for (const auto& pt : gon.GetPoints())
-						std::cout << "pos : " << pt[0] << ", " << pt[1] << ", " << pt[2] << std::endl;
+			//for (const auto& gon : { poly, other })
+			//{
+			//	if (!gon.ValidateHalfSpaceProperty(-1e-5))
+			//	{
+			//		for (const auto& pt : gon.GetPoints())
+			//			std::cout << "pos : " << pt[0] << ", " << pt[1] << ", " << pt[2] << std::endl;
 
-					std::cout << "vol " << gon.GetVolume() << std::endl;
-					throw std::exception("Invalid polyhedron.");
-				}
-			}
+			//		std::cout << "vol " << gon.GetVolume() << std::endl;
+			//		throw std::exception("Invalid polyhedron.");
+			//	}
+			//}
 
 			ConvexPolyhedron<float> intersection;
 
@@ -275,7 +288,6 @@ void Deformation::ConvexIntersection::ResolveCollisions(std::vector<Vertex>& ver
 						auto intersectionTriangleArea = 0.5f * gte::Length(gte::Cross(triangleP1 - triangleP0, triangleP2 - triangleP0));
 
 						auto weightedNormal = intersectionTriangleArea * n;
-						const float cCollisionPerUnitVolume = 1e8f;
 						auto directedForce = weightedNormal / intersectionSurfaceArea * intersectionVolume * cCollisionPerUnitVolume;
 						// apply this weightedNormal * collision strength to the nodes in this triangle
 						v0.mForce += directedForce;

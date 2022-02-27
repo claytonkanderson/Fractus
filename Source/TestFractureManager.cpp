@@ -230,13 +230,17 @@ const float heightOffset = 2.0f;
 			float maxEigenvalue = -1;
 			float maxEigenvalueTime = 0.0f;
 
+			SaveFrame(summary, *group);
+
 			for (int i = 0; i < 1; i++)
 			{
 				if (!Update(*group))
 					break;
 			}
 
-			*summary = group->mSummary;
+			//*summary = group->mSummary;
+
+			SaveFrame(summary, *group);
 		}
 	};
 
@@ -645,13 +649,21 @@ Deformation::TestFractureManager::~TestFractureManager()
 
 ////////////////////////////////////////////////////////////////////////////////
 
+#include <chrono>
+typedef std::chrono::high_resolution_clock Clock;
+
 void Deformation::TestFractureManager::RunAllTestCases()
 {
 	for (int i = 0; i < mTestCases.size(); i++)
 	{
 		std::cout << std::endl;
 		std::cout << "Beginning test case " << i << "." << std::endl;
+		
+		auto t1 = Clock::now();
 		RunTestCase(i);
+		auto t2 = Clock::now();
+		auto dt = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+		std::cout << "Test Case " << i << " took " << dt << " ms." << std::endl;
 	}
 }
 
