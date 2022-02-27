@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <ConvexPolyhedron.h>
+#include <Mathematics/IntrAlignedBox3AlignedBox3.h>
 
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/hash.hpp>
@@ -175,6 +176,7 @@ void Deformation::ConvexIntersection::ResolveCollisions(std::vector<Vertex>& ver
 	const float cCollisionPerUnitVolume = 1e8f;
 	// Tolerance for triangles to be considered the same
 	const float cAngleTolerance = 0.05f;
+	const float cIntersectionVolumeThreshold = 1e-8f;
 
 	const std::vector<int> indices =
 	{
@@ -187,23 +189,7 @@ void Deformation::ConvexIntersection::ResolveCollisions(std::vector<Vertex>& ver
 	std::vector<gte::Vector3<float>> convertedVertices(4);
 	std::vector<gte::Vector3<float>> convertedOtherVerts(4);
 
-	std::unordered_map<size_t, ConvexPolyhedron<float>> tetIdToConvexRep;
 	ConvexPolyhedron<float> intersection;
-
-	for (auto& pair : tetrahedra)
-	{
-		auto& tet = pair.second;
-
-		for (int i = 0; i < 4; i++)
-		{
-			for (int j = 0; j < 3; j++)
-			{
-				convertedVertices[i][j] = vertices[tet.mIndices[i]].mPosition[j];
-			}
-		}
-
-		tetIdToConvexRep.insert({ pair.first, ConvexPolyhedron<float>(convertedVertices, indices) });
-	}
 
 	ConvexPolyhedron<float>::Clipper clipper;
 	auto findIntersection = [&](const ConvexPolyhedron<float> & tet, const ConvexPolyhedron<float>& otherTet, ConvexPolyhedron<float> & intersection)
@@ -223,18 +209,70 @@ void Deformation::ConvexIntersection::ResolveCollisions(std::vector<Vertex>& ver
 		return true;
 	};
 	
+	std::vector<ConvexPolyhedron<float>> convexPolyhedra;
+	convexPolyhedra.reserve(tetrahedra.size());
+	
+	std::vector<gte::AlignedBox3<float>> axisAlignedBoundingBoxes;
+	axisAlignedBoundingBoxes.reserve(tetrahedra.size());
+	
 	std::vector<size_t> tetrahedraIds;
 	tetrahedraIds.reserve(tetrahedra.size());
+
 	for (const auto& pair : tetrahedra)
+	{
 		tetrahedraIds.push_back(pair.first);
 
-	size_t tetCounter = 0;
+		auto& tet = pair.second;
+		axisAlignedBoundingBoxes.emplace_back();
+		auto& box = axisAlignedBoundingBoxes.back();
+
+		for (int i = 0; i < 4; i++)
+		{
+			for (int j = 0; j < 3; j++)
+			{
+				convertedVertices[i][j] = vertices[tet.mIndices[i]].mPosition[j];
+			}
+
+			if (i == 0)
+			{
+				box.min = convertedVertices[i];
+				box.max = convertedVertices[i];
+			}
+			else
+			{
+				// Expand to include
+				for (int j = 0; j < 3; j++)
+				{
+					box.min[j] = std::min(box.min[j], convertedVertices[i][j]);
+					box.max[j] = std::max(box.max[j], convertedVertices[i][j]);
+				}
+			}
+		}
+
+		convexPolyhedra.push_back(ConvexPolyhedron<float>(convertedVertices, indices));
+	}
+
+	gte::FIQuery<float, gte::AlignedBox3<float>, gte::AlignedBox3<float>> boundingBoxQuery;
+
+	size_t numValidCollisions = 0;
+	size_t numCollisionsPastAABB = 0;
 	for (size_t tetIdx0 = 0; tetIdx0 < tetrahedraIds.size(); tetIdx0++)
 	{
-		std::cout << tetCounter++ << std::endl;
+		const auto& firstBox = axisAlignedBoundingBoxes[tetIdx0];
 
 		for (size_t tetIdx1 = tetIdx0 + 1; tetIdx1 < tetrahedraIds.size(); tetIdx1++)
 		{
+			const auto& secondBox = axisAlignedBoundingBoxes[tetIdx1];
+			auto result = boundingBoxQuery(firstBox, secondBox);
+			if (!result.intersect)
+				continue;
+
+			const auto& intersectedBox = result.box;
+			auto intersectedBoxVolume = (intersectedBox.max[0] - intersectedBox.min[0]) * (intersectedBox.max[1] - intersectedBox.min[1]) * (intersectedBox.max[2] - intersectedBox.min[2]);
+			if (intersectedBoxVolume < cIntersectionVolumeThreshold)
+				continue;
+
+			numCollisionsPastAABB++;
 			auto& firstTet = tetrahedra[tetrahedraIds[tetIdx0]];
 			auto& secondTet = tetrahedra[tetrahedraIds[tetIdx1]];
 
@@ -248,8 +286,8 @@ void Deformation::ConvexIntersection::ResolveCollisions(std::vector<Vertex>& ver
 				}
 			}
 
-			const auto& poly = tetIdToConvexRep[tetrahedraIds[tetIdx0]];
-			const auto& other = tetIdToConvexRep[tetrahedraIds[tetIdx1]];
+			const auto& poly = convexPolyhedra[tetIdx0];
+			const auto& other = convexPolyhedra[tetIdx1];
 
 			intersection.Reset();
 
@@ -258,8 +296,10 @@ void Deformation::ConvexIntersection::ResolveCollisions(std::vector<Vertex>& ver
 
 			auto intersectionVolume = intersection.GetVolume();
 
-			if (intersectionVolume < 1e-8f)
+			if (intersectionVolume < cIntersectionVolumeThreshold)
 				continue;
+
+			numValidCollisions++;
 
 			auto intersectionSurfaceArea = intersection.GetSurfaceArea();
 
@@ -324,6 +364,9 @@ void Deformation::ConvexIntersection::ResolveCollisions(std::vector<Vertex>& ver
 			}
 		}
 	}
+
+	std::cout << "Num collisions past AABB : " << numCollisionsPastAABB << std::endl;
+	std::cout << "Num accepted collisions : " << numValidCollisions << std::endl;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
