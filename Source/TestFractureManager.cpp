@@ -486,7 +486,7 @@ const float heightOffset = 2.0f;
 		}
 	};
 
-	class UpdateCaseTwoTetVelocityTensileSingleNode : public TestCase
+	class UpdateCaseTwoTetVelocityBowTie : public TestCase
 	{
 		using TestCase::TestCase;
 	public:
@@ -535,6 +535,59 @@ const float heightOffset = 2.0f;
 			std::cout << "Max Eigenvalue : " << maxEigenvalue << " time " << maxEigenvalueTime << "s." << std::endl;
 		}
 	};
+	
+	////////////////////////////////////////////////////////////////////////////////
+
+	class UpdateCaseTwoTetCollision : public TestCase
+	{
+		using TestCase::TestCase;
+	public:
+		void Run(IronGames::SimulationSummary* summary) override
+		{
+			std::vector<float> positions = {
+				-0.5f, 0.0f, 1.0f,
+				0.5f, 0.0f, 1.0f,
+				0.0f, 1.0f, 1.0f,
+				0.0f, 0.5f, 0.0f,
+				-0.5f, 0.0f, -1.0f,
+				0.5f, 0.0f, -1.0f,
+				0.0f, 1.0f, -1.0f,
+				0.0f, 0.5f, 0.5f
+			};
+
+			std::vector<int> indices = {
+				0, 1, 2, 3,
+				4, 5, 6, 7
+			};
+
+			Initialize(positions.data(), 8, mMaxNumVertices, indices.data(), 2, mMaxNumTetrahedra, mLambda, mPsi, mMu, mPhi, mToughness, mDensity);
+			Deformation::TetraGroup* group = (Deformation::TetraGroup*)mData;
+
+			group->mVertices[0].mVelocity += glm::vec3(0, 0, 1);
+			group->mSaveEveryXSteps = 1;
+
+			float maxEigenvalue = -1;
+			float maxEigenvalueTime = 0.0f;
+
+			for (int i = 0; i < 10000; i++)
+			{
+				if (!Update(*group))
+					break;
+
+				for (const auto& vertex : group->mVertices)
+				{
+					if (vertex.mLargestEigenvalue > maxEigenvalue)
+					{
+						maxEigenvalue = vertex.mLargestEigenvalue;
+						maxEigenvalueTime = i * mTimestep;
+					}
+				}
+			}
+
+			*summary = group->mSummary;
+			std::cout << "Max Eigenvalue : " << maxEigenvalue << " time " << maxEigenvalueTime << "s." << std::endl;
+		}
+	};
 
 	////////////////////////////////////////////////////////////////////////////////
 
@@ -564,7 +617,7 @@ const float heightOffset = 2.0f;
 Deformation::TestFractureManager::TestFractureManager(IronGames::SimulationSummaries* summaries)
 	: mSummaries(summaries)
 {
-	bool breakOnFailure = false;
+	bool breakOnFailure = true;
 
 	mTestCases.push_back(new SimpleCaseThreeFractures(breakOnFailure));
 	mTestCases.push_back(new UpdateCaseTwoTetrahedra(breakOnFailure));
@@ -576,7 +629,8 @@ Deformation::TestFractureManager::TestFractureManager(IronGames::SimulationSumma
 	mTestCases.push_back(new UpdateCaseTwoTetVelocityTensile(breakOnFailure));
 	mTestCases.push_back(new SimpleCaseSingleTetTensile(breakOnFailure));
 	mTestCases.push_back(new SimpleCaseSingleTetCompressive(breakOnFailure));
-	mTestCases.push_back(new UpdateCaseTwoTetVelocityTensileSingleNode(breakOnFailure));
+	mTestCases.push_back(new UpdateCaseTwoTetVelocityBowTie(breakOnFailure));
+	mTestCases.push_back(new UpdateCaseTwoTetCollision(breakOnFailure));
 
 	mTestCases.push_back(new UpdateCaseBowl(breakOnFailure));
 }

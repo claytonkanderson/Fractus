@@ -19,7 +19,7 @@ namespace Deformation
 
 namespace Deformation
 {
-	static const std::array<glm::ivec3, 12> CubeTriangleIndices = {
+	static const std::array<glm::ivec3, 12> CubeTriangleIndices ({
 	glm::ivec3(0, 4, 3),
 	glm::ivec3(0, 2, 1),
 	glm::ivec3(1, 2, 5),
@@ -32,9 +32,9 @@ namespace Deformation
 	glm::ivec3(5, 7, 6),
 	glm::ivec3(0, 6, 7),
 	glm::ivec3(0, 1, 6)
-	};
+	});
 
-	static const std::array<glm::vec3, 8> CubeVertexPositions =
+	static const std::array<glm::vec3, 8> CubeVertexPositions(
 	{
 		glm::vec3({0, 0, 0}),
 		glm::vec3({1, 0, 0}),
@@ -44,15 +44,14 @@ namespace Deformation
 		glm::vec3({1, 1, 1}),
 		glm::vec3({1, 0, 1}),
 		glm::vec3({0, 0, 1})
-	};
+	});
 
-	static const std::array<glm::ivec3, 4> TetrahedraIndices =
-	{
-		glm::ivec3(0, 2, 1),
+	static const std::array<glm::ivec3, 4> TetrahedraIndices (
+		{ glm::ivec3(0, 2, 1),
 		glm::ivec3(0, 1, 3),
 		glm::ivec3(0, 3, 2),
-		glm::ivec3(1, 2, 3)
-	};
+		glm::ivec3(1, 2, 3) }
+	);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

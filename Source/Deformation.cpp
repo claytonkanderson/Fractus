@@ -1,6 +1,7 @@
 #include "Deformation.hpp"
 #include "FractureUtil.h"
 #include "FractureContext.h"
+#include "ConvexIntersection.h"
 #include "ProtoConverter.hpp"
 
 #include <Mathematics/Delaunay3.h>
@@ -79,6 +80,45 @@ namespace Deformation
                 vert->set_mass(vertex.mMass);
             }
         }
+
+        ConvexIntersection::ResolveCollisions(mVertices, mIdToTetrahedra);
+
+        //ConvexIntersection::CollisionResults results;
+        //for (auto& tetPair : mIdToTetrahedra)
+        //{
+        //    for (auto& otherPair : mIdToTetrahedra)
+        //    {
+        //        if (tetPair.first == otherPair.first)
+        //            continue;
+
+        //        if (!ConvexIntersection::TetrahedraIntersection(
+        //            {
+        //                mVertices[tetPair.second.mIndices[0]].mPosition,
+        //                mVertices[tetPair.second.mIndices[1]].mPosition,
+        //                mVertices[tetPair.second.mIndices[2]].mPosition,
+        //                mVertices[tetPair.second.mIndices[3]].mPosition
+        //            },
+        //                {
+        //                    mVertices[otherPair.second.mIndices[0]].mPosition,
+        //                    mVertices[otherPair.second.mIndices[1]].mPosition,
+        //                    mVertices[otherPair.second.mIndices[2]].mPosition,
+        //                    mVertices[otherPair.second.mIndices[3]].mPosition
+        //                },
+        //            results)
+        //            )
+        //        {
+        //            continue;
+        //        }
+
+        //        const float cCollisionStrength = 1e8f;
+        //        float collisionMagnitude = cCollisionStrength * results.mVolume;
+        //        for (int i = 0; i < 4; i++)
+        //            mVertices[tetPair.second.mIndices[i]].mForce += 0.25f * collisionMagnitude * results.mForce;
+
+        //        for (int i = 0; i < 4; i++)
+        //            mVertices[otherPair.second.mIndices[i]].mForce += -0.25f * collisionMagnitude * results.mForce;
+        //    }
+        //}
 
 		for (auto & pair : mIdToTetrahedra)
 		{
@@ -251,6 +291,10 @@ namespace Deformation
             vertex.mForce += glm::dvec3(0, -9.8, 0) * vertex.mMass;
 
             a = vertex.mInvMass * vertex.mForce;
+
+            if (isnan(a[0]) || isnan(a[1]) || isnan(a[2]))
+                throw std::exception("Nan found in acceleration.");
+
             vertex.mVelocity += a * timestep;
             vertex.mPosition += vertex.mVelocity * timestep;
 
