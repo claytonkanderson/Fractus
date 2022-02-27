@@ -187,28 +187,58 @@ void Deformation::ConvexIntersection::ResolveCollisions(std::vector<Vertex>& ver
 	std::vector<gte::Vector3<float>> convertedVertices(4);
 	std::vector<gte::Vector3<float>> convertedOtherVerts(4);
 
-	std::unordered_set<glm::ivec2> consideredPairs;
+	std::unordered_map<size_t, ConvexPolyhedron<float>> tetIdToConvexRep;
+	ConvexPolyhedron<float> intersection;
+
+	for (auto& pair : tetrahedra)
+	{
+		auto& tet = pair.second;
+
+		for (int i = 0; i < 4; i++)
+		{
+			for (int j = 0; j < 3; j++)
+			{
+				convertedVertices[i][j] = vertices[tet.mIndices[i]].mPosition[j];
+			}
+		}
+
+		tetIdToConvexRep.insert({ pair.first, ConvexPolyhedron<float>(convertedVertices, indices) });
+	}
+
+	ConvexPolyhedron<float>::Clipper clipper;
+	auto findIntersection = [&](const ConvexPolyhedron<float> & tet, const ConvexPolyhedron<float>& otherTet, ConvexPolyhedron<float> & intersection)
+	{
+		clipper.Clear();
+		clipper.Initialize(tet, 1e-6f);
+
+		for (auto const& plane : otherTet.GetPlanes())
+		{
+			if (clipper.Clip(plane) < 0)
+			{
+				return false;
+			}
+		}
+
+		clipper.Convert(intersection);
+		return true;
+	};
+	
+	std::vector<size_t> tetrahedraIds;
+	tetrahedraIds.reserve(tetrahedra.size());
+	for (const auto& pair : tetrahedra)
+		tetrahedraIds.push_back(pair.first);
 
 	size_t tetCounter = 0;
-	for (auto& firstTetPair : tetrahedra)
+	for (size_t tetIdx0 = 0; tetIdx0 < tetrahedraIds.size(); tetIdx0++)
 	{
 		std::cout << tetCounter++ << std::endl;
 
-		for (auto& secondTetPair : tetrahedra)
+		for (size_t tetIdx1 = tetIdx0 + 1; tetIdx1 < tetrahedraIds.size(); tetIdx1++)
 		{
-			if (firstTetPair.first == secondTetPair.first)
-				continue;
+			auto& firstTet = tetrahedra[tetrahedraIds[tetIdx0]];
+			auto& secondTet = tetrahedra[tetrahedraIds[tetIdx1]];
 
-			const auto& pairId = GetEdgeId(firstTetPair.first, secondTetPair.first);
-
-			if (consideredPairs.find(pairId) != consideredPairs.end())
-				continue;
-
-			consideredPairs.insert(pairId);
-
-			auto& firstTet = firstTetPair.second;
-			auto& secondTet = secondTetPair.second;
-
+			// TODO remove this?
 			for (int i = 0; i < 4; i++)
 			{
 				for (int j = 0; j < 3; j++)
@@ -218,25 +248,12 @@ void Deformation::ConvexIntersection::ResolveCollisions(std::vector<Vertex>& ver
 				}
 			}
 
-			ConvexPolyhedron<float> poly(convertedVertices, indices);
-			ConvexPolyhedron<float> other(convertedOtherVerts, indices);
+			const auto& poly = tetIdToConvexRep[tetrahedraIds[tetIdx0]];
+			const auto& other = tetIdToConvexRep[tetrahedraIds[tetIdx1]];
 
-			// Can remove to optimize
-			//for (const auto& gon : { poly, other })
-			//{
-			//	if (!gon.ValidateHalfSpaceProperty(-1e-5))
-			//	{
-			//		for (const auto& pt : gon.GetPoints())
-			//			std::cout << "pos : " << pt[0] << ", " << pt[1] << ", " << pt[2] << std::endl;
+			intersection.Reset();
 
-			//		std::cout << "vol " << gon.GetVolume() << std::endl;
-			//		throw std::exception("Invalid polyhedron.");
-			//	}
-			//}
-
-			ConvexPolyhedron<float> intersection;
-
-			if (!poly.FindIntersection(other, intersection))
+			if (!findIntersection(poly, other, intersection))
 				continue;
 
 			auto intersectionVolume = intersection.GetVolume();
@@ -293,21 +310,6 @@ void Deformation::ConvexIntersection::ResolveCollisions(std::vector<Vertex>& ver
 						v0.mForce += directedForce;
 						v1.mForce += directedForce;
 						v2.mForce += directedForce;
-						// so either we include
-						// we could include the total surface area of the intersection
-						// so it'd be unitless for area but scaled by volume
-						// like (triangle surface area) / (intersection surface area) * (volume) * (strength per unit volume)
-
-						// this would scale the amount of force by the volume and that distribution of the force based on the
-						// face size. arguably i feel that it should be distributed by penetration depth rather than surface area but
-						// maybe this are correlated?
-						// ok i think this seems good, we can change it later to not include the triangle surface area if we want.
-
-
-
-						//force += area * n;
-
-
 
 						matchedAtLeastOnePlane = true;
 					}
