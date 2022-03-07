@@ -17,8 +17,8 @@ namespace
 		IronGames::SimulationSummaries summaries;
 
 		Deformation::TestFractureManager testManager(&summaries);
-		testManager.RunAllTestCases();
-		//testManager.RunTestCase(10);
+		//testManager.RunAllTestCases();
+		testManager.RunTestCase(1);
 
 		// write to file...
 		std::ofstream ofs("simulation.summary", std::ios_base::out | std::ios_base::binary);

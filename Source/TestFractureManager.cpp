@@ -182,13 +182,14 @@ namespace Deformation
 		void Run(IronGames::SimulationSummary* summary) override
 		{
 			std::ifstream file;
-			file.open("D:/UnityProjects/3D_Template/Assets/Resources/Bowl.obj");
+			//file.open("D:/UnityProjects/3D_Template/Assets/Resources/Bowl.obj");
+			file.open("D:/UnityProjects/3D_Template/Assets/Resources/BasicMace.obj");
 
 			std::vector<float> positions;
 			std::vector<int> indices;
 
-const float positionScale = 2.0f;
-const float heightOffset = 2.0f;
+const float positionScale = 1.0f;
+const float heightOffset = 8.0f;
 
 			std::string line;
 			float x, y, z;
@@ -232,10 +233,13 @@ const float heightOffset = 2.0f;
 
 			SaveFrame(summary, *group);
 
-			for (int i = 0; i < 1; i++)
+			int numSteps = 10000;
+			for (int i = 0; i < numSteps; i++)
 			{
 				if (!Update(*group))
 					break;
+
+				std::cout << "Completed step " << i << " out of " << numSteps << " total steps." << std::endl;
 			}
 
 			//*summary = group->mSummary;

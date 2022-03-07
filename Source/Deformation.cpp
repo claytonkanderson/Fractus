@@ -57,7 +57,7 @@ namespace Deformation
 
         auto frame = mSummary.add_frames();
 
-        bool saveFrame = false;
+        bool saveFrame = true;
         if (saveFrame)
             frame->set_time(mSimulationTime);
 

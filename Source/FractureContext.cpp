@@ -128,17 +128,12 @@ namespace Deformation
 		// it would be nice to be able to set these tolerances to large numbers to force always snapping
 		// i don't think we have this capabilitiy atm
 
-		std::array<double, 4> nodeDistToPlane;
-		std::array<double, 3> edgeAngleToPlane; // really only care about the 3 edges connected to the fracture node
 		std::vector<EdgeIntersection> edgeIntersections;
-
-		bool snapToEdge = false;
-		glm::ivec2 snapEdgeId;
-		bool snapToFace = false;
-		glm::ivec3 snapFaceId;
 
 		size_t negativeFractureNodeId = -1;
 
+		std::array<double, 4> nodeDistToPlane;
+		std::array<double, 3> edgeAngleToPlane; // really only care about the 3 edges connected to the fracture node
 		auto inputStateFunctor = [&](const Tetrahedra& tet, size_t fractureNodeId)
 		{
 			const auto& edges = tet.GetEdges();
@@ -164,8 +159,29 @@ namespace Deformation
 			return negativeFractureNodeId;
 		};
 
-		auto checkTolerances = [&](const auto& tet, size_t fractureNodeId)
+		// assign to +
+		// assign to -
+		// fracture (snap to edge or regular)
+
+		bool snapToEdge = false;
+		glm::ivec2 snapEdgeId;
+		bool snapToFace = false;
+		glm::ivec3 snapFaceId;
+
+		auto checkTolerances = [&](const Tetrahedra& tet, size_t fractureNodeId)
 		{
+			{
+				const float cMinVolume = 0.01f;
+				if (tet.mVolume < cMinVolume)
+				{
+					// Experimenting with just assigning the tet to one side or the other
+					const auto& otherNodes = tet.GetOtherVertices(fractureNodeId);
+					snapToFace = true;
+					snapFaceId = GetFaceId(fractureNodeId, fractureNodeId, otherNodes[0]);
+					return;
+				}
+			}
+
 			size_t numDistanceTriggered = 0;
 			std::vector<size_t> closeVertexIndices;
 
@@ -236,6 +252,15 @@ namespace Deformation
 			}
 		};
 
+		auto onPositiveSide = [&](const Tetrahedra& tet)
+		{
+			glm::dvec3 center;
+			for (auto nodeId : tet.mIndices)
+				center += 0.25 * mVertices[nodeId].mPosition;
+
+			return (DistPointPlane(center, mFracturePlaneNormal, mFractureNodePosition) > 0);
+		};
+
 		auto determineFractureOption = [&]()
 		{
 			size_t numPos = 0;
@@ -276,36 +301,53 @@ namespace Deformation
 			const auto& tet = mIdToTetrahedra[fracturingTetId];
 			inputStateFunctor(tet, mFractureNodeIdx);
 			checkTolerances(tet, mFractureNodeIdx);
-			if (snapToEdge)
+
+			if (snapToFace)
+			{
+				// split
+				auto onPosSide = onPositiveSide(tet);
+				if (onPosSide)
+				{
+					mNewTetrahedra.push_back(tet);
+					mTetrahedraIdsToDelete.insert(fracturingTetId);
+				}
+				else 
+				{
+					auto negativeFractureNodeIdx = getNegativeFractureNodeId();
+
+					// Assign Tet to Side
+					auto copy = tet;
+					copy.ReplaceVertex(mFractureNodeIdx, negativeFractureNodeIdx);
+					mNewTetrahedra.push_back(copy);
+					mTetrahedraIdsToDelete.insert(fracturingTetId);
+				}
+			}
+			else if (snapToEdge)
 			{
 				auto edge = glm::normalize(mVertices[snapEdgeId[0]].mPosition - mVertices[snapEdgeId[1]].mPosition);
 				mFracturePlaneNormal = glm::normalize(mFracturePlaneNormal - glm::dot(mFracturePlaneNormal, edge) * edge);
 
 				inputStateFunctor(tet, mFractureNodeIdx);
 			}
-			else if (snapToFace)
-			{
-				const auto& p0 = mVertices[snapFaceId.x].mPosition;
-				const auto& p1 = mVertices[snapFaceId.y].mPosition;
-				const auto& p2 = mVertices[snapFaceId.z].mPosition;
+			//else if (snapToFace)
+			//{
+			//	const auto& p0 = mVertices[snapFaceId.x].mPosition;
+			//	const auto& p1 = mVertices[snapFaceId.y].mPosition;
+			//	const auto& p2 = mVertices[snapFaceId.z].mPosition;
 
-				auto faceNormal = glm::normalize(glm::cross(p2 - p0, p1 - p0));
+			//	auto faceNormal = glm::normalize(glm::cross(p2 - p0, p1 - p0));
 
-				if (glm::dot(faceNormal, mFracturePlaneNormal) < 0)
-					faceNormal *= -1.0;
+			//	if (glm::dot(faceNormal, mFracturePlaneNormal) < 0)
+			//		faceNormal *= -1.0;
 
-				mFracturePlaneNormal = faceNormal;
-				inputStateFunctor(tet, mFractureNodeIdx);
-			}
-
-			if (snapToFace)
-				std::cout << "Snapping to Face" << std::endl;
-			else if (snapToEdge)
-				std::cout << "Snapping to Edge" << std::endl;
-			else
-				std::cout << "No snapping" << std::endl;
+			//	mFracturePlaneNormal = faceNormal;
+			//	inputStateFunctor(tet, mFractureNodeIdx);
+			//}
 
 			// Start fracturing
+
+			// Need a bit of a restructure again,
+			// where we can assign a tet to either side of the fracture plane if the tet is quite small
 
 			// Check whether we want to fracture this tet
 			auto option = determineFractureOption();

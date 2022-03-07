@@ -194,6 +194,7 @@ void Deformation::ConvexIntersection::ResolveCollisions(std::vector<Vertex>& ver
 	ConvexPolyhedron<float>::Clipper clipper;
 	auto findIntersection = [&](const ConvexPolyhedron<float> & tet, const ConvexPolyhedron<float>& otherTet, ConvexPolyhedron<float> & intersection)
 	{
+		intersection.Reset();
 		clipper.Clear();
 		clipper.Initialize(tet, 1e-6f);
 
@@ -205,7 +206,24 @@ void Deformation::ConvexIntersection::ResolveCollisions(std::vector<Vertex>& ver
 			}
 		}
 
-		clipper.Convert(intersection);
+		try
+		{
+			clipper.Convert(intersection);
+		}
+		catch (const std::exception& e)
+		{
+			std::cout << e.what() << std::endl;
+			std::cout << "Intersection has " << clipper.mVertices.size() << " points." << std::endl;
+			std::cout << "Intersection has " << clipper.mFaces.size() << " planes." << std::endl;
+			
+			for (int i = 0; i < 4; i++)
+				std::cout << "Tet Vert " << i << " is (" << tet.GetPoints()[i][0] << ", " << tet.GetPoints()[i][1] << ", " << tet.GetPoints()[i][2] << ")" << std::endl;
+			for (int i = 0; i < 4; i++)
+				std::cout << "Other Tet Vert " << i << " is (" << otherTet.GetPoints()[i][0] << ", " << otherTet.GetPoints()[i][1] << ", " << otherTet.GetPoints()[i][2] << ")" << std::endl;
+
+			//throw std::exception(e);
+			return false;
+		}
 		return true;
 	};
 	
@@ -289,8 +307,6 @@ void Deformation::ConvexIntersection::ResolveCollisions(std::vector<Vertex>& ver
 			const auto& poly = convexPolyhedra[tetIdx0];
 			const auto& other = convexPolyhedra[tetIdx1];
 
-			intersection.Reset();
-
 			if (!findIntersection(poly, other, intersection))
 				continue;
 
@@ -365,8 +381,8 @@ void Deformation::ConvexIntersection::ResolveCollisions(std::vector<Vertex>& ver
 		}
 	}
 
-	std::cout << "Num collisions past AABB : " << numCollisionsPastAABB << std::endl;
-	std::cout << "Num accepted collisions : " << numValidCollisions << std::endl;
+	//std::cout << "Num collisions past AABB : " << numCollisionsPastAABB << std::endl;
+	//std::cout << "Num accepted collisions : " << numValidCollisions << std::endl;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
