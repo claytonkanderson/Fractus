@@ -101,7 +101,8 @@ message SimulationVertex
 	Vector3 principal_eigenvector = 7;
 	repeated Vector3 compressive_forces = 8;
 	repeated Vector3 tensile_forces = 9;
-	Matrix3 separation_tensor = 10;
+	repeated Vector3 collision_forces = 10;
+	Matrix3 separation_tensor = 11;
 }
 
 message SimulationTetrahedra
@@ -173,12 +174,13 @@ message PalaceAsset
     string asset_id = 1;
     Transform transform = 2;
     Color color = 3;
+    Vector3 scale = 4;
 }
 
 message PlayerAssets
 {
     repeated Asset assets = 1;
-    
+    repeated PalaceAsset palace_assets = 2;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

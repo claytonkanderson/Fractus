@@ -25,6 +25,7 @@ namespace Deformation
 		glm::dvec3 mForce;
 		double mLargestEigenvalue = -1;
 		glm::dvec3 mPrincipalEigenVector;
+		std::vector<glm::dvec3> mCollisionForces;
 		std::vector<glm::dvec3> mCompressiveForces;
 		std::vector<glm::dvec3> mTensileForces;
 	};
@@ -49,6 +50,7 @@ namespace Deformation
 		bool ContainsFaceIndex(const glm::ivec3& faceId) const;
 		std::array<glm::ivec2, 6> GetEdges() const;
 		void ReplaceVertex(size_t oldVertexId, size_t newVertexId);
+		glm::dvec3 GetCentroid(const std::vector<Vertex> & vertices) const;
 
 	public:
 		double mMass = -1;
@@ -75,6 +77,13 @@ namespace Deformation
 		double GetSignedDistanceToPlane(int nodeIdx, int fractureNodeIdx, const glm::dvec3& planeNormal) const;
 		std::vector<size_t> GetTetrahedraNeighbors(size_t tetrahedraIdx) const;
 		size_t GetCommonVertexFromEdges(const glm::ivec2& edge0, const glm::ivec2& edge1) const;
+
+		double GetMinVertexMass() const;
+		double GetMaxVertexMass() const;
+		double GetTotalMass() const;
+		double GetTotalVolume() const;
+		double GetAverageMaxEigenvalue() const;
+		double GetMaxEigenvalue() const;
 
 	public:
 		double mLambda = 1e7;

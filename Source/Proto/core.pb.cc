@@ -154,6 +154,7 @@ constexpr SimulationVertex::SimulationVertex(
   ::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized)
   : compressive_forces_()
   , tensile_forces_()
+  , collision_forces_()
   , position_(nullptr)
   , material_coordinates_(nullptr)
   , velocity_(nullptr)
@@ -292,7 +293,8 @@ constexpr PalaceAsset::PalaceAsset(
   ::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized)
   : asset_id_(&::PROTOBUF_NAMESPACE_ID::internal::fixed_address_empty_string)
   , transform_(nullptr)
-  , color_(nullptr){}
+  , color_(nullptr)
+  , scale_(nullptr){}
 struct PalaceAssetDefaultTypeInternal {
   constexpr PalaceAssetDefaultTypeInternal()
     : _instance(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized{}) {}
@@ -304,7 +306,8 @@ struct PalaceAssetDefaultTypeInternal {
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT PalaceAssetDefaultTypeInternal _PalaceAsset_default_instance_;
 constexpr PlayerAssets::PlayerAssets(
   ::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized)
-  : assets_(){}
+  : assets_()
+  , palace_assets_(){}
 struct PlayerAssetsDefaultTypeInternal {
   constexpr PlayerAssetsDefaultTypeInternal()
     : _instance(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized{}) {}
@@ -772,6 +775,7 @@ const ::PROTOBUF_NAMESPACE_ID::uint32 TableStruct_core_2eproto::offsets[] PROTOB
   PROTOBUF_FIELD_OFFSET(::IronGames::SimulationVertex, principal_eigenvector_),
   PROTOBUF_FIELD_OFFSET(::IronGames::SimulationVertex, compressive_forces_),
   PROTOBUF_FIELD_OFFSET(::IronGames::SimulationVertex, tensile_forces_),
+  PROTOBUF_FIELD_OFFSET(::IronGames::SimulationVertex, collision_forces_),
   PROTOBUF_FIELD_OFFSET(::IronGames::SimulationVertex, separation_tensor_),
   ~0u,  // no _has_bits_
   PROTOBUF_FIELD_OFFSET(::IronGames::SimulationTetrahedra, _internal_metadata_),
@@ -849,12 +853,14 @@ const ::PROTOBUF_NAMESPACE_ID::uint32 TableStruct_core_2eproto::offsets[] PROTOB
   PROTOBUF_FIELD_OFFSET(::IronGames::PalaceAsset, asset_id_),
   PROTOBUF_FIELD_OFFSET(::IronGames::PalaceAsset, transform_),
   PROTOBUF_FIELD_OFFSET(::IronGames::PalaceAsset, color_),
+  PROTOBUF_FIELD_OFFSET(::IronGames::PalaceAsset, scale_),
   ~0u,  // no _has_bits_
   PROTOBUF_FIELD_OFFSET(::IronGames::PlayerAssets, _internal_metadata_),
   ~0u,  // no _extensions_
   ~0u,  // no _oneof_case_
   ~0u,  // no _weak_field_map_
   PROTOBUF_FIELD_OFFSET(::IronGames::PlayerAssets, assets_),
+  PROTOBUF_FIELD_OFFSET(::IronGames::PlayerAssets, palace_assets_),
   ~0u,  // no _has_bits_
   PROTOBUF_FIELD_OFFSET(::IronGames::EventPlayerConnected, _internal_metadata_),
   ~0u,  // no _extensions_
@@ -1064,45 +1070,45 @@ static const ::PROTOBUF_NAMESPACE_ID::internal::MigrationSchema schemas[] PROTOB
   { 66, -1, sizeof(::IronGames::Actor)},
   { 76, -1, sizeof(::IronGames::Tile)},
   { 84, -1, sizeof(::IronGames::SimulationVertex)},
-  { 99, -1, sizeof(::IronGames::SimulationTetrahedra)},
-  { 109, -1, sizeof(::IronGames::SimulationFrame)},
-  { 117, -1, sizeof(::IronGames::SimulationSummary)},
-  { 131, -1, sizeof(::IronGames::SimulationSummaries)},
-  { 137, -1, sizeof(::IronGames::Box)},
-  { 144, -1, sizeof(::IronGames::EditCube)},
-  { 150, -1, sizeof(::IronGames::TetrahedraMesh)},
-  { 156, -1, sizeof(::IronGames::Asset)},
-  { 167, -1, sizeof(::IronGames::PalaceAsset)},
-  { 175, -1, sizeof(::IronGames::PlayerAssets)},
-  { 181, -1, sizeof(::IronGames::EventPlayerConnected)},
-  { 187, -1, sizeof(::IronGames::EventPlayerChanged)},
-  { 193, -1, sizeof(::IronGames::EventPlayerDisconnected)},
-  { 199, -1, sizeof(::IronGames::EventUnitCreation)},
-  { 208, -1, sizeof(::IronGames::EventActorCreationRequest)},
-  { 216, -1, sizeof(::IronGames::EventUnitDestruction)},
-  { 222, -1, sizeof(::IronGames::EventBuildingCreation)},
-  { 230, -1, sizeof(::IronGames::EventBuildingDestruction)},
-  { 236, -1, sizeof(::IronGames::CommandMove)},
-  { 243, -1, sizeof(::IronGames::CommandAttack)},
-  { 250, -1, sizeof(::IronGames::CommandAttackMove)},
-  { 257, -1, sizeof(::IronGames::EventUnitCommand)},
-  { 266, -1, sizeof(::IronGames::EventPlayerReadyToStartGame)},
-  { 271, -1, sizeof(::IronGames::EventGameStart)},
-  { 276, -1, sizeof(::IronGames::EventAllPlayersReadyForGameToStart)},
-  { 281, -1, sizeof(::IronGames::EventPlayerLoadedGame)},
-  { 286, -1, sizeof(::IronGames::EventPlayerLoadedTile)},
-  { 292, -1, sizeof(::IronGames::Event)},
-  { 314, -1, sizeof(::IronGames::EventList)},
-  { 320, -1, sizeof(::IronGames::JoinGameRequest)},
-  { 327, -1, sizeof(::IronGames::JoinGameResponse)},
-  { 334, -1, sizeof(::IronGames::ExitGameRequest)},
-  { 340, -1, sizeof(::IronGames::ExitGameResponse)},
-  { 345, -1, sizeof(::IronGames::SubscribeEventsRequest)},
-  { 351, -1, sizeof(::IronGames::SendEventResponse)},
-  { 356, -1, sizeof(::IronGames::NewGameRequest)},
-  { 361, -1, sizeof(::IronGames::NewGameResponse)},
-  { 367, -1, sizeof(::IronGames::EndGameRequest)},
-  { 373, -1, sizeof(::IronGames::EndGameResponse)},
+  { 100, -1, sizeof(::IronGames::SimulationTetrahedra)},
+  { 110, -1, sizeof(::IronGames::SimulationFrame)},
+  { 118, -1, sizeof(::IronGames::SimulationSummary)},
+  { 132, -1, sizeof(::IronGames::SimulationSummaries)},
+  { 138, -1, sizeof(::IronGames::Box)},
+  { 145, -1, sizeof(::IronGames::EditCube)},
+  { 151, -1, sizeof(::IronGames::TetrahedraMesh)},
+  { 157, -1, sizeof(::IronGames::Asset)},
+  { 168, -1, sizeof(::IronGames::PalaceAsset)},
+  { 177, -1, sizeof(::IronGames::PlayerAssets)},
+  { 184, -1, sizeof(::IronGames::EventPlayerConnected)},
+  { 190, -1, sizeof(::IronGames::EventPlayerChanged)},
+  { 196, -1, sizeof(::IronGames::EventPlayerDisconnected)},
+  { 202, -1, sizeof(::IronGames::EventUnitCreation)},
+  { 211, -1, sizeof(::IronGames::EventActorCreationRequest)},
+  { 219, -1, sizeof(::IronGames::EventUnitDestruction)},
+  { 225, -1, sizeof(::IronGames::EventBuildingCreation)},
+  { 233, -1, sizeof(::IronGames::EventBuildingDestruction)},
+  { 239, -1, sizeof(::IronGames::CommandMove)},
+  { 246, -1, sizeof(::IronGames::CommandAttack)},
+  { 253, -1, sizeof(::IronGames::CommandAttackMove)},
+  { 260, -1, sizeof(::IronGames::EventUnitCommand)},
+  { 269, -1, sizeof(::IronGames::EventPlayerReadyToStartGame)},
+  { 274, -1, sizeof(::IronGames::EventGameStart)},
+  { 279, -1, sizeof(::IronGames::EventAllPlayersReadyForGameToStart)},
+  { 284, -1, sizeof(::IronGames::EventPlayerLoadedGame)},
+  { 289, -1, sizeof(::IronGames::EventPlayerLoadedTile)},
+  { 295, -1, sizeof(::IronGames::Event)},
+  { 317, -1, sizeof(::IronGames::EventList)},
+  { 323, -1, sizeof(::IronGames::JoinGameRequest)},
+  { 330, -1, sizeof(::IronGames::JoinGameResponse)},
+  { 337, -1, sizeof(::IronGames::ExitGameRequest)},
+  { 343, -1, sizeof(::IronGames::ExitGameResponse)},
+  { 348, -1, sizeof(::IronGames::SubscribeEventsRequest)},
+  { 354, -1, sizeof(::IronGames::SendEventResponse)},
+  { 359, -1, sizeof(::IronGames::NewGameRequest)},
+  { 364, -1, sizeof(::IronGames::NewGameResponse)},
+  { 370, -1, sizeof(::IronGames::EndGameRequest)},
+  { 376, -1, sizeof(::IronGames::EndGameResponse)},
 };
 
 static ::PROTOBUF_NAMESPACE_ID::Message const * const file_default_instances[] = {
@@ -1182,7 +1188,7 @@ const char descriptor_table_protodef_core_2eproto[] PROTOBUF_SECTION_VARIABLE(pr
   "mes.Parameter\"l\n\004Tile\022\022\n\nterrain_id\030\001 \001("
   "\005\022 \n\006actors\030\002 \003(\0132\020.IronGames.Actor\022.\n\rp"
   "layer_assets\030\003 \001(\0132\027.IronGames.PlayerAss"
-  "ets\"\233\003\n\020SimulationVertex\022$\n\010position\030\001 \001"
+  "ets\"\311\003\n\020SimulationVertex\022$\n\010position\030\001 \001"
   "(\0132\022.IronGames.Vector3\0220\n\024material_coord"
   "inates\030\002 \001(\0132\022.IronGames.Vector3\022$\n\010velo"
   "city\030\003 \001(\0132\022.IronGames.Vector3\022\014\n\004mass\030\004"
@@ -1191,112 +1197,115 @@ const char descriptor_table_protodef_core_2eproto[] PROTOBUF_SECTION_VARIABLE(pr
   "_eigenvector\030\007 \001(\0132\022.IronGames.Vector3\022."
   "\n\022compressive_forces\030\010 \003(\0132\022.IronGames.V"
   "ector3\022*\n\016tensile_forces\030\t \003(\0132\022.IronGam"
-  "es.Vector3\022-\n\021separation_tensor\030\n \001(\0132\022."
-  "IronGames.Matrix3\"\233\001\n\024SimulationTetrahed"
-  "ra\022\014\n\004mass\030\001 \001(\002\022\016\n\006volume\030\002 \001(\002\022\017\n\007indi"
-  "ces\030\003 \003(\005\022)\n\rstrain_tensor\030\004 \001(\0132\022.IronG"
-  "ames.Matrix3\022)\n\rstress_tensor\030\005 \001(\0132\022.Ir"
-  "onGames.Matrix3\"\203\001\n\017SimulationFrame\022\014\n\004t"
-  "ime\030\001 \001(\002\022-\n\010vertices\030\002 \003(\0132\033.IronGames."
-  "SimulationVertex\0223\n\ntetrahedra\030\003 \003(\0132\037.I"
-  "ronGames.SimulationTetrahedra\"\317\001\n\021Simula"
-  "tionSummary\022\016\n\006lambda\030\001 \001(\002\022\013\n\003psi\030\002 \001(\002"
-  "\022\n\n\002mu\030\003 \001(\002\022\013\n\003phi\030\004 \001(\002\022\017\n\007density\030\005 \001"
-  "(\002\022\021\n\ttoughness\030\006 \001(\002\022\030\n\020max_num_vertice"
-  "s\030\007 \001(\005\022\032\n\022max_num_tetrahedra\030\010 \001(\005\022*\n\006f"
-  "rames\030\t \003(\0132\032.IronGames.SimulationFrame\""
-  "F\n\023SimulationSummaries\022/\n\tsummaries\030\001 \003("
-  "\0132\034.IronGames.SimulationSummary\"G\n\003Box\022\037"
-  "\n\003min\030\001 \001(\0132\022.IronGames.Vector3\022\037\n\003max\030\002"
-  " \001(\0132\022.IronGames.Vector3\".\n\010EditCube\022\"\n\006"
-  "center\030\001 \001(\0132\022.IronGames.Vector3\"7\n\016Tetr"
-  "ahedraMesh\022%\n\tpositions\030\001 \003(\0132\022.IronGame"
-  "s.Vector3\"\267\001\n\005Asset\022\"\n\005cubes\030\001 \003(\0132\023.Iro"
-  "nGames.EditCube\0224\n\021tetrahedra_Meshes\030\002 \003"
-  "(\0132\031.IronGames.TetrahedraMesh\022\036\n\006bounds\030"
-  "\003 \001(\0132\016.IronGames.Box\022\022\n\nlast_saved\030\004 \001("
-  "\t\022\016\n\006author\030\005 \001(\t\022\020\n\010asset_id\030\006 \001(\t\"i\n\013P"
-  "alaceAsset\022\020\n\010asset_id\030\001 \001(\t\022\'\n\ttransfor"
-  "m\030\002 \001(\0132\024.IronGames.Transform\022\037\n\005color\030\003"
-  " \001(\0132\020.IronGames.Color\"0\n\014PlayerAssets\022 "
-  "\n\006assets\030\001 \003(\0132\020.IronGames.Asset\"9\n\024Even"
-  "tPlayerConnected\022!\n\006player\030\001 \001(\0132\021.IronG"
-  "ames.Player\"7\n\022EventPlayerChanged\022!\n\006pla"
-  "yer\030\001 \001(\0132\021.IronGames.Player\"<\n\027EventPla"
-  "yerDisconnected\022!\n\006player\030\001 \001(\0132\021.IronGa"
-  "mes.Player\"p\n\021EventUnitCreation\022\017\n\007unit_"
-  "id\030\001 \001(\005\022\017\n\007type_id\030\002 \001(\005\022\020\n\010owner_id\030\003 "
-  "\001(\005\022\'\n\ttransform\030\004 \001(\0132\024.IronGames.Trans"
-  "form\"g\n\031EventActorCreationRequest\022\017\n\007typ"
-  "e_id\030\001 \001(\005\022\020\n\010owner_id\030\002 \001(\005\022\'\n\ttransfor"
-  "m\030\003 \001(\0132\024.IronGames.Transform\"\'\n\024EventUn"
-  "itDestruction\022\017\n\007unit_id\030\001 \001(\005\"f\n\025EventB"
-  "uildingCreation\022\023\n\013building_id\030\001 \001(\005\022\017\n\007"
-  "type_id\030\002 \001(\005\022\'\n\ttransform\030\003 \001(\0132\024.IronG"
-  "ames.Transform\"/\n\030EventBuildingDestructi"
-  "on\022\023\n\013building_id\030\001 \001(\005\"G\n\013CommandMove\022\017"
-  "\n\007unit_id\030\001 \001(\005\022\'\n\013destination\030\002 \001(\0132\022.I"
-  "ronGames.Vector3\"3\n\rCommandAttack\022\017\n\007uni"
-  "t_id\030\001 \001(\005\022\021\n\ttarget_id\030\002 \001(\005\"M\n\021Command"
-  "AttackMove\022\017\n\007unit_id\030\001 \001(\005\022\'\n\013destinati"
-  "on\030\002 \001(\0132\022.IronGames.Vector3\"\246\001\n\020EventUn"
-  "itCommand\022&\n\004move\030\001 \001(\0132\026.IronGames.Comm"
-  "andMoveH\000\022*\n\006attack\030\002 \001(\0132\030.IronGames.Co"
-  "mmandAttackH\000\0223\n\013attack_move\030\003 \001(\0132\034.Iro"
-  "nGames.CommandAttackMoveH\000B\t\n\007command\"\035\n"
-  "\033EventPlayerReadyToStartGame\"\020\n\016EventGam"
-  "eStart\"$\n\"EventAllPlayersReadyForGameToS"
-  "tart\"\027\n\025EventPlayerLoadedGame\"6\n\025EventPl"
-  "ayerLoadedTile\022\035\n\004tile\030\001 \001(\0132\017.IronGames"
-  ".Tile\"\274\007\n\005Event\022\014\n\004time\030\001 \001(\003\022\021\n\tsender_"
-  "id\030\002 \001(\005\022;\n\020player_connected\030\003 \001(\0132\037.Iro"
-  "nGames.EventPlayerConnectedH\000\022A\n\023player_"
-  "disconnected\030\004 \001(\0132\".IronGames.EventPlay"
-  "erDisconnectedH\000\0225\n\runit_creation\030\005 \001(\0132"
-  "\034.IronGames.EventUnitCreationH\000\022F\n\026actor"
-  "_creation_request\030\006 \001(\0132$.IronGames.Even"
-  "tActorCreationRequestH\000\022;\n\020unit_destruct"
-  "ion\030\007 \001(\0132\037.IronGames.EventUnitDestructi"
-  "onH\000\022=\n\021building_creation\030\010 \001(\0132 .IronGa"
-  "mes.EventBuildingCreationH\000\022C\n\024building_"
-  "destruction\030\t \001(\0132#.IronGames.EventBuild"
-  "ingDestructionH\000\0223\n\014unit_command\030\n \001(\0132\033"
-  ".IronGames.EventUnitCommandH\000\022L\n\032player_"
-  "ready_to_start_Game\030\013 \001(\0132&.IronGames.Ev"
-  "entPlayerReadyToStartGameH\000\022/\n\ngame_star"
-  "t\030\014 \001(\0132\031.IronGames.EventGameStartH\000\0227\n\016"
-  "player_changed\030\r \001(\0132\035.IronGames.EventPl"
-  "ayerChangedH\000\022\\\n#all_players_ready_for_g"
-  "ame_to_start\030\016 \001(\0132-.IronGames.EventAllP"
-  "layersReadyForGameToStartH\000\022>\n\022player_lo"
-  "aded_tile\030\017 \001(\0132 .IronGames.EventPlayerL"
-  "oadedTileH\000\022>\n\022player_loaded_game\030\020 \001(\0132"
-  " .IronGames.EventPlayerLoadedGameH\000B\007\n\005e"
-  "vent\"-\n\tEventList\022 \n\006events\030\001 \003(\0132\020.Iron"
-  "Games.Event\"E\n\017JoinGameRequest\022!\n\006player"
-  "\030\001 \001(\0132\021.IronGames.Player\022\017\n\007game_id\030\002 \001"
-  "(\005\"I\n\020JoinGameResponse\022\021\n\tplayer_id\030\001 \001("
-  "\005\022\"\n\007players\030\002 \003(\0132\021.IronGames.Player\"$\n"
-  "\017ExitGameRequest\022\021\n\tplayer_id\030\001 \001(\005\"\022\n\020E"
-  "xitGameResponse\";\n\026SubscribeEventsReques"
-  "t\022!\n\006player\030\001 \001(\0132\021.IronGames.Player\"\023\n\021"
-  "SendEventResponse\"\020\n\016NewGameRequest\"\"\n\017N"
-  "ewGameResponse\022\017\n\007game_id\030\001 \001(\005\"!\n\016EndGa"
-  "meRequest\022\017\n\007game_id\030\001 \001(\005\"\021\n\017EndGameRes"
-  "ponse2\360\002\n\017IronGamesServer\022B\n\007NewGame\022\031.I"
-  "ronGames.NewGameRequest\032\032.IronGames.NewG"
-  "ameResponse\"\000\022E\n\010JoinGame\022\032.IronGames.Jo"
-  "inGameRequest\032\033.IronGames.JoinGameRespon"
-  "se\"\000\022C\n\007EndGame\022\032.IronGames.EndGameRespo"
-  "nse\032\032.IronGames.EndGameResponse\"\000\022A\n\tSen"
-  "dEvent\022\024.IronGames.EventList\032\034.IronGames"
-  ".SendEventResponse\"\000\022J\n\017SubscribeEvents\022"
-  "!.IronGames.SubscribeEventsRequest\032\020.Iro"
-  "nGames.Event\"\0000\001b\006proto3"
+  "es.Vector3\022,\n\020collision_forces\030\n \003(\0132\022.I"
+  "ronGames.Vector3\022-\n\021separation_tensor\030\013 "
+  "\001(\0132\022.IronGames.Matrix3\"\233\001\n\024SimulationTe"
+  "trahedra\022\014\n\004mass\030\001 \001(\002\022\016\n\006volume\030\002 \001(\002\022\017"
+  "\n\007indices\030\003 \003(\005\022)\n\rstrain_tensor\030\004 \001(\0132\022"
+  ".IronGames.Matrix3\022)\n\rstress_tensor\030\005 \001("
+  "\0132\022.IronGames.Matrix3\"\203\001\n\017SimulationFram"
+  "e\022\014\n\004time\030\001 \001(\002\022-\n\010vertices\030\002 \003(\0132\033.Iron"
+  "Games.SimulationVertex\0223\n\ntetrahedra\030\003 \003"
+  "(\0132\037.IronGames.SimulationTetrahedra\"\317\001\n\021"
+  "SimulationSummary\022\016\n\006lambda\030\001 \001(\002\022\013\n\003psi"
+  "\030\002 \001(\002\022\n\n\002mu\030\003 \001(\002\022\013\n\003phi\030\004 \001(\002\022\017\n\007densi"
+  "ty\030\005 \001(\002\022\021\n\ttoughness\030\006 \001(\002\022\030\n\020max_num_v"
+  "ertices\030\007 \001(\005\022\032\n\022max_num_tetrahedra\030\010 \001("
+  "\005\022*\n\006frames\030\t \003(\0132\032.IronGames.Simulation"
+  "Frame\"F\n\023SimulationSummaries\022/\n\tsummarie"
+  "s\030\001 \003(\0132\034.IronGames.SimulationSummary\"G\n"
+  "\003Box\022\037\n\003min\030\001 \001(\0132\022.IronGames.Vector3\022\037\n"
+  "\003max\030\002 \001(\0132\022.IronGames.Vector3\".\n\010EditCu"
+  "be\022\"\n\006center\030\001 \001(\0132\022.IronGames.Vector3\"7"
+  "\n\016TetrahedraMesh\022%\n\tpositions\030\001 \003(\0132\022.Ir"
+  "onGames.Vector3\"\267\001\n\005Asset\022\"\n\005cubes\030\001 \003(\013"
+  "2\023.IronGames.EditCube\0224\n\021tetrahedra_Mesh"
+  "es\030\002 \003(\0132\031.IronGames.TetrahedraMesh\022\036\n\006b"
+  "ounds\030\003 \001(\0132\016.IronGames.Box\022\022\n\nlast_save"
+  "d\030\004 \001(\t\022\016\n\006author\030\005 \001(\t\022\020\n\010asset_id\030\006 \001("
+  "\t\"\214\001\n\013PalaceAsset\022\020\n\010asset_id\030\001 \001(\t\022\'\n\tt"
+  "ransform\030\002 \001(\0132\024.IronGames.Transform\022\037\n\005"
+  "color\030\003 \001(\0132\020.IronGames.Color\022!\n\005scale\030\004"
+  " \001(\0132\022.IronGames.Vector3\"_\n\014PlayerAssets"
+  "\022 \n\006assets\030\001 \003(\0132\020.IronGames.Asset\022-\n\rpa"
+  "lace_assets\030\002 \003(\0132\026.IronGames.PalaceAsse"
+  "t\"9\n\024EventPlayerConnected\022!\n\006player\030\001 \001("
+  "\0132\021.IronGames.Player\"7\n\022EventPlayerChang"
+  "ed\022!\n\006player\030\001 \001(\0132\021.IronGames.Player\"<\n"
+  "\027EventPlayerDisconnected\022!\n\006player\030\001 \001(\013"
+  "2\021.IronGames.Player\"p\n\021EventUnitCreation"
+  "\022\017\n\007unit_id\030\001 \001(\005\022\017\n\007type_id\030\002 \001(\005\022\020\n\010ow"
+  "ner_id\030\003 \001(\005\022\'\n\ttransform\030\004 \001(\0132\024.IronGa"
+  "mes.Transform\"g\n\031EventActorCreationReque"
+  "st\022\017\n\007type_id\030\001 \001(\005\022\020\n\010owner_id\030\002 \001(\005\022\'\n"
+  "\ttransform\030\003 \001(\0132\024.IronGames.Transform\"\'"
+  "\n\024EventUnitDestruction\022\017\n\007unit_id\030\001 \001(\005\""
+  "f\n\025EventBuildingCreation\022\023\n\013building_id\030"
+  "\001 \001(\005\022\017\n\007type_id\030\002 \001(\005\022\'\n\ttransform\030\003 \001("
+  "\0132\024.IronGames.Transform\"/\n\030EventBuilding"
+  "Destruction\022\023\n\013building_id\030\001 \001(\005\"G\n\013Comm"
+  "andMove\022\017\n\007unit_id\030\001 \001(\005\022\'\n\013destination\030"
+  "\002 \001(\0132\022.IronGames.Vector3\"3\n\rCommandAtta"
+  "ck\022\017\n\007unit_id\030\001 \001(\005\022\021\n\ttarget_id\030\002 \001(\005\"M"
+  "\n\021CommandAttackMove\022\017\n\007unit_id\030\001 \001(\005\022\'\n\013"
+  "destination\030\002 \001(\0132\022.IronGames.Vector3\"\246\001"
+  "\n\020EventUnitCommand\022&\n\004move\030\001 \001(\0132\026.IronG"
+  "ames.CommandMoveH\000\022*\n\006attack\030\002 \001(\0132\030.Iro"
+  "nGames.CommandAttackH\000\0223\n\013attack_move\030\003 "
+  "\001(\0132\034.IronGames.CommandAttackMoveH\000B\t\n\007c"
+  "ommand\"\035\n\033EventPlayerReadyToStartGame\"\020\n"
+  "\016EventGameStart\"$\n\"EventAllPlayersReadyF"
+  "orGameToStart\"\027\n\025EventPlayerLoadedGame\"6"
+  "\n\025EventPlayerLoadedTile\022\035\n\004tile\030\001 \001(\0132\017."
+  "IronGames.Tile\"\274\007\n\005Event\022\014\n\004time\030\001 \001(\003\022\021"
+  "\n\tsender_id\030\002 \001(\005\022;\n\020player_connected\030\003 "
+  "\001(\0132\037.IronGames.EventPlayerConnectedH\000\022A"
+  "\n\023player_disconnected\030\004 \001(\0132\".IronGames."
+  "EventPlayerDisconnectedH\000\0225\n\runit_creati"
+  "on\030\005 \001(\0132\034.IronGames.EventUnitCreationH\000"
+  "\022F\n\026actor_creation_request\030\006 \001(\0132$.IronG"
+  "ames.EventActorCreationRequestH\000\022;\n\020unit"
+  "_destruction\030\007 \001(\0132\037.IronGames.EventUnit"
+  "DestructionH\000\022=\n\021building_creation\030\010 \001(\013"
+  "2 .IronGames.EventBuildingCreationH\000\022C\n\024"
+  "building_destruction\030\t \001(\0132#.IronGames.E"
+  "ventBuildingDestructionH\000\0223\n\014unit_comman"
+  "d\030\n \001(\0132\033.IronGames.EventUnitCommandH\000\022L"
+  "\n\032player_ready_to_start_Game\030\013 \001(\0132&.Iro"
+  "nGames.EventPlayerReadyToStartGameH\000\022/\n\n"
+  "game_start\030\014 \001(\0132\031.IronGames.EventGameSt"
+  "artH\000\0227\n\016player_changed\030\r \001(\0132\035.IronGame"
+  "s.EventPlayerChangedH\000\022\\\n#all_players_re"
+  "ady_for_game_to_start\030\016 \001(\0132-.IronGames."
+  "EventAllPlayersReadyForGameToStartH\000\022>\n\022"
+  "player_loaded_tile\030\017 \001(\0132 .IronGames.Eve"
+  "ntPlayerLoadedTileH\000\022>\n\022player_loaded_ga"
+  "me\030\020 \001(\0132 .IronGames.EventPlayerLoadedGa"
+  "meH\000B\007\n\005event\"-\n\tEventList\022 \n\006events\030\001 \003"
+  "(\0132\020.IronGames.Event\"E\n\017JoinGameRequest\022"
+  "!\n\006player\030\001 \001(\0132\021.IronGames.Player\022\017\n\007ga"
+  "me_id\030\002 \001(\005\"I\n\020JoinGameResponse\022\021\n\tplaye"
+  "r_id\030\001 \001(\005\022\"\n\007players\030\002 \003(\0132\021.IronGames."
+  "Player\"$\n\017ExitGameRequest\022\021\n\tplayer_id\030\001"
+  " \001(\005\"\022\n\020ExitGameResponse\";\n\026SubscribeEve"
+  "ntsRequest\022!\n\006player\030\001 \001(\0132\021.IronGames.P"
+  "layer\"\023\n\021SendEventResponse\"\020\n\016NewGameReq"
+  "uest\"\"\n\017NewGameResponse\022\017\n\007game_id\030\001 \001(\005"
+  "\"!\n\016EndGameRequest\022\017\n\007game_id\030\001 \001(\005\"\021\n\017E"
+  "ndGameResponse2\360\002\n\017IronGamesServer\022B\n\007Ne"
+  "wGame\022\031.IronGames.NewGameRequest\032\032.IronG"
+  "ames.NewGameResponse\"\000\022E\n\010JoinGame\022\032.Iro"
+  "nGames.JoinGameRequest\032\033.IronGames.JoinG"
+  "ameResponse\"\000\022C\n\007EndGame\022\032.IronGames.End"
+  "GameResponse\032\032.IronGames.EndGameResponse"
+  "\"\000\022A\n\tSendEvent\022\024.IronGames.EventList\032\034."
+  "IronGames.SendEventResponse\"\000\022J\n\017Subscri"
+  "beEvents\022!.IronGames.SubscribeEventsRequ"
+  "est\032\020.IronGames.Event\"\0000\001b\006proto3"
   ;
 static ::PROTOBUF_NAMESPACE_ID::internal::once_flag descriptor_table_core_2eproto_once;
 const ::PROTOBUF_NAMESPACE_ID::internal::DescriptorTable descriptor_table_core_2eproto = {
-  false, false, 5384, descriptor_table_protodef_core_2eproto, "core.proto", 
+  false, false, 5513, descriptor_table_protodef_core_2eproto, "core.proto", 
   &descriptor_table_core_2eproto_once, nullptr, 0, 49,
   schemas, file_default_instances, TableStruct_core_2eproto::offsets,
   file_level_metadata_core_2eproto, file_level_enum_descriptors_core_2eproto, file_level_service_descriptors_core_2eproto,
@@ -4072,7 +4081,8 @@ SimulationVertex::_Internal::separation_tensor(const SimulationVertex* msg) {
 SimulationVertex::SimulationVertex(::PROTOBUF_NAMESPACE_ID::Arena* arena)
   : ::PROTOBUF_NAMESPACE_ID::Message(arena),
   compressive_forces_(arena),
-  tensile_forces_(arena) {
+  tensile_forces_(arena),
+  collision_forces_(arena) {
   SharedCtor();
   RegisterArenaDtor(arena);
   // @@protoc_insertion_point(arena_constructor:IronGames.SimulationVertex)
@@ -4080,7 +4090,8 @@ SimulationVertex::SimulationVertex(::PROTOBUF_NAMESPACE_ID::Arena* arena)
 SimulationVertex::SimulationVertex(const SimulationVertex& from)
   : ::PROTOBUF_NAMESPACE_ID::Message(),
       compressive_forces_(from.compressive_forces_),
-      tensile_forces_(from.tensile_forces_) {
+      tensile_forces_(from.tensile_forces_),
+      collision_forces_(from.collision_forces_) {
   _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
   if (from._internal_has_position()) {
     position_ = new ::IronGames::Vector3(*from.position_);
@@ -4159,6 +4170,7 @@ void SimulationVertex::Clear() {
 
   compressive_forces_.Clear();
   tensile_forces_.Clear();
+  collision_forces_.Clear();
   if (GetArena() == nullptr && position_ != nullptr) {
     delete position_;
   }
@@ -4269,9 +4281,21 @@ const char* SimulationVertex::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPA
           } while (::PROTOBUF_NAMESPACE_ID::internal::ExpectTag<74>(ptr));
         } else goto handle_unusual;
         continue;
-      // .IronGames.Matrix3 separation_tensor = 10;
+      // repeated .IronGames.Vector3 collision_forces = 10;
       case 10:
         if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 82)) {
+          ptr -= 1;
+          do {
+            ptr += 1;
+            ptr = ctx->ParseMessage(_internal_add_collision_forces(), ptr);
+            CHK_(ptr);
+            if (!ctx->DataAvailable(ptr)) break;
+          } while (::PROTOBUF_NAMESPACE_ID::internal::ExpectTag<82>(ptr));
+        } else goto handle_unusual;
+        continue;
+      // .IronGames.Matrix3 separation_tensor = 11;
+      case 11:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 90)) {
           ptr = ctx->ParseMessage(_internal_mutable_separation_tensor(), ptr);
           CHK_(ptr);
         } else goto handle_unusual;
@@ -4372,12 +4396,20 @@ failure:
       InternalWriteMessage(9, this->_internal_tensile_forces(i), target, stream);
   }
 
-  // .IronGames.Matrix3 separation_tensor = 10;
+  // repeated .IronGames.Vector3 collision_forces = 10;
+  for (unsigned int i = 0,
+      n = static_cast<unsigned int>(this->_internal_collision_forces_size()); i < n; i++) {
+    target = stream->EnsureSpace(target);
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
+      InternalWriteMessage(10, this->_internal_collision_forces(i), target, stream);
+  }
+
+  // .IronGames.Matrix3 separation_tensor = 11;
   if (this->has_separation_tensor()) {
     target = stream->EnsureSpace(target);
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
       InternalWriteMessage(
-        10, _Internal::separation_tensor(this), target, stream);
+        11, _Internal::separation_tensor(this), target, stream);
   }
 
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
@@ -4406,6 +4438,13 @@ size_t SimulationVertex::ByteSizeLong() const {
   // repeated .IronGames.Vector3 tensile_forces = 9;
   total_size += 1UL * this->_internal_tensile_forces_size();
   for (const auto& msg : this->tensile_forces_) {
+    total_size +=
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(msg);
+  }
+
+  // repeated .IronGames.Vector3 collision_forces = 10;
+  total_size += 1UL * this->_internal_collision_forces_size();
+  for (const auto& msg : this->collision_forces_) {
     total_size +=
       ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(msg);
   }
@@ -4445,7 +4484,7 @@ size_t SimulationVertex::ByteSizeLong() const {
         *principal_eigenvector_);
   }
 
-  // .IronGames.Matrix3 separation_tensor = 10;
+  // .IronGames.Matrix3 separation_tensor = 11;
   if (this->has_separation_tensor()) {
     total_size += 1 +
       ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
@@ -4495,6 +4534,7 @@ void SimulationVertex::MergeFrom(const SimulationVertex& from) {
 
   compressive_forces_.MergeFrom(from.compressive_forces_);
   tensile_forces_.MergeFrom(from.tensile_forces_);
+  collision_forces_.MergeFrom(from.collision_forces_);
   if (from.has_position()) {
     _internal_mutable_position()->::IronGames::Vector3::MergeFrom(from._internal_position());
   }
@@ -4544,6 +4584,7 @@ void SimulationVertex::InternalSwap(SimulationVertex* other) {
   _internal_metadata_.Swap<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(&other->_internal_metadata_);
   compressive_forces_.InternalSwap(&other->compressive_forces_);
   tensile_forces_.InternalSwap(&other->tensile_forces_);
+  collision_forces_.InternalSwap(&other->collision_forces_);
   ::PROTOBUF_NAMESPACE_ID::internal::memswap<
       PROTOBUF_FIELD_OFFSET(SimulationVertex, largest_eigenvalue_)
       + sizeof(SimulationVertex::largest_eigenvalue_)
@@ -6761,6 +6802,7 @@ class PalaceAsset::_Internal {
  public:
   static const ::IronGames::Transform& transform(const PalaceAsset* msg);
   static const ::IronGames::Color& color(const PalaceAsset* msg);
+  static const ::IronGames::Vector3& scale(const PalaceAsset* msg);
 };
 
 const ::IronGames::Transform&
@@ -6770,6 +6812,10 @@ PalaceAsset::_Internal::transform(const PalaceAsset* msg) {
 const ::IronGames::Color&
 PalaceAsset::_Internal::color(const PalaceAsset* msg) {
   return *msg->color_;
+}
+const ::IronGames::Vector3&
+PalaceAsset::_Internal::scale(const PalaceAsset* msg) {
+  return *msg->scale_;
 }
 PalaceAsset::PalaceAsset(::PROTOBUF_NAMESPACE_ID::Arena* arena)
   : ::PROTOBUF_NAMESPACE_ID::Message(arena) {
@@ -6795,6 +6841,11 @@ PalaceAsset::PalaceAsset(const PalaceAsset& from)
   } else {
     color_ = nullptr;
   }
+  if (from._internal_has_scale()) {
+    scale_ = new ::IronGames::Vector3(*from.scale_);
+  } else {
+    scale_ = nullptr;
+  }
   // @@protoc_insertion_point(copy_constructor:IronGames.PalaceAsset)
 }
 
@@ -6802,8 +6853,8 @@ void PalaceAsset::SharedCtor() {
 asset_id_.UnsafeSetDefault(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited());
 ::memset(reinterpret_cast<char*>(this) + static_cast<size_t>(
     reinterpret_cast<char*>(&transform_) - reinterpret_cast<char*>(this)),
-    0, static_cast<size_t>(reinterpret_cast<char*>(&color_) -
-    reinterpret_cast<char*>(&transform_)) + sizeof(color_));
+    0, static_cast<size_t>(reinterpret_cast<char*>(&scale_) -
+    reinterpret_cast<char*>(&transform_)) + sizeof(scale_));
 }
 
 PalaceAsset::~PalaceAsset() {
@@ -6817,6 +6868,7 @@ void PalaceAsset::SharedDtor() {
   asset_id_.DestroyNoArena(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited());
   if (this != internal_default_instance()) delete transform_;
   if (this != internal_default_instance()) delete color_;
+  if (this != internal_default_instance()) delete scale_;
 }
 
 void PalaceAsset::ArenaDtor(void* object) {
@@ -6844,6 +6896,10 @@ void PalaceAsset::Clear() {
     delete color_;
   }
   color_ = nullptr;
+  if (GetArena() == nullptr && scale_ != nullptr) {
+    delete scale_;
+  }
+  scale_ = nullptr;
   _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
 
@@ -6874,6 +6930,13 @@ const char* PalaceAsset::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID
       case 3:
         if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 26)) {
           ptr = ctx->ParseMessage(_internal_mutable_color(), ptr);
+          CHK_(ptr);
+        } else goto handle_unusual;
+        continue;
+      // .IronGames.Vector3 scale = 4;
+      case 4:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 34)) {
+          ptr = ctx->ParseMessage(_internal_mutable_scale(), ptr);
           CHK_(ptr);
         } else goto handle_unusual;
         continue;
@@ -6931,6 +6994,14 @@ failure:
         3, _Internal::color(this), target, stream);
   }
 
+  // .IronGames.Vector3 scale = 4;
+  if (this->has_scale()) {
+    target = stream->EnsureSpace(target);
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
+      InternalWriteMessage(
+        4, _Internal::scale(this), target, stream);
+  }
+
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormat::InternalSerializeUnknownFieldsToArray(
         _internal_metadata_.unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(::PROTOBUF_NAMESPACE_ID::UnknownFieldSet::default_instance), target, stream);
@@ -6966,6 +7037,13 @@ size_t PalaceAsset::ByteSizeLong() const {
     total_size += 1 +
       ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
         *color_);
+  }
+
+  // .IronGames.Vector3 scale = 4;
+  if (this->has_scale()) {
+    total_size += 1 +
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
+        *scale_);
   }
 
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
@@ -7008,6 +7086,9 @@ void PalaceAsset::MergeFrom(const PalaceAsset& from) {
   if (from.has_color()) {
     _internal_mutable_color()->::IronGames::Color::MergeFrom(from._internal_color());
   }
+  if (from.has_scale()) {
+    _internal_mutable_scale()->::IronGames::Vector3::MergeFrom(from._internal_scale());
+  }
 }
 
 void PalaceAsset::CopyFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
@@ -7033,8 +7114,8 @@ void PalaceAsset::InternalSwap(PalaceAsset* other) {
   _internal_metadata_.Swap<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(&other->_internal_metadata_);
   asset_id_.Swap(&other->asset_id_, &::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited(), GetArena());
   ::PROTOBUF_NAMESPACE_ID::internal::memswap<
-      PROTOBUF_FIELD_OFFSET(PalaceAsset, color_)
-      + sizeof(PalaceAsset::color_)
+      PROTOBUF_FIELD_OFFSET(PalaceAsset, scale_)
+      + sizeof(PalaceAsset::scale_)
       - PROTOBUF_FIELD_OFFSET(PalaceAsset, transform_)>(
           reinterpret_cast<char*>(&transform_),
           reinterpret_cast<char*>(&other->transform_));
@@ -7053,14 +7134,16 @@ class PlayerAssets::_Internal {
 
 PlayerAssets::PlayerAssets(::PROTOBUF_NAMESPACE_ID::Arena* arena)
   : ::PROTOBUF_NAMESPACE_ID::Message(arena),
-  assets_(arena) {
+  assets_(arena),
+  palace_assets_(arena) {
   SharedCtor();
   RegisterArenaDtor(arena);
   // @@protoc_insertion_point(arena_constructor:IronGames.PlayerAssets)
 }
 PlayerAssets::PlayerAssets(const PlayerAssets& from)
   : ::PROTOBUF_NAMESPACE_ID::Message(),
-      assets_(from.assets_) {
+      assets_(from.assets_),
+      palace_assets_(from.palace_assets_) {
   _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
   // @@protoc_insertion_point(copy_constructor:IronGames.PlayerAssets)
 }
@@ -7095,6 +7178,7 @@ void PlayerAssets::Clear() {
   (void) cached_has_bits;
 
   assets_.Clear();
+  palace_assets_.Clear();
   _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
 
@@ -7115,6 +7199,18 @@ const char* PlayerAssets::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_I
             CHK_(ptr);
             if (!ctx->DataAvailable(ptr)) break;
           } while (::PROTOBUF_NAMESPACE_ID::internal::ExpectTag<10>(ptr));
+        } else goto handle_unusual;
+        continue;
+      // repeated .IronGames.PalaceAsset palace_assets = 2;
+      case 2:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 18)) {
+          ptr -= 1;
+          do {
+            ptr += 1;
+            ptr = ctx->ParseMessage(_internal_add_palace_assets(), ptr);
+            CHK_(ptr);
+            if (!ctx->DataAvailable(ptr)) break;
+          } while (::PROTOBUF_NAMESPACE_ID::internal::ExpectTag<18>(ptr));
         } else goto handle_unusual;
         continue;
       default: {
@@ -7153,6 +7249,14 @@ failure:
       InternalWriteMessage(1, this->_internal_assets(i), target, stream);
   }
 
+  // repeated .IronGames.PalaceAsset palace_assets = 2;
+  for (unsigned int i = 0,
+      n = static_cast<unsigned int>(this->_internal_palace_assets_size()); i < n; i++) {
+    target = stream->EnsureSpace(target);
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
+      InternalWriteMessage(2, this->_internal_palace_assets(i), target, stream);
+  }
+
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormat::InternalSerializeUnknownFieldsToArray(
         _internal_metadata_.unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(::PROTOBUF_NAMESPACE_ID::UnknownFieldSet::default_instance), target, stream);
@@ -7172,6 +7276,13 @@ size_t PlayerAssets::ByteSizeLong() const {
   // repeated .IronGames.Asset assets = 1;
   total_size += 1UL * this->_internal_assets_size();
   for (const auto& msg : this->assets_) {
+    total_size +=
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(msg);
+  }
+
+  // repeated .IronGames.PalaceAsset palace_assets = 2;
+  total_size += 1UL * this->_internal_palace_assets_size();
+  for (const auto& msg : this->palace_assets_) {
     total_size +=
       ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(msg);
   }
@@ -7208,6 +7319,7 @@ void PlayerAssets::MergeFrom(const PlayerAssets& from) {
   (void) cached_has_bits;
 
   assets_.MergeFrom(from.assets_);
+  palace_assets_.MergeFrom(from.palace_assets_);
 }
 
 void PlayerAssets::CopyFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
@@ -7232,6 +7344,7 @@ void PlayerAssets::InternalSwap(PlayerAssets* other) {
   using std::swap;
   _internal_metadata_.Swap<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(&other->_internal_metadata_);
   assets_.InternalSwap(&other->assets_);
+  palace_assets_.InternalSwap(&other->palace_assets_);
 }
 
 ::PROTOBUF_NAMESPACE_ID::Metadata PlayerAssets::GetMetadata() const {

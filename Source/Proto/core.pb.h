@@ -2084,12 +2084,13 @@ class SimulationVertex PROTOBUF_FINAL :
   enum : int {
     kCompressiveForcesFieldNumber = 8,
     kTensileForcesFieldNumber = 9,
+    kCollisionForcesFieldNumber = 10,
     kPositionFieldNumber = 1,
     kMaterialCoordinatesFieldNumber = 2,
     kVelocityFieldNumber = 3,
     kForceFieldNumber = 5,
     kPrincipalEigenvectorFieldNumber = 7,
-    kSeparationTensorFieldNumber = 10,
+    kSeparationTensorFieldNumber = 11,
     kMassFieldNumber = 4,
     kLargestEigenvalueFieldNumber = 6,
   };
@@ -2128,6 +2129,24 @@ class SimulationVertex PROTOBUF_FINAL :
   ::IronGames::Vector3* add_tensile_forces();
   const ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::IronGames::Vector3 >&
       tensile_forces() const;
+
+  // repeated .IronGames.Vector3 collision_forces = 10;
+  int collision_forces_size() const;
+  private:
+  int _internal_collision_forces_size() const;
+  public:
+  void clear_collision_forces();
+  ::IronGames::Vector3* mutable_collision_forces(int index);
+  ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::IronGames::Vector3 >*
+      mutable_collision_forces();
+  private:
+  const ::IronGames::Vector3& _internal_collision_forces(int index) const;
+  ::IronGames::Vector3* _internal_add_collision_forces();
+  public:
+  const ::IronGames::Vector3& collision_forces(int index) const;
+  ::IronGames::Vector3* add_collision_forces();
+  const ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::IronGames::Vector3 >&
+      collision_forces() const;
 
   // .IronGames.Vector3 position = 1;
   bool has_position() const;
@@ -2219,7 +2238,7 @@ class SimulationVertex PROTOBUF_FINAL :
       ::IronGames::Vector3* principal_eigenvector);
   ::IronGames::Vector3* unsafe_arena_release_principal_eigenvector();
 
-  // .IronGames.Matrix3 separation_tensor = 10;
+  // .IronGames.Matrix3 separation_tensor = 11;
   bool has_separation_tensor() const;
   private:
   bool _internal_has_separation_tensor() const;
@@ -2264,6 +2283,7 @@ class SimulationVertex PROTOBUF_FINAL :
   typedef void DestructorSkippable_;
   ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::IronGames::Vector3 > compressive_forces_;
   ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::IronGames::Vector3 > tensile_forces_;
+  ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::IronGames::Vector3 > collision_forces_;
   ::IronGames::Vector3* position_;
   ::IronGames::Vector3* material_coordinates_;
   ::IronGames::Vector3* velocity_;
@@ -3861,6 +3881,7 @@ class PalaceAsset PROTOBUF_FINAL :
     kAssetIdFieldNumber = 1,
     kTransformFieldNumber = 2,
     kColorFieldNumber = 3,
+    kScaleFieldNumber = 4,
   };
   // string asset_id = 1;
   void clear_asset_id();
@@ -3914,6 +3935,24 @@ class PalaceAsset PROTOBUF_FINAL :
       ::IronGames::Color* color);
   ::IronGames::Color* unsafe_arena_release_color();
 
+  // .IronGames.Vector3 scale = 4;
+  bool has_scale() const;
+  private:
+  bool _internal_has_scale() const;
+  public:
+  void clear_scale();
+  const ::IronGames::Vector3& scale() const;
+  ::IronGames::Vector3* release_scale();
+  ::IronGames::Vector3* mutable_scale();
+  void set_allocated_scale(::IronGames::Vector3* scale);
+  private:
+  const ::IronGames::Vector3& _internal_scale() const;
+  ::IronGames::Vector3* _internal_mutable_scale();
+  public:
+  void unsafe_arena_set_allocated_scale(
+      ::IronGames::Vector3* scale);
+  ::IronGames::Vector3* unsafe_arena_release_scale();
+
   // @@protoc_insertion_point(class_scope:IronGames.PalaceAsset)
  private:
   class _Internal;
@@ -3924,6 +3963,7 @@ class PalaceAsset PROTOBUF_FINAL :
   ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr asset_id_;
   ::IronGames::Transform* transform_;
   ::IronGames::Color* color_;
+  ::IronGames::Vector3* scale_;
   mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   friend struct ::TableStruct_core_2eproto;
 };
@@ -4043,6 +4083,7 @@ class PlayerAssets PROTOBUF_FINAL :
 
   enum : int {
     kAssetsFieldNumber = 1,
+    kPalaceAssetsFieldNumber = 2,
   };
   // repeated .IronGames.Asset assets = 1;
   int assets_size() const;
@@ -4062,6 +4103,24 @@ class PlayerAssets PROTOBUF_FINAL :
   const ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::IronGames::Asset >&
       assets() const;
 
+  // repeated .IronGames.PalaceAsset palace_assets = 2;
+  int palace_assets_size() const;
+  private:
+  int _internal_palace_assets_size() const;
+  public:
+  void clear_palace_assets();
+  ::IronGames::PalaceAsset* mutable_palace_assets(int index);
+  ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::IronGames::PalaceAsset >*
+      mutable_palace_assets();
+  private:
+  const ::IronGames::PalaceAsset& _internal_palace_assets(int index) const;
+  ::IronGames::PalaceAsset* _internal_add_palace_assets();
+  public:
+  const ::IronGames::PalaceAsset& palace_assets(int index) const;
+  ::IronGames::PalaceAsset* add_palace_assets();
+  const ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::IronGames::PalaceAsset >&
+      palace_assets() const;
+
   // @@protoc_insertion_point(class_scope:IronGames.PlayerAssets)
  private:
   class _Internal;
@@ -4070,6 +4129,7 @@ class PlayerAssets PROTOBUF_FINAL :
   typedef void InternalArenaConstructable_;
   typedef void DestructorSkippable_;
   ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::IronGames::Asset > assets_;
+  ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::IronGames::PalaceAsset > palace_assets_;
   mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   friend struct ::TableStruct_core_2eproto;
 };
@@ -10759,7 +10819,46 @@ SimulationVertex::tensile_forces() const {
   return tensile_forces_;
 }
 
-// .IronGames.Matrix3 separation_tensor = 10;
+// repeated .IronGames.Vector3 collision_forces = 10;
+inline int SimulationVertex::_internal_collision_forces_size() const {
+  return collision_forces_.size();
+}
+inline int SimulationVertex::collision_forces_size() const {
+  return _internal_collision_forces_size();
+}
+inline void SimulationVertex::clear_collision_forces() {
+  collision_forces_.Clear();
+}
+inline ::IronGames::Vector3* SimulationVertex::mutable_collision_forces(int index) {
+  // @@protoc_insertion_point(field_mutable:IronGames.SimulationVertex.collision_forces)
+  return collision_forces_.Mutable(index);
+}
+inline ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::IronGames::Vector3 >*
+SimulationVertex::mutable_collision_forces() {
+  // @@protoc_insertion_point(field_mutable_list:IronGames.SimulationVertex.collision_forces)
+  return &collision_forces_;
+}
+inline const ::IronGames::Vector3& SimulationVertex::_internal_collision_forces(int index) const {
+  return collision_forces_.Get(index);
+}
+inline const ::IronGames::Vector3& SimulationVertex::collision_forces(int index) const {
+  // @@protoc_insertion_point(field_get:IronGames.SimulationVertex.collision_forces)
+  return _internal_collision_forces(index);
+}
+inline ::IronGames::Vector3* SimulationVertex::_internal_add_collision_forces() {
+  return collision_forces_.Add();
+}
+inline ::IronGames::Vector3* SimulationVertex::add_collision_forces() {
+  // @@protoc_insertion_point(field_add:IronGames.SimulationVertex.collision_forces)
+  return _internal_add_collision_forces();
+}
+inline const ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::IronGames::Vector3 >&
+SimulationVertex::collision_forces() const {
+  // @@protoc_insertion_point(field_list:IronGames.SimulationVertex.collision_forces)
+  return collision_forces_;
+}
+
+// .IronGames.Matrix3 separation_tensor = 11;
 inline bool SimulationVertex::_internal_has_separation_tensor() const {
   return this != internal_default_instance() && separation_tensor_ != nullptr;
 }
@@ -12326,6 +12425,89 @@ inline void PalaceAsset::set_allocated_color(::IronGames::Color* color) {
   // @@protoc_insertion_point(field_set_allocated:IronGames.PalaceAsset.color)
 }
 
+// .IronGames.Vector3 scale = 4;
+inline bool PalaceAsset::_internal_has_scale() const {
+  return this != internal_default_instance() && scale_ != nullptr;
+}
+inline bool PalaceAsset::has_scale() const {
+  return _internal_has_scale();
+}
+inline void PalaceAsset::clear_scale() {
+  if (GetArena() == nullptr && scale_ != nullptr) {
+    delete scale_;
+  }
+  scale_ = nullptr;
+}
+inline const ::IronGames::Vector3& PalaceAsset::_internal_scale() const {
+  const ::IronGames::Vector3* p = scale_;
+  return p != nullptr ? *p : reinterpret_cast<const ::IronGames::Vector3&>(
+      ::IronGames::_Vector3_default_instance_);
+}
+inline const ::IronGames::Vector3& PalaceAsset::scale() const {
+  // @@protoc_insertion_point(field_get:IronGames.PalaceAsset.scale)
+  return _internal_scale();
+}
+inline void PalaceAsset::unsafe_arena_set_allocated_scale(
+    ::IronGames::Vector3* scale) {
+  if (GetArena() == nullptr) {
+    delete reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(scale_);
+  }
+  scale_ = scale;
+  if (scale) {
+    
+  } else {
+    
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:IronGames.PalaceAsset.scale)
+}
+inline ::IronGames::Vector3* PalaceAsset::release_scale() {
+  
+  ::IronGames::Vector3* temp = scale_;
+  scale_ = nullptr;
+  if (GetArena() != nullptr) {
+    temp = ::PROTOBUF_NAMESPACE_ID::internal::DuplicateIfNonNull(temp);
+  }
+  return temp;
+}
+inline ::IronGames::Vector3* PalaceAsset::unsafe_arena_release_scale() {
+  // @@protoc_insertion_point(field_release:IronGames.PalaceAsset.scale)
+  
+  ::IronGames::Vector3* temp = scale_;
+  scale_ = nullptr;
+  return temp;
+}
+inline ::IronGames::Vector3* PalaceAsset::_internal_mutable_scale() {
+  
+  if (scale_ == nullptr) {
+    auto* p = CreateMaybeMessage<::IronGames::Vector3>(GetArena());
+    scale_ = p;
+  }
+  return scale_;
+}
+inline ::IronGames::Vector3* PalaceAsset::mutable_scale() {
+  // @@protoc_insertion_point(field_mutable:IronGames.PalaceAsset.scale)
+  return _internal_mutable_scale();
+}
+inline void PalaceAsset::set_allocated_scale(::IronGames::Vector3* scale) {
+  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
+  if (message_arena == nullptr) {
+    delete scale_;
+  }
+  if (scale) {
+    ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
+      ::PROTOBUF_NAMESPACE_ID::Arena::GetArena(scale);
+    if (message_arena != submessage_arena) {
+      scale = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
+          message_arena, scale, submessage_arena);
+    }
+    
+  } else {
+    
+  }
+  scale_ = scale;
+  // @@protoc_insertion_point(field_set_allocated:IronGames.PalaceAsset.scale)
+}
+
 // -------------------------------------------------------------------
 
 // PlayerAssets
@@ -12367,6 +12549,45 @@ inline const ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::IronGames::Asset >&
 PlayerAssets::assets() const {
   // @@protoc_insertion_point(field_list:IronGames.PlayerAssets.assets)
   return assets_;
+}
+
+// repeated .IronGames.PalaceAsset palace_assets = 2;
+inline int PlayerAssets::_internal_palace_assets_size() const {
+  return palace_assets_.size();
+}
+inline int PlayerAssets::palace_assets_size() const {
+  return _internal_palace_assets_size();
+}
+inline void PlayerAssets::clear_palace_assets() {
+  palace_assets_.Clear();
+}
+inline ::IronGames::PalaceAsset* PlayerAssets::mutable_palace_assets(int index) {
+  // @@protoc_insertion_point(field_mutable:IronGames.PlayerAssets.palace_assets)
+  return palace_assets_.Mutable(index);
+}
+inline ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::IronGames::PalaceAsset >*
+PlayerAssets::mutable_palace_assets() {
+  // @@protoc_insertion_point(field_mutable_list:IronGames.PlayerAssets.palace_assets)
+  return &palace_assets_;
+}
+inline const ::IronGames::PalaceAsset& PlayerAssets::_internal_palace_assets(int index) const {
+  return palace_assets_.Get(index);
+}
+inline const ::IronGames::PalaceAsset& PlayerAssets::palace_assets(int index) const {
+  // @@protoc_insertion_point(field_get:IronGames.PlayerAssets.palace_assets)
+  return _internal_palace_assets(index);
+}
+inline ::IronGames::PalaceAsset* PlayerAssets::_internal_add_palace_assets() {
+  return palace_assets_.Add();
+}
+inline ::IronGames::PalaceAsset* PlayerAssets::add_palace_assets() {
+  // @@protoc_insertion_point(field_add:IronGames.PlayerAssets.palace_assets)
+  return _internal_add_palace_assets();
+}
+inline const ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::IronGames::PalaceAsset >&
+PlayerAssets::palace_assets() const {
+  // @@protoc_insertion_point(field_list:IronGames.PlayerAssets.palace_assets)
+  return palace_assets_;
 }
 
 // -------------------------------------------------------------------

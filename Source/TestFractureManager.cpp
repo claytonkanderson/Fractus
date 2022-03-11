@@ -4,6 +4,7 @@
 #include "FractureContext.h"
 #include "ProtoConverter.hpp"
 #include <fstream>
+#include <chrono>
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -21,6 +22,17 @@ namespace Deformation
 			*vert->mutable_material_coordinates() = ProtoConverter::Convert(vertex.mMaterialCoordinates);
 			*vert->mutable_velocity() = ProtoConverter::Convert(vertex.mVelocity);
 			vert->set_mass(vertex.mMass);
+
+			*vert->mutable_force() = ProtoConverter::Convert(vertex.mForce);
+			vert->set_largest_eigenvalue(vertex.mLargestEigenvalue);
+			*vert->mutable_principal_eigenvector() = ProtoConverter::Convert(vertex.mPrincipalEigenVector);
+
+			for (const auto& compressiveForce : vertex.mCompressiveForces)
+				*vert->add_compressive_forces() = ProtoConverter::Convert(compressiveForce);
+			for (const auto& tensileForce : vertex.mTensileForces)
+				*vert->add_tensile_forces() = ProtoConverter::Convert(tensileForce);
+			for (const auto& collisionForce : vertex.mCollisionForces)
+				*vert->add_collision_forces() = ProtoConverter::Convert(collisionForce);
 		}
 
 		for (const auto& pair : group.mIdToTetrahedra)
@@ -182,19 +194,23 @@ namespace Deformation
 		void Run(IronGames::SimulationSummary* summary) override
 		{
 			std::ifstream file;
-			//file.open("D:/UnityProjects/3D_Template/Assets/Resources/Bowl.obj");
-			file.open("D:/UnityProjects/3D_Template/Assets/Resources/BasicMace.obj");
+			file.open("D:/UnityProjects/3D_Template/Assets/Resources/Bowl.obj");
+			//file.open("D:/UnityProjects/3D_Template/Assets/Resources/BasicMace.obj");
 
 			std::vector<float> positions;
 			std::vector<int> indices;
 
-const float positionScale = 1.0f;
-const float heightOffset = 8.0f;
+const float positionScale = 0.1f;
+			const float heightAboveZero = 0.0001f;
+
+			glm::vec3 boundingBoxMin(0);
+			glm::vec3 boundingBoxMax(0);
 
 			std::string line;
 			float x, y, z;
 			int i0, i1, i2, i3;
 			char c;
+			bool firstVert = false;
 			while (std::getline(file, line))
 			{
 				std::istringstream iss(line);
@@ -205,9 +221,26 @@ const float heightOffset = 8.0f;
 				{
 					iss >> x >> y >> z;
 
-					positions.push_back(positionScale * x);
-					positions.push_back(positionScale * y + heightOffset);
-					positions.push_back(positionScale * z);
+					glm::vec3 pos(x * positionScale, y * positionScale, z * positionScale);
+
+					positions.push_back(pos[0]);
+					positions.push_back(pos[1]);
+					positions.push_back(pos[2]);
+
+					if (firstVert)
+					{
+						firstVert = false;
+						boundingBoxMin = pos;
+						boundingBoxMax = pos;
+					}
+					else
+					{
+						for (int i = 0; i < 3; i++)
+						{
+							boundingBoxMin[i] = std::min(boundingBoxMin[i], pos[i]);
+							boundingBoxMax[i] = std::max(boundingBoxMax[i], pos[i]);
+						}
+					}
 				}
 				else if (c == 't')
 				{
@@ -225,21 +258,58 @@ const float heightOffset = 8.0f;
 			int maxNumVertices = 2 * numVertices;
 			int maxNumTetrahedra = 2 * numTetrahedra;
 
+			std::cout << "Box has dimensions : (" << boundingBoxMax.x - boundingBoxMin.x << ", " << boundingBoxMax.y - boundingBoxMin.y << ", " << boundingBoxMax.z - boundingBoxMin.z << ")" << std::endl;
+
+			for (int i = 0; i < numVertices; i++)
+				positions[3 * i + 1] = positions[3 * i + 1] - boundingBoxMin[1] + heightAboveZero;
+
+			mTimestep = 1e-7;
+			mToughness = 15.0f;
+			mLambda = 0.0f;
+			mMu = 5.29e7f;
+			mPhi = 0.0f;
+			mPsi = 198.0f;
+			mDensity = 1013.0f;
+			mToughness = 73.6;
 			Initialize(positions.data(), numVertices, maxNumVertices, indices.data(), numTetrahedra, maxNumTetrahedra, mLambda, mPsi, mMu, mPhi, mToughness, mDensity);
 			Deformation::TetraGroup* group = (Deformation::TetraGroup*)mData;
+
+			std::cout << "Min Vertex Mass : " << group->GetMinVertexMass() << std::endl;
+			std::cout << "Max Vertex Mass : " << group->GetMaxVertexMass() << std::endl;
+
+			for (auto& vert : group->mVertices)
+				vert.mVelocity = glm::vec3(0, -4.4f, 0);
 
 			float maxEigenvalue = -1;
 			float maxEigenvalueTime = 0.0f;
 
 			SaveFrame(summary, *group);
 
-			int numSteps = 10000;
+			int numSteps = 100000;
 			for (int i = 0; i < numSteps; i++)
 			{
 				if (!Update(*group))
 					break;
 
-				std::cout << "Completed step " << i << " out of " << numSteps << " total steps." << std::endl;
+				if (i % 10000 == 0)
+				{
+					double minHeight = DBL_MAX;
+					for (const auto& vert : group->mVertices)
+						minHeight = std::min(vert.mPosition.y, minHeight);
+
+					std::cout << "Progress Report at step : " << i << std::endl;
+					std::cout << "Num Vertices : " << group->mVertices.size() << " out of max " << group->mMaxNumVertices << std::endl;
+					std::cout << "Num Tetrahedra : " << group->mIdToTetrahedra.size() << " out of max " << group->mMaxNumTetrahedra << std::endl;
+					std::cout << "Average max eigenvalue across all vertices : " << group->GetAverageMaxEigenvalue() << std::endl;
+					std::cout << "Max eigenvalue across all vertices : " << group->GetMaxEigenvalue() << std::endl;
+					std::cout << "Total Mass : " << group->GetTotalMass() << std::endl;
+					std::cout << "Total Volume : " << group->GetTotalVolume() << std::endl;
+					std::cout << "Min Vertex Height : " << minHeight << std::endl;
+					SaveFrame(summary, *group);
+				}
+
+				if (i % 1000 == 0)
+					std::cout << "Completed step " << i << " out of " << numSteps << " total steps." << std::endl;
 			}
 
 			//*summary = group->mSummary;

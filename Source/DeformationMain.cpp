@@ -18,7 +18,7 @@ namespace
 
 		Deformation::TestFractureManager testManager(&summaries);
 		//testManager.RunAllTestCases();
-		testManager.RunTestCase(1);
+		testManager.RunTestCase(testManager.GetIndexOfLastCase());
 
 		// write to file...
 		std::ofstream ofs("simulation.summary", std::ios_base::out | std::ios_base::binary);
@@ -102,14 +102,15 @@ namespace
 			glm::vec3(0.0f, 1.0f, -1.0f),
 			glm::vec3(0.0f, 0.4f, 0.5f)
 		};
-		Deformation::ConvexIntersection::CollisionResults results;
-		if (Deformation::ConvexIntersection::TetrahedraIntersection(verts, otherVerts, results))
-			std::cout << "Collision detected!" << std::endl;
-		else
-			std::cout << "No Collision detected!" << std::endl;
+		//Deformation::ConvexIntersection::CollisionResults results;
+		// needs to be updated to use ConvexIntersection::ResolveCollisions
+		//if (Deformation::ConvexIntersection::TetrahedraIntersection(verts, otherVerts, results))
+		//	std::cout << "Collision detected!" << std::endl;
+		//else
+		//	std::cout << "No Collision detected!" << std::endl;
 
 		const float cCollisionStrength = 1e7f;
-		std::cout << "Collision mag : " << cCollisionStrength * results.mVolume << std::endl;
+		//std::cout << "Collision mag : " << cCollisionStrength * results.mVolume << std::endl;
 	}
 }
 
@@ -117,6 +118,9 @@ namespace
 
 int main(int argc, const char* argv[]) 
 {
+	auto start = std::chrono::high_resolution_clock::now();
 	RunTestCases();
+	auto end = std::chrono::high_resolution_clock::now();
+	std::cout << "Finished running after " << std::chrono::duration_cast<std::chrono::seconds>(end - start).count() << " s." << std::endl;
 	return 0;
 }

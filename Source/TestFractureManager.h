@@ -22,7 +22,7 @@ namespace Deformation
 		float mPsi = 397.f;
 		float mPhi = 264.f;
 		float mMu = 3.97e6f;
-		float mDensity = 5013.f;
+		float mDensity = 1013.f;
 		float mTimestep = 0.0001f;
 		float mToughness = 10.f;
 
@@ -43,6 +43,8 @@ namespace Deformation
 		void RunAllTestCases();
 
 		void RunTestCase(int testNum);
+
+		int GetIndexOfLastCase() const { return mTestCases.size() - 1; }
 
 	private:
 		IronGames::SimulationSummaries* mSummaries = nullptr;

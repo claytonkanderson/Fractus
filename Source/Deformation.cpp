@@ -57,7 +57,7 @@ namespace Deformation
 
         auto frame = mSummary.add_frames();
 
-        bool saveFrame = true;
+        bool saveFrame = false;
         if (saveFrame)
             frame->set_time(mSimulationTime);
 
@@ -67,6 +67,7 @@ namespace Deformation
         {
             vertex.mCompressiveForces.clear();
             vertex.mTensileForces.clear();
+            vertex.mCollisionForces.clear();
             vertex.mForce = vec3(0.0);
             vertex.mLargestEigenvalue = 0.0f;
             vertex.mPrincipalEigenVector = vec3(0.0f);
@@ -360,6 +361,8 @@ namespace Deformation
                     *vert.add_compressive_forces() = ProtoConverter::Convert(compressiveForce);
                 for (const auto& tensileForce : mVertices[vertexIdx].mTensileForces)
                     *vert.add_tensile_forces() = ProtoConverter::Convert(tensileForce);
+                for (const auto& collisionForce : mVertices[vertexIdx].mCollisionForces)
+                    *vert.add_collision_forces() = ProtoConverter::Convert(collisionForce);
 
                 *vert.mutable_separation_tensor() = ProtoConverter::Convert(mSeparation);
             }
@@ -400,13 +403,20 @@ namespace Deformation
                     return a.mLargestEigenValue > b.mLargestEigenValue;
                 });
 
+            bool fractured = fractureAttempts.empty();
             for (const auto& attempt : fractureAttempts)
             {
-                std::cout << "Fracture Node " << attempt.mVertexId << std::endl;
+                //std::cout << "Fracture Node " << attempt.mVertexId << std::endl;
                 FractureContext context(mVertices[attempt.mVertexId].mPrincipalEigenVector, attempt.mVertexId, mIdToTetrahedra, mVertices, mTetIdCounter);
                 if (context.Fracture())
+                {
+                    fractured = true;
                     break;
+                }
             }
+
+            if (!fractured)
+                std::cout << "All fracture attempts failed so no fracture occurred." << std::endl;
 
             ComputeDerivedQuantities();
         }
@@ -622,6 +632,69 @@ namespace Deformation
 
     ////////////////////////////////////////////////////////////////////////////////
 
+    double TetraGroup::GetMinVertexMass() const
+    {
+        double val = DBL_MAX;
+        for (const auto& vert : mVertices)
+            val = std::min(vert.mMass, val);
+        return val;
+    }
+    
+    ////////////////////////////////////////////////////////////////////////////////
+
+    double TetraGroup::GetMaxVertexMass() const
+    {
+        double val = DBL_MIN;
+        for (const auto& vert : mVertices)
+            val = std::max(vert.mMass, val);
+        return val;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////
+
+    double TetraGroup::GetTotalMass() const
+    {
+        return mDensity * GetTotalVolume();
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////
+
+    double TetraGroup::GetTotalVolume() const
+    {
+        double vol = 0;
+        for (const auto& pair : mIdToTetrahedra)
+        {
+            vol += pair.second.mVolume;
+        }
+
+        return vol;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////
+
+    double TetraGroup::GetAverageMaxEigenvalue() const
+    {
+        double avg = 0;
+        for (const auto& vert : mVertices)
+            avg += vert.mLargestEigenvalue;
+
+        avg /= mVertices.size();
+        return avg;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////
+
+    double TetraGroup::GetMaxEigenvalue() const
+    {
+        double max = 0;
+        for (const auto& vert : mVertices)
+            max = std::max(max, vert.mLargestEigenvalue);
+
+        return max;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////
+
     std::array<size_t, 3> Tetrahedra::GetOtherVertices(size_t vertexId) const
     {
         if (!ContainsVertexIndex(vertexId))
@@ -762,6 +835,17 @@ namespace Deformation
 
         if (!setVertex)
             std::cout << "Attempted to replace a vertex but the specified was not in the tetrahedron." << std::endl;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////
+
+    glm::dvec3 Tetrahedra::GetCentroid(const std::vector<Vertex>& vertices) const
+    {
+        glm::dvec3 center(0);
+        for (auto id : mIndices)
+            center += 0.25 * vertices[id].mPosition;
+
+        return center;
     }
 
     ////////////////////////////////////////////////////////////////////////////////
