@@ -264,7 +264,6 @@ const float positionScale = 0.1f;
 				positions[3 * i + 1] = positions[3 * i + 1] - boundingBoxMin[1] + heightAboveZero;
 
 			mTimestep = 1e-7;
-			mToughness = 15.0f;
 			mLambda = 0.0f;
 			mMu = 5.29e7f;
 			mPhi = 0.0f;
@@ -278,20 +277,20 @@ const float positionScale = 0.1f;
 			std::cout << "Max Vertex Mass : " << group->GetMaxVertexMass() << std::endl;
 
 			for (auto& vert : group->mVertices)
-				vert.mVelocity = glm::vec3(0, -4.4f, 0);
+				vert.mVelocity = glm::vec3(0, -5.4f, 0);
 
 			float maxEigenvalue = -1;
 			float maxEigenvalueTime = 0.0f;
 
 			SaveFrame(summary, *group);
 
-			int numSteps = 100000;
+			int numSteps = 200000;
 			for (int i = 0; i < numSteps; i++)
 			{
 				if (!Update(*group))
 					break;
 
-				if (i % 10000 == 0)
+				if (i % (numSteps/10) == 0)
 				{
 					double minHeight = DBL_MAX;
 					for (const auto& vert : group->mVertices)

@@ -84,43 +84,6 @@ namespace Deformation
 
         ConvexIntersection::ResolveCollisions(mVertices, mIdToTetrahedra);
 
-        //ConvexIntersection::CollisionResults results;
-        //for (auto& tetPair : mIdToTetrahedra)
-        //{
-        //    for (auto& otherPair : mIdToTetrahedra)
-        //    {
-        //        if (tetPair.first == otherPair.first)
-        //            continue;
-
-        //        if (!ConvexIntersection::TetrahedraIntersection(
-        //            {
-        //                mVertices[tetPair.second.mIndices[0]].mPosition,
-        //                mVertices[tetPair.second.mIndices[1]].mPosition,
-        //                mVertices[tetPair.second.mIndices[2]].mPosition,
-        //                mVertices[tetPair.second.mIndices[3]].mPosition
-        //            },
-        //                {
-        //                    mVertices[otherPair.second.mIndices[0]].mPosition,
-        //                    mVertices[otherPair.second.mIndices[1]].mPosition,
-        //                    mVertices[otherPair.second.mIndices[2]].mPosition,
-        //                    mVertices[otherPair.second.mIndices[3]].mPosition
-        //                },
-        //            results)
-        //            )
-        //        {
-        //            continue;
-        //        }
-
-        //        const float cCollisionStrength = 1e8f;
-        //        float collisionMagnitude = cCollisionStrength * results.mVolume;
-        //        for (int i = 0; i < 4; i++)
-        //            mVertices[tetPair.second.mIndices[i]].mForce += 0.25f * collisionMagnitude * results.mForce;
-
-        //        for (int i = 0; i < 4; i++)
-        //            mVertices[otherPair.second.mIndices[i]].mForce += -0.25f * collisionMagnitude * results.mForce;
-        //    }
-        //}
-
 		for (auto & pair : mIdToTetrahedra)
 		{
             size_t tetIdx = pair.first;
