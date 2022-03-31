@@ -4,6 +4,7 @@
 #include "FractureContext.h"
 #include "ProtoConverter.hpp"
 #include <fstream>
+#include <sstream>
 #include <chrono>
 
 ////////////////////////////////////////////////////////////////////////////////

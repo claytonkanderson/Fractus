@@ -12,11 +12,12 @@ namespace
     using Mat9x12 = Eigen::Matrix<FloatT, 9, 12>;
     using Mat9 = Eigen::Matrix<FloatT, 9, 9>;
     using Mat12 = Eigen::Matrix<FloatT, 12, 12>;
+    using Vec9 = Eigen::Matrix<FloatT, 9, 1>;
 
     Deformation::TetraGroup* group;
     using namespace Deformation;
 
-    Mat3 Calc_Ds(const Deformation::Tetrahedra& tet, const std::vector<Vertex> & vertices)
+    Mat3 Calc_Ds(const Deformation::Tetrahedra& tet, const std::vector<Vertex>& vertices)
     {
         Mat3 ds;
         for (int i = 1; i < 4; i++)
@@ -47,6 +48,24 @@ namespace
         FloatT lamba = youngsModulus * poissonRatio / ((1.0f + poissonRatio) * (1.0f - 2.0f * poissonRatio));
         FloatT mu = youngsModulus / (2.0f + 2.0f * poissonRatio);
         return mu * f * e + lamba * e.trace() * f;
+    }
+
+    Vec9 Reshape3x3(const Mat3& m)
+    {
+        Vec9 vec;
+        vec(0, 0) = m(0, 0);
+        vec(1, 0) = m(1, 0);
+        vec(2, 0) = m(2, 0);
+
+        vec(3, 0) = m(0, 1);
+        vec(4, 0) = m(1, 1);
+        vec(5, 0) = m(2, 1);
+
+        vec(6, 0) = m(0, 2);
+        vec(7, 0) = m(1, 2);
+        vec(8, 0) = m(2, 2);
+
+        return vec;
     }
 
     Mat9x12 Calc_dFdx(const Mat3& dmInv)
@@ -107,17 +126,17 @@ namespace
         return dFdx;
     }
 
-    Eigen::Matrix<FloatT, 9, 1> Calc_g_i(const Mat3& f)
+    Vec9 Calc_g_i(const Mat3& f)
     {
-        Eigen::Matrix<FloatT, 9, 1> g_i;
+        Vec9 g_i;
         g_i(0, 0) = 2 * f(0, 0);
         g_i(1, 0) = 2 * f(1, 0);
         g_i(2, 0) = 2 * f(2, 0);
-                    
+
         g_i(3, 0) = 2 * f(0, 1);
         g_i(4, 0) = 2 * f(1, 1);
         g_i(5, 0) = 2 * f(2, 1);
-                    
+
         g_i(6, 0) = 2 * f(0, 2);
         g_i(7, 0) = 2 * f(1, 2);
         g_i(8, 0) = 2 * f(2, 2);
@@ -180,7 +199,7 @@ namespace
         return 4 * (KroneckerProduct(Mat3::Identity(), f * f.transpose()) + KroneckerProduct(f * f.transpose(), Mat3::Identity()) + d);
     }
 
-    Mat9 Calc_vec_dPsi2_dF2(const Mat9& g_i, FloatT i_c, const Mat9& h_i, const Mat9& h_2, FloatT mu, FloatT lambda)
+    Mat9 Calc_vec_dPsi2_dF2(const Vec9& g_i, FloatT i_c, const Mat9& h_i, const Mat9& h_2, FloatT mu, FloatT lambda)
     {
         return lambda / 4.0f * (g_i * g_i.transpose()) + (-mu / 2.0f + lambda / 4.0f * (i_c - 3.0f)) * h_i + mu / 4.0f * h_2;
     }
@@ -188,6 +207,54 @@ namespace
     Mat12 Calc_dfdx(const Mat9x12& dFdx, const Mat9 vec_dPsi2_dF2, FloatT a)
     {
         return -a * dFdx.transpose() * vec_dPsi2_dF2 * dFdx;
+    }
+
+    void Main()
+    {
+        // todo - replace with Tetrahedra's vol
+        auto vol = 1;
+        auto mu = 1;
+        auto lambda = 1;
+
+        Deformation::Tetrahedra restTet(0, 1, 2, 3);
+        Deformation::Tetrahedra deformedTet(0, 1, 2, 4);
+        std::vector<Vertex> vertices(5);
+        vertices[0].mPosition = glm::dvec3(0, 0, 0);
+        vertices[1].mPosition = glm::dvec3(1, 0.5, 0);
+        vertices[2].mPosition = glm::dvec3(0, 1, 0);
+        vertices[3].mPosition = glm::dvec3(0.4, 0.5, 1);
+        vertices[4].mPosition = glm::dvec3(0.4, 0.5, 1 - 0.01);
+
+        auto ds = Calc_Ds(deformedTet, vertices);
+        auto dmInv = Calc_DmInv(restTet, vertices);
+        auto f = Calc_F(ds, dmInv);
+        auto e = Calc_E(f);
+        auto dFdx = Calc_dFdx(dmInv);
+        auto dPsidF = Calc_dPsiDf(f, e);
+        auto dPsidx = dFdx.transpose() * Reshape3x3(dPsidF);
+        auto force = -vol * dPsidx; // need to reshape to (3,4)
+
+        auto g_i = Calc_g_i(f);
+        auto i_c = Calc_i_c(f);
+        auto h_i = Calc_h_i();
+        auto d = Calc_D(f);
+        auto h_2 = Calc_h_2(f, d);
+        auto vec_dPsi2_dF2 = Calc_vec_dPsi2_dF2(g_i, i_c, h_i, h_2, mu, lambda);
+        auto dfdx = Calc_dfdx(dFdx, vec_dPsi2_dF2, vol);
+
+        // so i think we have everything we need to do to actually try this out
+        // the above code gives us the force and force gradient for a single element
+        // we need to create a large sparse 'A' matrix and a dense 'b' vector.
+        // the size will be the 3 times the number of vertices
+        // Ax = b will give x, which represents the change in velocities for each vertex
+        // we then forward compute the change in position
+        //
+        // so how do we want to test this? the options are
+        // - output a protobuf simulation file and visualize in unity
+        // - produce a C-api and use directly in unity over a DLL
+        // - spin up a unity server and supply it with the visualization information over gRPC
+        //   don't currently have gRPC integrated into this project
+        // - would be nice to be able to construct DLL and gRPC interfaces in one go
     }
 }
 
