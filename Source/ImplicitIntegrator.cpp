@@ -1,11 +1,13 @@
 #include "ImplicitIntegrator.h"
 #include "Deformation.hpp"
 #include <Eigen/Dense>
+#include <Eigen/Sparse>
+#include <Eigen/IterativeLinearSolvers>
 #include <iostream>
 
 using Eigen::MatrixXd;
 
-namespace
+namespace Deformation
 {
     using FloatT = float;
     using Mat3 = Eigen::Matrix<FloatT, 3, 3>;
@@ -13,22 +15,31 @@ namespace
     using Mat9 = Eigen::Matrix<FloatT, 9, 9>;
     using Mat12 = Eigen::Matrix<FloatT, 12, 12>;
     using Vec9 = Eigen::Matrix<FloatT, 9, 1>;
+    using Vec12 = Eigen::Matrix<FloatT, 12, 1>;
 
-    Deformation::TetraGroup* group;
-    using namespace Deformation;
-
-    Mat3 Calc_Ds(const Deformation::Tetrahedra& tet, const std::vector<Vertex>& vertices)
+    Mat3 Calc_Ds(const Deformation::Tetrahedra& tet, const std::vector<Vertex>& vertices, bool restState)
     {
-        Mat3 ds;
+        Mat3 ds = Mat3::Zero();
         for (int i = 1; i < 4; i++)
+        {
             for (int j = 0; j < 3; j++)
-                ds(i - 1, j) = vertices[tet.mIndices[i]].mPosition[j] - vertices[tet.mIndices[0]].mPosition[j];
+            {
+                if (restState)
+					ds(i - 1, j) = vertices[tet.mIndices[i]].mMaterialCoordinates[j] - vertices[tet.mIndices[0]].mMaterialCoordinates[j];
+                else
+                    ds(i - 1, j) = vertices[tet.mIndices[i]].mPosition[j] - vertices[tet.mIndices[0]].mPosition[j];
+            }
+        }
+
         return ds;
     }
 
     Mat3 Calc_DmInv(const Deformation::Tetrahedra& tet, const std::vector<Vertex>& vertices)
     {
-        return Calc_Ds(tet, vertices).inverse();
+        auto mat = Calc_Ds(tet, vertices, true);
+        if (std::abs(mat.determinant()) < 1e-10f)
+            throw std::exception("Small");
+        return mat.inverse();
     }
 
     Mat3 Calc_F(const Mat3& ds, const Mat3& dmInv)
@@ -52,7 +63,7 @@ namespace
 
     Vec9 Reshape3x3(const Mat3& m)
     {
-        Vec9 vec;
+        Vec9 vec = Vec9::Zero();
         vec(0, 0) = m(0, 0);
         vec(1, 0) = m(1, 0);
         vec(2, 0) = m(2, 0);
@@ -70,15 +81,15 @@ namespace
 
     Mat9x12 Calc_dFdx(const Mat3& dmInv)
     {
-        auto m = dmInv(1, 1);
-        auto n = dmInv(1, 2);
-        auto o = dmInv(1, 3);
-        auto p = dmInv(2, 1);
-        auto q = dmInv(2, 2);
-        auto r = dmInv(2, 3);
-        auto s = dmInv(3, 1);
-        auto t = dmInv(3, 2);
-        auto u = dmInv(3, 3);
+        auto m = dmInv(0, 0);
+        auto n = dmInv(0, 1);
+        auto o = dmInv(0, 2);
+        auto p = dmInv(1, 0);
+        auto q = dmInv(1, 1);
+        auto r = dmInv(1, 2);
+        auto s = dmInv(2, 0);
+        auto t = dmInv(2, 1);
+        auto u = dmInv(2, 2);
 
         auto t1 = -m - p - s;
         auto t2 = -n - q - t;
@@ -128,7 +139,7 @@ namespace
 
     Vec9 Calc_g_i(const Mat3& f)
     {
-        Vec9 g_i;
+        Vec9 g_i = Vec9::Zero();
         g_i(0, 0) = 2 * f(0, 0);
         g_i(1, 0) = 2 * f(1, 0);
         g_i(2, 0) = 2 * f(2, 0);
@@ -209,52 +220,139 @@ namespace
         return -a * dFdx.transpose() * vec_dPsi2_dF2 * dFdx;
     }
 
-    void Main()
+    void ImplicitUpdate(TetraGroup& group, float timestep)
     {
-        // todo - replace with Tetrahedra's vol
-        auto vol = 1;
-        auto mu = 1;
-        auto lambda = 1;
+        size_t numVertices = group.mVertices.size();
+        Eigen::SparseMatrix<float> globalA(3* numVertices, 3* numVertices);
+        Eigen::VectorXf globalB = Eigen::VectorXf::Zero(3 * numVertices);
+		Eigen::VectorXf globalX = Eigen::VectorXf::Zero(3 * numVertices);
+        Vec12 nodeVelocities = Vec12::Zero();
+        Vec12 localB = Vec12::Zero();
 
-        Deformation::Tetrahedra restTet(0, 1, 2, 3);
-        Deformation::Tetrahedra deformedTet(0, 1, 2, 4);
-        std::vector<Vertex> vertices(5);
-        vertices[0].mPosition = glm::dvec3(0, 0, 0);
-        vertices[1].mPosition = glm::dvec3(1, 0.5, 0);
-        vertices[2].mPosition = glm::dvec3(0, 1, 0);
-        vertices[3].mPosition = glm::dvec3(0.4, 0.5, 1);
-        vertices[4].mPosition = glm::dvec3(0.4, 0.5, 1 - 0.01);
+        for (size_t i = 0; i < group.mVertices.size(); i++)
+        {
+            globalA.coeffRef(3 * i, 3 * i) = group.mVertices[i].mMass;
+            globalA.coeffRef(3 * i + 1, 3 * i + 1) = group.mVertices[i].mMass;
+			globalA.coeffRef(3 * i + 2, 3 * i + 2) = group.mVertices[i].mMass;
+        }
 
-        auto ds = Calc_Ds(deformedTet, vertices);
-        auto dmInv = Calc_DmInv(restTet, vertices);
-        auto f = Calc_F(ds, dmInv);
-        auto e = Calc_E(f);
-        auto dFdx = Calc_dFdx(dmInv);
-        auto dPsidF = Calc_dPsiDf(f, e);
-        auto dPsidx = dFdx.transpose() * Reshape3x3(dPsidF);
-        auto force = -vol * dPsidx; // need to reshape to (3,4)
+        for (const auto& pair : group.mIdToTetrahedra)
+        {
+            const auto& tet = pair.second;
 
-        auto g_i = Calc_g_i(f);
-        auto i_c = Calc_i_c(f);
-        auto h_i = Calc_h_i();
-        auto d = Calc_D(f);
-        auto h_2 = Calc_h_2(f, d);
-        auto vec_dPsi2_dF2 = Calc_vec_dPsi2_dF2(g_i, i_c, h_i, h_2, mu, lambda);
-        auto dfdx = Calc_dfdx(dFdx, vec_dPsi2_dF2, vol);
+            auto ds = Calc_Ds(tet, group.mVertices, false);
+            auto dmInv = Calc_DmInv(tet, group.mVertices);
+            auto f = Calc_F(ds, dmInv);
+            auto e = Calc_E(f);
+            auto dFdx = Calc_dFdx(dmInv);
+            auto dPsidF = Calc_dPsiDf(f, e);
+            auto dPsidx = dFdx.transpose() * Reshape3x3(dPsidF);
+            Vec12 force = -tet.mVolume * dPsidx; // 12x1 atm
 
-        // so i think we have everything we need to do to actually try this out
-        // the above code gives us the force and force gradient for a single element
-        // we need to create a large sparse 'A' matrix and a dense 'b' vector.
-        // the size will be the 3 times the number of vertices
-        // Ax = b will give x, which represents the change in velocities for each vertex
-        // we then forward compute the change in position
-        //
-        // so how do we want to test this? the options are
-        // - output a protobuf simulation file and visualize in unity
-        // - produce a C-api and use directly in unity over a DLL
-        // - spin up a unity server and supply it with the visualization information over gRPC
-        //   don't currently have gRPC integrated into this project
-        // - would be nice to be able to construct DLL and gRPC interfaces in one go
+            auto g_i = Calc_g_i(f);
+            auto i_c = Calc_i_c(f);
+            auto h_i = Calc_h_i();
+            auto d = Calc_D(f);
+            auto h_2 = Calc_h_2(f, d);
+            auto vec_dPsi2_dF2 = Calc_vec_dPsi2_dF2(g_i, i_c, h_i, h_2, group.mMu, group.mLambda);
+            auto dfdx = Calc_dfdx(dFdx, vec_dPsi2_dF2, tet.mVolume);
+
+            // Contribution to globalA
+            // 12 x 12 matrix df/dx
+            // the force on one of the 4 vertices is a 3-vector
+            // the derivative of that with respect to the spatial coordinates of all four node spatial coordinates should give me a 3x12 matrix (?)
+            // then we have that for each of the nodes
+            // and we get a 12x12
+            // so a single element tells me how the force in coordinate (x,y,z) on node i changes with respect to the (x,y,z) position of node j, makes sense
+            // and a 3x3 block tells me how the force on node i changes with respect to the position of node j
+            // so it's probably easier to consider the global matrix as n x n where elements are 3x3 rather than 3n x 3n with scalar elements.
+            for (size_t i = 0; i < 4; i++)
+            {
+                auto vert_i = tet.mIndices[i];
+
+                for (size_t j = 0; j < 4; j++)
+                {
+                    auto vert_j = tet.mIndices[j];
+
+                    // we want to set a 3x3 block in globalA here from (3*vertId to 3*vertId + 2, 3*otherVertId to 3*otherVertId + 2)
+                    // and we should draw from (3*i to 3*i + 2, 3*j to 3*j + 2)
+                    for (size_t sub_i = 0; sub_i < 3; sub_i++)
+                    {
+                        for (size_t sub_j = 0; sub_j < 3; sub_j++)
+                        {
+                            globalA.coeffRef(3 * vert_i + sub_i, 3 * vert_j + sub_j) -= timestep * timestep * dfdx(3 * i + sub_i, 3 * j + sub_j);
+                        }
+                    }
+                }
+            }
+            
+            for (size_t i = 0; i < 4; i++)
+            {
+                nodeVelocities(3 * i + 0) = group.mVertices[tet.mIndices[i]].mVelocity.x;
+                nodeVelocities(3 * i + 1) = group.mVertices[tet.mIndices[i]].mVelocity.y;
+                nodeVelocities(3 * i + 2) = group.mVertices[tet.mIndices[i]].mVelocity.z;
+            }
+
+            localB = timestep * force + timestep * timestep * dfdx * nodeVelocities;
+
+            if (isnan(localB.norm()))
+                throw std::exception("nan detected in local forces");
+
+            // Contribution to globalB
+            for (size_t i = 0; i < 4; i++)
+            {
+                auto vert_i = tet.mIndices[i];
+                globalB(3 * vert_i + 0) += localB(3 * i + 0);
+                globalB(3 * vert_i + 1) += localB(3 * i + 1);
+                globalB(3 * vert_i + 2) += localB(3 * i + 2);
+            }
+        }
+
+        // Apply additional per-node forces
+        for (int i = 0; i < group.mVertices.size(); i++)
+        {
+            // Gravity
+            globalB(3 * i + 1) += -9.8 * group.mVertices[i].mMass;
+
+            // Collision forces
+            globalB(3 * i + 0) += group.mVertices[i].mForce.x;
+            globalB(3 * i + 1) += group.mVertices[i].mForce.y;
+            globalB(3 * i + 2) += group.mVertices[i].mForce.z;
+        }
+
+        std::cout << "globalA norm: " << globalA.norm() << std::endl;
+        if (isnan(globalA.norm()))
+            throw std::exception("Nan detected.");
+
+        std::cout << "globalB norm: " << globalB.norm() << std::endl;
+        if (isnan(globalB.norm()))
+            throw std::exception("Nan detected.");
+
+        Eigen::ConjugateGradient<Eigen::SparseMatrix<float>, Eigen::Lower | Eigen::Upper> solver;
+        solver.compute(globalA);
+        globalX = solver.solve(globalB);
+
+        std::cout << "Solver error : " << solver.error() << std::endl;
+
+        if (isnan(solver.error()))
+            throw std::exception("Solver failed.");
+
+        // Integrate
+        for (int i = 0; i < group.mVertices.size(); i++)
+        {
+            auto& vertex = group.mVertices[i];
+            vertex.mVelocity += glm::dvec3(globalX(3 * i + 0), globalX(3 * i + 1), globalX(3 * i + 2));
+            vertex.mPosition += (double)timestep * vertex.mVelocity;
+        }
+
+        //std::cout << "solution" << std::endl;
+        //std::cout << globalX << std::endl;
+
+        // things to try:
+        // - 'solveWithGuess' and providing the previous timestep's change in velocities as the guess?
+        // - other preconditioners, solvers
+        // - the doc's have globalX = solver.solve(globalB) twice, so maybe it tries for a specified number of
+        //   iterations each time and refines the solution.. ?
     }
 }
 

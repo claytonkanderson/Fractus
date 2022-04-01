@@ -69,6 +69,10 @@ namespace Deformation
 		void FractureNode(size_t nodeIdx, const glm::dvec3& fracturePlaneNormal);
 		size_t SplitEdge(const glm::ivec2 & edgeIdx, size_t fractureNodeIdx, const glm::dvec3& planeNormal);
 		void OutputSaveFile();
+		void ClearState(bool saveFrame, IronGames::SimulationFrame * frame);
+		void CalculateSeparationTensor(bool saveFrame, IronGames::SimulationFrame* frame);
+		void Fracture();
+		void ApplyGroundCollision();
 
 		std::vector<size_t> GetTetrahedrasFromNode(size_t nodeIdx) const;
 		bool EdgeIntersectsPlane(const glm::ivec2& edgeIdx, int fractureNodeIdx, const glm::dvec3& planeNormal) const;

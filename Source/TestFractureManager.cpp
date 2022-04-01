@@ -3,6 +3,7 @@
 #include "DeformationAPI.h"
 #include "FractureContext.h"
 #include "ProtoConverter.hpp"
+#include "ImplicitIntegrator.h"
 #include <fstream>
 #include <sstream>
 #include <chrono>
@@ -264,7 +265,7 @@ const float positionScale = 0.1f;
 			for (int i = 0; i < numVertices; i++)
 				positions[3 * i + 1] = positions[3 * i + 1] - boundingBoxMin[1] + heightAboveZero;
 
-			mTimestep = 1e-7;
+			mTimestep = 1e-4;
 			mLambda = 0.0f;
 			mMu = 5.29e7f;
 			mPhi = 0.0f;
@@ -285,7 +286,7 @@ const float positionScale = 0.1f;
 
 			SaveFrame(summary, *group);
 
-			int numSteps = 200000;
+			int numSteps = 1000;
 			for (int i = 0; i < numSteps; i++)
 			{
 				if (!Update(*group))
@@ -647,7 +648,7 @@ const float positionScale = 0.1f;
 			float maxEigenvalue = -1;
 			float maxEigenvalueTime = 0.0f;
 
-			for (int i = 0; i < 10000; i++)
+			for (int i = 0; i < 1000; i++)
 			{
 				if (!Update(*group))
 					break;

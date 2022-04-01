@@ -3,6 +3,7 @@
 #include "FractureContext.h"
 #include "ConvexIntersection.h"
 #include "ProtoConverter.hpp"
+#include "ImplicitIntegrator.h"
 
 #include <Mathematics/Delaunay3.h>
 #include <Mathematics/SymmetricEigensolver3x3.h>
@@ -43,358 +44,25 @@ namespace Deformation
 
     void TetraGroup::Update(double timestep)
 	{
-		dmat4x3 pMat;
-		dmat4x3 vMat;
-        dmat3 sigmaPlus = dmat3(0);
-        dmat3 sigmaMinus = dmat3(0);
-        dmat3 mMat;
-        dmat3 sigma;
-        std::array<double, 3> eigenvalues;
-        std::array<std::array<double, 3>, 3> eigenvectors;
-        double separation[3][3];
-        const int32_t sortType = -1; // -1 is decreasing order, so the first is the largest
-        const bool aggressive = false;
-
         auto frame = mSummary.add_frames();
 
         bool saveFrame = false;
         if (saveFrame)
             frame->set_time(mSimulationTime);
 
-        gte::SymmetricEigensolver3x3<double> solver;
-
-        for (auto& vertex : mVertices)
-        {
-            vertex.mCompressiveForces.clear();
-            vertex.mTensileForces.clear();
-            vertex.mCollisionForces.clear();
-            vertex.mForce = vec3(0.0);
-            vertex.mLargestEigenvalue = 0.0f;
-            vertex.mPrincipalEigenVector = vec3(0.0f);
-
-            if (saveFrame)
-            {
-                auto vert = frame->add_vertices();
-                *vert->mutable_position() = ProtoConverter::Convert(vertex.mPosition);
-                *vert->mutable_material_coordinates() = ProtoConverter::Convert(vertex.mMaterialCoordinates);
-                *vert->mutable_velocity() = ProtoConverter::Convert(vertex.mVelocity);
-                vert->set_mass(vertex.mMass);
-            }
-        }
-
+        ClearState(saveFrame, frame);
+        // Apply collision forces from the current state
         ConvexIntersection::ResolveCollisions(mVertices, mIdToTetrahedra);
-
-		for (auto & pair : mIdToTetrahedra)
-		{
-            size_t tetIdx = pair.first;
-            auto& tetrahedra = pair.second;
-            auto& v0 = mVertices[tetrahedra.mIndices[0]];
-            auto& v1 = mVertices[tetrahedra.mIndices[1]];
-            auto& v2 = mVertices[tetrahedra.mIndices[2]];
-            auto& v3 = mVertices[tetrahedra.mIndices[3]];
-
-			pMat = dmat4x3(v0.mPosition,
-				v1.mPosition,
-				v2.mPosition,
-				v3.mPosition);
-
-			vMat = dmat4x3(v0.mVelocity,
-				v1.mVelocity,
-				v2.mVelocity,
-				v3.mVelocity);
-
-			dmat3x4 pBeta = pMat * tetrahedra.mBeta;
-
-            dvec3 dx_u1 = pBeta * dvec4(1, 0, 0, 0);
-            dvec3 dx_u2 = pBeta * dvec4(0, 1, 0, 0);
-            dvec3 dx_u3 = pBeta * dvec4(0, 0, 1, 0);
-
-            std::array<dvec3, 3> dx{ dx_u1, dx_u2, dx_u3 };
-
-            dmat3x4 vBeta = vMat * tetrahedra.mBeta;
-            dvec3 dxd_u1 = vBeta * dvec4(1, 0, 0, 0);
-            dvec3 dxd_u2 = vBeta * dvec4(0, 1, 0, 0);
-            dvec3 dxd_u3 = vBeta * dvec4(0, 0, 1, 0);
-
-            std::array<dvec3, 3 > dxd{ dxd_u1, dxd_u2, dxd_u3 };
-
-            dmat3 strainTensor;
-            for (int i = 0; i < 3; i++)
-                for (int j = 0; j < 3; j++)
-                    strainTensor[i][j] = dot(dx[i], dx[j]) - (i == j ? 1 : 0);
-
-            dmat3 rateOfStrainTensor;
-            for (int i = 0; i < 3; i++)
-                for (int j = 0; j < 3; j++)
-                    rateOfStrainTensor[i][j] = dot(dx[i], dxd[j]) + dot(dxd[i], dx[j]);
-
-            dmat3 elasticStress(0.0);
-            for (int i = 0; i < 3; i++)
-                for (int j = 0; j < 3; j++)
-                    for(int k = 0; k < 3; k++)
-                        elasticStress[i][j] += mLambda * strainTensor[k][k] * (i == j ? 1 : 0) + 2 * mMu * strainTensor[i][j];
-
-            dmat3 viscousStress(0.0);
-            for (int i = 0; i < 3; i++)
-                for (int j = 0; j < 3; j++)
-                    for(int k = 0; k < 3; k++)
-                        viscousStress[i][j] += mPhi * rateOfStrainTensor[k][k] * (i == j ? 1 : 0) + 2 * mPsi * rateOfStrainTensor[i][j];
-
-            for (int i = 0; i < 3; i++)
-            {
-                for (int j = 0; j < 3; j++)
-                {
-                    sigma[i][j] = (double)elasticStress[i][j] + (double)viscousStress[i][j];
-
-                    if (isnan(sigma[i][j]))
-                        throw std::exception("Nan value in sigma detected.");
-                }
-            }
-
-            for (int i = 0; i < 4; i++)
-            {
-                dvec3 forceOnNode = dvec3(0);
-                for (int j = 0; j < 4; j++)
-                {
-                    double innerProduct = 0;
-                    for (int k = 0; k < 3; k++)
-                    {
-                        for (int l = 0; l < 3; l++)
-                        {
-                            // Reversed indices from paper because glm is column, row indexing
-                            // and the conventional matrix indexing is (row, column)
-                            // - should not matter in a lot of places above because the matrices are symmetric
-                            innerProduct += tetrahedra.mBeta[l][j] * tetrahedra.mBeta[k][i] * sigma[l][k];
-                        }
-                    }
-                    forceOnNode += pMat[j] * innerProduct;
-                }
-
-                forceOnNode *= -tetrahedra.mVolume * 0.5f;
-
-                if (isnan(forceOnNode.x) || isnan(forceOnNode.y) || isnan(forceOnNode.z))
-                {
-                    throw std::exception("Nan value in forceOnNode detected.");
-                }
-
-                mVertices[tetrahedra.mIndices[i]].mForce += forceOnNode;
-            }
-
-            solver(sigma[0][0], sigma[0][1], sigma[0][2],
-                sigma[1][1], sigma[1][2], sigma[2][2],
-                aggressive, sortType, eigenvalues, eigenvectors);
-
-            sigmaPlus = dmat3(0.0);
-            sigmaMinus = dmat3(0.0);
-
-            for (int i = 0; i < 3; i++)
-            {
-                dvec3 eigenVec(eigenvectors[i][0], eigenvectors[i][1], eigenvectors[i][2]);
-                ComputeMMat(eigenVec, mMat);
-
-                sigmaPlus += fmax(0.0f, eigenvalues[i]) * mMat;
-                sigmaMinus += fmin(0.0f, eigenvalues[i]) * mMat;
-            }
-
-            std::array<dvec3, 4> fPlus = { dvec3(0.0),dvec3(0.0),dvec3(0.0),dvec3(0.0) };
-            std::array<dvec3, 4> fMinus = { dvec3(0.0),dvec3(0.0),dvec3(0.0),dvec3(0.0) };;
-
-            for (int i = 0; i < 4; i++)
-            {
-                for (int j = 0; j < 4; j++)
-                {
-                    double innerProductPlus = 0;
-                    double innerProductMinus = 0;
-                    for (int k = 0; k < 3; k++)
-                    {
-                        for (int l = 0; l < 3; l++)
-                        {
-                            innerProductPlus += tetrahedra.mBeta[k][i] * tetrahedra.mBeta[l][j] * sigmaPlus[l][k];
-                            innerProductMinus += tetrahedra.mBeta[k][i] * tetrahedra.mBeta[l][j] * sigmaMinus[l][k];
-                        }
-                    }
-                    fPlus[i] += pMat[j] * innerProductPlus;
-                    fMinus[i] += pMat[j] * innerProductMinus;
-                }
-
-                fPlus[i] *= -tetrahedra.mVolume * 0.5f;
-                fMinus[i] *= -tetrahedra.mVolume * 0.5f;
-                //fPlus[i] *= tetrahedra.mVolume * 0.5f;
-                //fMinus[i] *= tetrahedra.mVolume * 0.5f;
-            }
-
-            for (int i = 0; i < 4; i++)
-            {
-                mVertices[tetrahedra.mIndices[i]].mCompressiveForces.push_back(fMinus[i]);
-                mVertices[tetrahedra.mIndices[i]].mTensileForces.push_back(fPlus[i]);
-                //mVertices[tetrahedra.mIndices[i]].mCompressiveForces.push_back(fPlus[i]);
-                //mVertices[tetrahedra.mIndices[i]].mTensileForces.push_back(fMinus[i]);
-            }
-
-            if (saveFrame)
-            {
-                auto& tet = *frame->add_tetrahedra();
-                tet.set_mass(tetrahedra.mMass);
-                tet.set_volume(tetrahedra.mVolume);
-                *tet.mutable_strain_tensor() = ProtoConverter::Convert(strainTensor);
-                *tet.mutable_stress_tensor() = ProtoConverter::Convert(sigma);
-                for (auto& idx : tetrahedra.mIndices)
-                    tet.add_indices(idx);
-            }
-		}
-
-        dvec3 a;
-        dmat3 mSeparation;
-        dmat3 m_Mat;
-        dvec3 compressiveForceSum;
-        dvec3 tensileForceSum;
-        
-        for (size_t vertexIdx = 0; vertexIdx < mVertices.size(); vertexIdx++)
-        {
-            auto& vertex = mVertices[vertexIdx];
-            vertex.mForce += glm::dvec3(0, -9.8, 0) * vertex.mMass;
-
-            a = vertex.mInvMass * vertex.mForce;
-
-            if (isnan(a[0]) || isnan(a[1]) || isnan(a[2]))
-                throw std::exception("Nan found in acceleration.");
-
-            vertex.mVelocity += a * timestep;
-            vertex.mPosition += vertex.mVelocity * timestep;
-
-            compressiveForceSum = vec3(0.0);
-            tensileForceSum = vec3(0.0);
-
-            // Tensile is f+
-            // Compressive is f-
-            // Formula is -m(f+) + m(f-) + sum(m(f+)) - sum(m(f-))
-
-            for (const auto& compressiveForce : vertex.mCompressiveForces)
-                compressiveForceSum += compressiveForce;
-            for (const auto& tensileForce : vertex.mTensileForces)
-                tensileForceSum += tensileForce;
-
-            mSeparation = dmat3(0.0);
-
-            ComputeMMat(tensileForceSum, m_Mat);
-            mSeparation -= m_Mat;
-            ComputeMMat(compressiveForceSum, m_Mat);
-            mSeparation += m_Mat;
-
-            for (const auto& compressiveForce : vertex.mCompressiveForces)
-            {
-                ComputeMMat(compressiveForce, m_Mat);
-                mSeparation -= m_Mat;
-            }
-            for (const auto& tensileForce : vertex.mTensileForces)
-            {
-                ComputeMMat(tensileForce, m_Mat);
-                mSeparation += m_Mat;
-            }
-
-            mSeparation *= 0.5f;
-
-            for (int i = 0; i < 3; i++)
-            {
-                for (int j = 0; j < 3; j++)
-                {
-                    separation[i][j] = mSeparation[i][j];
-                }
-            }
-
-            solver(separation[0][0], separation[0][1], separation[0][2],
-                separation[1][1], separation[1][2], separation[2][2],
-                aggressive, sortType, eigenvalues, eigenvectors);
-
-            // Look for largest eigenvalue and corresponding eigen vector
-            double largestEigenvalue = eigenvalues[0];
-            dvec3 principalEigenVector = dvec3(eigenvectors[0][0], eigenvectors[0][1], eigenvectors[0][2]);
-
-            mVertices[vertexIdx].mPrincipalEigenVector = principalEigenVector;
-            mVertices[vertexIdx].mLargestEigenvalue = largestEigenvalue;
-
-            if (saveFrame)
-            {
-                auto& vert = *frame->mutable_vertices(vertexIdx);
-                *vert.mutable_force() = ProtoConverter::Convert(mVertices[vertexIdx].mForce);
-                vert.set_largest_eigenvalue(mVertices[vertexIdx].mLargestEigenvalue);
-                *vert.mutable_principal_eigenvector() = ProtoConverter::Convert(mVertices[vertexIdx].mPrincipalEigenVector);
-
-                for (const auto& compressiveForce : mVertices[vertexIdx].mCompressiveForces)
-                    *vert.add_compressive_forces() = ProtoConverter::Convert(compressiveForce);
-                for (const auto& tensileForce : mVertices[vertexIdx].mTensileForces)
-                    *vert.add_tensile_forces() = ProtoConverter::Convert(tensileForce);
-                for (const auto& collisionForce : mVertices[vertexIdx].mCollisionForces)
-                    *vert.add_collision_forces() = ProtoConverter::Convert(collisionForce);
-
-                *vert.mutable_separation_tensor() = ProtoConverter::Convert(mSeparation);
-            }
-        }
-
-        // Casually prevent fracturing newly created vertices
-        size_t numVertices = mVertices.size();
-        if (numVertices < mMaxNumVertices)
-        {
-            //for (size_t idx = 0; idx < numVertices; idx++)
-            //{
-            //    if (mVertices[idx].mLargestEigenvalue > mToughness)
-            //        FractureNode(idx, mVertices[idx].mPrincipalEigenVector);
-
-            //    if (mVertices.size() >= mMaxNumVertices)
-            //        break;
-            //}
-            
-            // let's try fracturing only the highest eigenvalue and only allowing one fracture per frame
-            struct FractureAttempt
-            {
-                size_t mVertexId = 0;
-                double mLargestEigenValue = 0;
-            };
-
-            std::vector<FractureAttempt> fractureAttempts;
-
-			for (size_t idx = 0; idx < numVertices; idx++)
-			{
-				if (mVertices[idx].mLargestEigenvalue > mToughness)
-				{
-                    fractureAttempts.push_back({ idx, mVertices[idx].mLargestEigenvalue });
-				}
-			}
-
-            std::sort(fractureAttempts.begin(), fractureAttempts.end(), [](const FractureAttempt& a, const FractureAttempt & b) 
-                {
-                    return a.mLargestEigenValue > b.mLargestEigenValue;
-                });
-
-            bool fractured = fractureAttempts.empty();
-            for (const auto& attempt : fractureAttempts)
-            {
-                //std::cout << "Fracture Node " << attempt.mVertexId << std::endl;
-                FractureContext context(mVertices[attempt.mVertexId].mPrincipalEigenVector, attempt.mVertexId, mIdToTetrahedra, mVertices, mTetIdCounter);
-                if (context.Fracture())
-                {
-                    fractured = true;
-                    break;
-                }
-            }
-
-            if (!fractured)
-                std::cout << "All fracture attempts failed so no fracture occurred." << std::endl;
-
-            ComputeDerivedQuantities();
-        }
-
-        for (auto& vertex : mVertices)
-        {
-            if (vertex.mPosition.y < 0)
-            {
-                vertex.mPosition.y = -vertex.mPosition.y;
-                double elasticity = 0.9f;
-                double friction = 0.1f;
-                const auto & velocity = vertex.mVelocity;
-                vertex.mVelocity = (glm::dvec3((1 - friction)* velocity.x, -elasticity * velocity.y, (1 - friction)* velocity.z));
-            }
-        }
+        // Calculate new positions and velocities based on the deformed position
+        // - also includes gravity
+        // - also includes collision forces
+        Deformation::ImplicitUpdate(*this, timestep);
+        // Calculate separation tensor based on new deformed state
+        CalculateSeparationTensor(saveFrame, frame);
+        // Apply fracture based on separation tensor
+        Fracture();
+        // Apply ground response
+        ApplyGroundCollision();
 
         mStepNum++;
         mSimulationTime += timestep;
@@ -507,6 +175,368 @@ namespace Deformation
         IronGames::SimulationSummaries summaries;
         *summaries.add_summaries() = mSummary;
         summaries.SerializeToOstream(&ofs);
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////
+
+    void TetraGroup::ClearState(bool saveFrame, IronGames::SimulationFrame* frame)
+    {
+        for (auto& vertex : mVertices)
+        {
+            vertex.mCompressiveForces.clear();
+            vertex.mTensileForces.clear();
+            vertex.mCollisionForces.clear();
+            vertex.mForce = vec3(0.0);
+            vertex.mLargestEigenvalue = 0.0f;
+            vertex.mPrincipalEigenVector = vec3(0.0f);
+
+            if (saveFrame)
+            {
+                auto vert = frame->add_vertices();
+                *vert->mutable_position() = ProtoConverter::Convert(vertex.mPosition);
+                *vert->mutable_material_coordinates() = ProtoConverter::Convert(vertex.mMaterialCoordinates);
+                *vert->mutable_velocity() = ProtoConverter::Convert(vertex.mVelocity);
+                vert->set_mass(vertex.mMass);
+            }
+        }
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////
+
+    void TetraGroup::CalculateSeparationTensor(bool saveFrame, IronGames::SimulationFrame* frame)
+    {
+        dmat4x3 pMat;
+        dmat4x3 vMat;
+        dmat3 sigmaPlus = dmat3(0);
+        dmat3 sigmaMinus = dmat3(0);
+        dmat3 mMat;
+        dmat3 sigma;
+        std::array<double, 3> eigenvalues;
+        std::array<std::array<double, 3>, 3> eigenvectors;
+        double separation[3][3];
+        const int32_t sortType = -1; // -1 is decreasing order, so the first is the largest
+        const bool aggressive = false;
+        gte::SymmetricEigensolver3x3<double> solver;
+
+        for (auto& pair : mIdToTetrahedra)
+        {
+            size_t tetIdx = pair.first;
+            auto& tetrahedra = pair.second;
+            auto& v0 = mVertices[tetrahedra.mIndices[0]];
+            auto& v1 = mVertices[tetrahedra.mIndices[1]];
+            auto& v2 = mVertices[tetrahedra.mIndices[2]];
+            auto& v3 = mVertices[tetrahedra.mIndices[3]];
+
+            pMat = dmat4x3(v0.mPosition,
+                v1.mPosition,
+                v2.mPosition,
+                v3.mPosition);
+
+            vMat = dmat4x3(v0.mVelocity,
+                v1.mVelocity,
+                v2.mVelocity,
+                v3.mVelocity);
+
+            dmat3x4 pBeta = pMat * tetrahedra.mBeta;
+
+            dvec3 dx_u1 = pBeta * dvec4(1, 0, 0, 0);
+            dvec3 dx_u2 = pBeta * dvec4(0, 1, 0, 0);
+            dvec3 dx_u3 = pBeta * dvec4(0, 0, 1, 0);
+
+            std::array<dvec3, 3> dx{ dx_u1, dx_u2, dx_u3 };
+
+            dmat3x4 vBeta = vMat * tetrahedra.mBeta;
+            dvec3 dxd_u1 = vBeta * dvec4(1, 0, 0, 0);
+            dvec3 dxd_u2 = vBeta * dvec4(0, 1, 0, 0);
+            dvec3 dxd_u3 = vBeta * dvec4(0, 0, 1, 0);
+
+            std::array<dvec3, 3 > dxd{ dxd_u1, dxd_u2, dxd_u3 };
+
+            dmat3 strainTensor;
+            for (int i = 0; i < 3; i++)
+                for (int j = 0; j < 3; j++)
+                    strainTensor[i][j] = dot(dx[i], dx[j]) - (i == j ? 1 : 0);
+
+            dmat3 rateOfStrainTensor;
+            for (int i = 0; i < 3; i++)
+                for (int j = 0; j < 3; j++)
+                    rateOfStrainTensor[i][j] = dot(dx[i], dxd[j]) + dot(dxd[i], dx[j]);
+
+            dmat3 elasticStress(0.0);
+            for (int i = 0; i < 3; i++)
+                for (int j = 0; j < 3; j++)
+                    for (int k = 0; k < 3; k++)
+                        elasticStress[i][j] += mLambda * strainTensor[k][k] * (i == j ? 1 : 0) + 2 * mMu * strainTensor[i][j];
+
+            dmat3 viscousStress(0.0);
+            for (int i = 0; i < 3; i++)
+                for (int j = 0; j < 3; j++)
+                    for (int k = 0; k < 3; k++)
+                        viscousStress[i][j] += mPhi * rateOfStrainTensor[k][k] * (i == j ? 1 : 0) + 2 * mPsi * rateOfStrainTensor[i][j];
+
+            for (int i = 0; i < 3; i++)
+            {
+                for (int j = 0; j < 3; j++)
+                {
+                    sigma[i][j] = (double)elasticStress[i][j] + (double)viscousStress[i][j];
+
+                    if (isnan(sigma[i][j]))
+                        throw std::exception("Nan value in sigma detected.");
+                }
+            }
+
+            for (int i = 0; i < 4; i++)
+            {
+                dvec3 forceOnNode = dvec3(0);
+                for (int j = 0; j < 4; j++)
+                {
+                    double innerProduct = 0;
+                    for (int k = 0; k < 3; k++)
+                    {
+                        for (int l = 0; l < 3; l++)
+                        {
+                            // Reversed indices from paper because glm is column, row indexing
+                            // and the conventional matrix indexing is (row, column)
+                            // - should not matter in a lot of places above because the matrices are symmetric
+                            innerProduct += tetrahedra.mBeta[l][j] * tetrahedra.mBeta[k][i] * sigma[l][k];
+                        }
+                    }
+                    forceOnNode += pMat[j] * innerProduct;
+                }
+
+                forceOnNode *= -tetrahedra.mVolume * 0.5f;
+
+                if (isnan(forceOnNode.x) || isnan(forceOnNode.y) || isnan(forceOnNode.z))
+                {
+                    throw std::exception("Nan value in forceOnNode detected.");
+                }
+
+                mVertices[tetrahedra.mIndices[i]].mForce += forceOnNode;
+            }
+
+            solver(sigma[0][0], sigma[0][1], sigma[0][2],
+                sigma[1][1], sigma[1][2], sigma[2][2],
+                aggressive, sortType, eigenvalues, eigenvectors);
+
+            sigmaPlus = dmat3(0.0);
+            sigmaMinus = dmat3(0.0);
+
+            for (int i = 0; i < 3; i++)
+            {
+                dvec3 eigenVec(eigenvectors[i][0], eigenvectors[i][1], eigenvectors[i][2]);
+                ComputeMMat(eigenVec, mMat);
+
+                sigmaPlus += fmax(0.0f, eigenvalues[i]) * mMat;
+                sigmaMinus += fmin(0.0f, eigenvalues[i]) * mMat;
+            }
+
+            std::array<dvec3, 4> fPlus = { dvec3(0.0),dvec3(0.0),dvec3(0.0),dvec3(0.0) };
+            std::array<dvec3, 4> fMinus = { dvec3(0.0),dvec3(0.0),dvec3(0.0),dvec3(0.0) };;
+
+            for (int i = 0; i < 4; i++)
+            {
+                for (int j = 0; j < 4; j++)
+                {
+                    double innerProductPlus = 0;
+                    double innerProductMinus = 0;
+                    for (int k = 0; k < 3; k++)
+                    {
+                        for (int l = 0; l < 3; l++)
+                        {
+                            innerProductPlus += tetrahedra.mBeta[k][i] * tetrahedra.mBeta[l][j] * sigmaPlus[l][k];
+                            innerProductMinus += tetrahedra.mBeta[k][i] * tetrahedra.mBeta[l][j] * sigmaMinus[l][k];
+                        }
+                    }
+                    fPlus[i] += pMat[j] * innerProductPlus;
+                    fMinus[i] += pMat[j] * innerProductMinus;
+                }
+
+                fPlus[i] *= -tetrahedra.mVolume * 0.5f;
+                fMinus[i] *= -tetrahedra.mVolume * 0.5f;
+                //fPlus[i] *= tetrahedra.mVolume * 0.5f;
+                //fMinus[i] *= tetrahedra.mVolume * 0.5f;
+            }
+
+            for (int i = 0; i < 4; i++)
+            {
+                mVertices[tetrahedra.mIndices[i]].mCompressiveForces.push_back(fMinus[i]);
+                mVertices[tetrahedra.mIndices[i]].mTensileForces.push_back(fPlus[i]);
+                //mVertices[tetrahedra.mIndices[i]].mCompressiveForces.push_back(fPlus[i]);
+                //mVertices[tetrahedra.mIndices[i]].mTensileForces.push_back(fMinus[i]);
+            }
+
+            if (saveFrame)
+            {
+                auto& tet = *frame->add_tetrahedra();
+                tet.set_mass(tetrahedra.mMass);
+                tet.set_volume(tetrahedra.mVolume);
+                *tet.mutable_strain_tensor() = ProtoConverter::Convert(strainTensor);
+                *tet.mutable_stress_tensor() = ProtoConverter::Convert(sigma);
+                for (auto& idx : tetrahedra.mIndices)
+                    tet.add_indices(idx);
+            }
+        }
+
+        dvec3 a;
+        dmat3 mSeparation;
+        dmat3 m_Mat;
+        dvec3 compressiveForceSum;
+        dvec3 tensileForceSum;
+
+        for (size_t vertexIdx = 0; vertexIdx < mVertices.size(); vertexIdx++)
+        {
+            auto& vertex = mVertices[vertexIdx];
+            //vertex.mForce += glm::dvec3(0, -9.8, 0) * vertex.mMass;
+
+            //a = vertex.mInvMass * vertex.mForce;
+
+            //if (isnan(a[0]) || isnan(a[1]) || isnan(a[2]))
+            //    throw std::exception("Nan found in acceleration.");
+
+            //vertex.mVelocity += a * timestep;
+            //vertex.mPosition += vertex.mVelocity * timestep;
+
+            compressiveForceSum = vec3(0.0);
+            tensileForceSum = vec3(0.0);
+
+            // Tensile is f+
+            // Compressive is f-
+            // Formula is -m(f+) + m(f-) + sum(m(f+)) - sum(m(f-))
+
+            for (const auto& compressiveForce : vertex.mCompressiveForces)
+                compressiveForceSum += compressiveForce;
+            for (const auto& tensileForce : vertex.mTensileForces)
+                tensileForceSum += tensileForce;
+
+            mSeparation = dmat3(0.0);
+
+            ComputeMMat(tensileForceSum, m_Mat);
+            mSeparation -= m_Mat;
+            ComputeMMat(compressiveForceSum, m_Mat);
+            mSeparation += m_Mat;
+
+            for (const auto& compressiveForce : vertex.mCompressiveForces)
+            {
+                ComputeMMat(compressiveForce, m_Mat);
+                mSeparation -= m_Mat;
+            }
+            for (const auto& tensileForce : vertex.mTensileForces)
+            {
+                ComputeMMat(tensileForce, m_Mat);
+                mSeparation += m_Mat;
+            }
+
+            mSeparation *= 0.5f;
+
+            for (int i = 0; i < 3; i++)
+            {
+                for (int j = 0; j < 3; j++)
+                {
+                    separation[i][j] = mSeparation[i][j];
+                }
+            }
+
+            solver(separation[0][0], separation[0][1], separation[0][2],
+                separation[1][1], separation[1][2], separation[2][2],
+                aggressive, sortType, eigenvalues, eigenvectors);
+
+            // Look for largest eigenvalue and corresponding eigen vector
+            double largestEigenvalue = eigenvalues[0];
+            dvec3 principalEigenVector = dvec3(eigenvectors[0][0], eigenvectors[0][1], eigenvectors[0][2]);
+
+            mVertices[vertexIdx].mPrincipalEigenVector = principalEigenVector;
+            mVertices[vertexIdx].mLargestEigenvalue = largestEigenvalue;
+
+            if (saveFrame)
+            {
+                auto& vert = *frame->mutable_vertices(vertexIdx);
+                *vert.mutable_force() = ProtoConverter::Convert(mVertices[vertexIdx].mForce);
+                vert.set_largest_eigenvalue(mVertices[vertexIdx].mLargestEigenvalue);
+                *vert.mutable_principal_eigenvector() = ProtoConverter::Convert(mVertices[vertexIdx].mPrincipalEigenVector);
+
+                for (const auto& compressiveForce : mVertices[vertexIdx].mCompressiveForces)
+                    *vert.add_compressive_forces() = ProtoConverter::Convert(compressiveForce);
+                for (const auto& tensileForce : mVertices[vertexIdx].mTensileForces)
+                    *vert.add_tensile_forces() = ProtoConverter::Convert(tensileForce);
+                for (const auto& collisionForce : mVertices[vertexIdx].mCollisionForces)
+                    *vert.add_collision_forces() = ProtoConverter::Convert(collisionForce);
+
+                *vert.mutable_separation_tensor() = ProtoConverter::Convert(mSeparation);
+            }
+        }
+    }
+
+    void TetraGroup::Fracture()
+    {
+        // Casually prevent fracturing newly created vertices
+        size_t numVertices = mVertices.size();
+        if (numVertices < mMaxNumVertices)
+        {
+            //for (size_t idx = 0; idx < numVertices; idx++)
+            //{
+            //    if (mVertices[idx].mLargestEigenvalue > mToughness)
+            //        FractureNode(idx, mVertices[idx].mPrincipalEigenVector);
+
+            //    if (mVertices.size() >= mMaxNumVertices)
+            //        break;
+            //}
+
+            // let's try fracturing only the highest eigenvalue and only allowing one fracture per frame
+            struct FractureAttempt
+            {
+                size_t mVertexId = 0;
+                double mLargestEigenValue = 0;
+            };
+
+            std::vector<FractureAttempt> fractureAttempts;
+
+            for (size_t idx = 0; idx < numVertices; idx++)
+            {
+                if (mVertices[idx].mLargestEigenvalue > mToughness)
+                {
+                    fractureAttempts.push_back({ idx, mVertices[idx].mLargestEigenvalue });
+                }
+            }
+
+            std::sort(fractureAttempts.begin(), fractureAttempts.end(), [](const FractureAttempt& a, const FractureAttempt& b)
+                {
+                    return a.mLargestEigenValue > b.mLargestEigenValue;
+                });
+
+            bool fractured = fractureAttempts.empty();
+            for (const auto& attempt : fractureAttempts)
+            {
+                //std::cout << "Fracture Node " << attempt.mVertexId << std::endl;
+                FractureContext context(mVertices[attempt.mVertexId].mPrincipalEigenVector, attempt.mVertexId, mIdToTetrahedra, mVertices, mTetIdCounter);
+                if (context.Fracture())
+                {
+                    fractured = true;
+                    break;
+                }
+            }
+
+            if (!fractured)
+                std::cout << "All fracture attempts failed so no fracture occurred." << std::endl;
+
+            ComputeDerivedQuantities();
+        }
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////
+
+    void TetraGroup::ApplyGroundCollision()
+    {
+        for (auto& vertex : mVertices)
+        {
+            if (vertex.mPosition.y < 0)
+            {
+                vertex.mPosition.y = -vertex.mPosition.y;
+                double elasticity = 0.9f;
+                double friction = 0.1f;
+                const auto& velocity = vertex.mVelocity;
+                vertex.mVelocity = (glm::dvec3((1 - friction) * velocity.x, -elasticity * velocity.y, (1 - friction) * velocity.z));
+            }
+        }
     }
 
     ////////////////////////////////////////////////////////////////////////////////
