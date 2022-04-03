@@ -21,14 +21,15 @@ namespace Deformation
     Mat3 Calc_Ds(const Deformation::Tetrahedra& tet, const std::vector<Vertex>& vertices, bool restState)
     {
         Mat3 ds = Mat3::Zero();
-        for (int i = 1; i < 4; i++)
+
+        for (int row = 0; row < 3; row++)
         {
-            for (int j = 0; j < 3; j++)
+            for (int col = 1; col < 4; col++)
             {
                 if (restState)
-					ds(i - 1, j) = vertices[tet.mIndices[i]].mMaterialCoordinates[j] - vertices[tet.mIndices[0]].mMaterialCoordinates[j];
+					ds(row, col - 1) = vertices[tet.mIndices[col]].mMaterialCoordinates[row] - vertices[tet.mIndices[0]].mMaterialCoordinates[row];
                 else
-                    ds(i - 1, j) = vertices[tet.mIndices[i]].mPosition[j] - vertices[tet.mIndices[0]].mPosition[j];
+                    ds(row, col - 1) = vertices[tet.mIndices[col]].mPosition[row] - vertices[tet.mIndices[0]].mPosition[row];
             }
         }
 
@@ -109,7 +110,7 @@ namespace Deformation
 
         dFdx(2, 2) = t1;
         dFdx(2, 5) = m;
-        dFdx(2, 10) = p;
+        dFdx(2, 8) = p;
         dFdx(2, 11) = s;
         dFdx(3, 0) = t2;
         dFdx(3, 3) = n;
@@ -219,9 +220,9 @@ namespace Deformation
         return lambda / 4.0f * (g_i * g_i.transpose()) + (-mu / 2.0f + lambda / 4.0f * (i_c - 3.0f)) * h_i + mu / 4.0f * h_2;
     }
 
-    Mat12 Calc_dfdx(const Mat9x12& dFdx, const Mat9 vec_dPsi2_dF2, FloatT a)
+    Mat12 Calc_dfdx(const Mat9x12& dFdx, const Mat9 vec_dPsi2_dF2, FloatT restVol)
     {
-        return -a * dFdx.transpose() * vec_dPsi2_dF2 * dFdx;
+        return -restVol * dFdx.transpose() * vec_dPsi2_dF2 * dFdx;
     }
 
     void ImplicitUpdate(TetraGroup& group, float timestep, bool saveFrame, IronGames::SimulationFrame* frame)
@@ -268,7 +269,7 @@ namespace Deformation
             auto d = Calc_D(f);
             auto h_2 = Calc_h_2(f, d);
             auto vec_dPsi2_dF2 = Calc_vec_dPsi2_dF2(g_i, i_c, h_i, h_2, group.mMu, group.mLambda);
-            auto dfdx = Calc_dfdx(dFdx, vec_dPsi2_dF2, tet.mVolume);
+            auto dfdx = Calc_dfdx(dFdx, vec_dPsi2_dF2, tet.mRestVolume);
 
             // Contribution to globalA
             // 12 x 12 matrix df/dx
@@ -322,16 +323,16 @@ namespace Deformation
         }
 
         // Apply additional per-node forces
-        //for (int i = 0; i < group.mVertices.size(); i++)
-        //{
-        //    // Gravity
-        //    globalB(3 * i + 1) += -9.8 * group.mVertices[i].mMass;
+        for (int i = 0; i < group.mVertices.size(); i++)
+        {
+            // Gravity
+            globalB(3 * i + 1) += -9.8 * group.mVertices[i].mMass;
 
-        //    // Collision forces
-        //    globalB(3 * i + 0) += group.mVertices[i].mForce.x;
-        //    globalB(3 * i + 1) += group.mVertices[i].mForce.y;
-        //    globalB(3 * i + 2) += group.mVertices[i].mForce.z;
-        //}
+            // Collision forces
+            globalB(3 * i + 0) += group.mVertices[i].mForce.x;
+            globalB(3 * i + 1) += group.mVertices[i].mForce.y;
+            globalB(3 * i + 2) += group.mVertices[i].mForce.z;
+        }
 
         std::cout << "globalA norm: " << globalA.norm() << std::endl;
         if (isnan(globalA.norm()))
