@@ -565,6 +565,49 @@ const float positionScale = 0.1f;
 		}
 	};
 
+	class SimpleCaseSingleTetDeformed : public TestCase
+	{
+		using TestCase::TestCase;
+	public:
+		void Run(IronGames::SimulationSummary* summary) override
+		{
+			float a = 2.0f;
+			std::vector<float> positions = { -a/2, 0, 0,
+											a/2, 0, 0,
+											0, 0, sqrt(3.0f) / 2.0f * a,
+											0, a/2, sqrt(3.0f) / 4.0f * a };
+			std::vector<int> indices = { 0,1,2,3 };
+
+			Initialize(positions.data(), 4, mMaxNumVertices, indices.data(), 1, mMaxNumTetrahedra, mLambda, mPsi, mMu, mPhi, mToughness, mDensity);
+			Deformation::TetraGroup* group = (Deformation::TetraGroup*)mData;
+
+			group->mVertices[3].mPosition -= glm::dvec3(0, 0.02f, 0);
+
+			group->mSaveEveryXSteps = 1;
+
+			float maxEigenvalue = -1;
+			float maxEigenvalueTime = 0.0f;
+
+			for (int i = 0; i < 100; i++)
+			{
+				if (!Update(*group))
+					break;
+
+				for (const auto& vertex : group->mVertices)
+				{
+					if (vertex.mLargestEigenvalue > maxEigenvalue)
+					{
+						maxEigenvalue = vertex.mLargestEigenvalue;
+						maxEigenvalueTime = i * mTimestep;
+					}
+				}
+			}
+
+			*summary = group->mSummary;
+			std::cout << "Max Eigenvalue : " << maxEigenvalue << " time " << maxEigenvalueTime << "s." << std::endl;
+		}
+	};
+
 	class UpdateCaseTwoTetVelocityBowTie : public TestCase
 	{
 		using TestCase::TestCase;
@@ -696,7 +739,7 @@ const float positionScale = 0.1f;
 Deformation::TestFractureManager::TestFractureManager(IronGames::SimulationSummaries* summaries)
 	: mSummaries(summaries)
 {
-	bool breakOnFailure = true;
+	bool breakOnFailure = false;
 
 	mTestCases.push_back(new SimpleCaseThreeFractures(breakOnFailure));
 	mTestCases.push_back(new UpdateCaseTwoTetrahedra(breakOnFailure));
@@ -710,6 +753,7 @@ Deformation::TestFractureManager::TestFractureManager(IronGames::SimulationSumma
 	mTestCases.push_back(new SimpleCaseSingleTetCompressive(breakOnFailure));
 	mTestCases.push_back(new UpdateCaseTwoTetVelocityBowTie(breakOnFailure));
 	mTestCases.push_back(new UpdateCaseTwoTetCollision(breakOnFailure));
+	mTestCases.push_back(new SimpleCaseSingleTetDeformed(breakOnFailure));
 
 	mTestCases.push_back(new UpdateCaseBowl(breakOnFailure));
 }

@@ -46,7 +46,7 @@ namespace Deformation
 	{
         auto frame = mSummary.add_frames();
 
-        bool saveFrame = false;
+        bool saveFrame = true;
         if (saveFrame)
             frame->set_time(mSimulationTime);
 
@@ -56,7 +56,7 @@ namespace Deformation
         // Calculate new positions and velocities based on the deformed position
         // - also includes gravity
         // - also includes collision forces
-        Deformation::ImplicitUpdate(*this, timestep);
+        Deformation::ImplicitUpdate(*this, timestep, saveFrame, frame);
         // Calculate separation tensor based on new deformed state
         CalculateSeparationTensor(saveFrame, frame);
         // Apply fracture based on separation tensor
@@ -450,7 +450,7 @@ namespace Deformation
             if (saveFrame)
             {
                 auto& vert = *frame->mutable_vertices(vertexIdx);
-                *vert.mutable_force() = ProtoConverter::Convert(mVertices[vertexIdx].mForce);
+                //*vert.mutable_force() = ProtoConverter::Convert(mVertices[vertexIdx].mForce);
                 vert.set_largest_eigenvalue(mVertices[vertexIdx].mLargestEigenvalue);
                 *vert.mutable_principal_eigenvector() = ProtoConverter::Convert(mVertices[vertexIdx].mPrincipalEigenVector);
 

@@ -30,7 +30,7 @@ namespace Deformation
 		int mMaxNumTetrahedra = 10;
 
 	private:
-		bool mBreakOnFailure = true;
+		bool mBreakOnFailure = false;
 	};
 
 	class TestFractureManager

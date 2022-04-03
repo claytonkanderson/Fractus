@@ -21,7 +21,7 @@ namespace
 		testManager.RunTestCase(testManager.GetIndexOfLastCase() - 1);
 
 		// write to file...
-		std::ofstream ofs("simulation.summary", std::ios_base::out | std::ios_base::binary);
+		std::ofstream ofs("D:/UnityProjects/3D_Template/Assets/Resources/simulation.summary", std::ios_base::out | std::ios_base::binary);
 		summaries.SerializeToOstream(&ofs);
 	}
 

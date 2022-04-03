@@ -55,6 +55,7 @@ namespace Deformation
 	public:
 		double mMass = -1;
 		double mVolume = -1;
+		double mRestVolume = -1;
 		glm::dmat4 mBeta = glm::dmat4(0);
 		std::array<size_t, 4> mIndices;
 	};

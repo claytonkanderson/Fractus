@@ -79,12 +79,15 @@ extern "C" int __declspec(dllexport) __stdcall Initialize(
 
 	group->ComputeDerivedQuantities();
 
-	for (const auto& pair : group->mIdToTetrahedra)
+	for (auto& pair : group->mIdToTetrahedra)
 	{
 		if (pair.second.mVolume <= 1e-6)
 			return 1;
 		if (pair.second.mMass <= 1e-6)
 			return -2;
+
+		// TODO - not a good place to put this!
+		pair.second.mRestVolume = pair.second.mVolume;
 	}
 
 	for (const auto& vert : group->mVertices)

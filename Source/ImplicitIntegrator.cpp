@@ -1,5 +1,6 @@
 #include "ImplicitIntegrator.h"
 #include "Deformation.hpp"
+#include "ProtoConverter.hpp"
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
 #include <Eigen/IterativeLinearSolvers>
@@ -97,42 +98,45 @@ namespace Deformation
 
         Mat9x12 dFdx = Mat9x12::Zero();
 
+        dFdx(0, 0) = t1;
+        dFdx(0, 3) = m;
+        dFdx(0, 6) = p;
+        dFdx(0, 9) = s;
         dFdx(1, 1) = t1;
         dFdx(1, 4) = m;
         dFdx(1, 7) = p;
         dFdx(1, 10) = s;
+
         dFdx(2, 2) = t1;
         dFdx(2, 5) = m;
-        dFdx(2, 8) = p;
+        dFdx(2, 10) = p;
         dFdx(2, 11) = s;
-        dFdx(3, 3) = t1;
-        dFdx(3, 6) = m;
-        dFdx(3, 9) = p;
-        dFdx(3, 12) = s;
+        dFdx(3, 0) = t2;
+        dFdx(3, 3) = n;
+        dFdx(3, 6) = q;
+        dFdx(3, 9) = t;
         dFdx(4, 1) = t2;
         dFdx(4, 4) = n;
+
         dFdx(4, 7) = q;
         dFdx(4, 10) = t;
         dFdx(5, 2) = t2;
         dFdx(5, 5) = n;
         dFdx(5, 8) = q;
         dFdx(5, 11) = t;
-        dFdx(6, 3) = t2;
-        dFdx(6, 6) = n;
-        dFdx(6, 9) = q;
-        dFdx(6, 12) = t;
+        dFdx(6, 0) = t3;
+        dFdx(6, 3) = o;
+        dFdx(6, 6) = r;
+        dFdx(6, 9) = u;
         dFdx(7, 1) = t3;
         dFdx(7, 4) = o;
+
         dFdx(7, 7) = r;
         dFdx(7, 10) = u;
         dFdx(8, 2) = t3;
         dFdx(8, 5) = o;
         dFdx(8, 8) = r;
         dFdx(8, 11) = u;
-        dFdx(9, 3) = t3;
-        dFdx(9, 6) = o;
-        dFdx(9, 9) = r;
-        dFdx(9, 12) = u;
 
         return dFdx;
     }
@@ -220,7 +224,7 @@ namespace Deformation
         return -a * dFdx.transpose() * vec_dPsi2_dF2 * dFdx;
     }
 
-    void ImplicitUpdate(TetraGroup& group, float timestep)
+    void ImplicitUpdate(TetraGroup& group, float timestep, bool saveFrame, IronGames::SimulationFrame* frame)
     {
         size_t numVertices = group.mVertices.size();
         Eigen::SparseMatrix<float> globalA(3* numVertices, 3* numVertices);
@@ -247,7 +251,16 @@ namespace Deformation
             auto dFdx = Calc_dFdx(dmInv);
             auto dPsidF = Calc_dPsiDf(f, e);
             auto dPsidx = dFdx.transpose() * Reshape3x3(dPsidF);
-            Vec12 force = -tet.mVolume * dPsidx; // 12x1 atm
+            Vec12 force = -tet.mRestVolume * dPsidx; // 12x1 atm
+
+            if (saveFrame)
+            {
+                for (int i = 0; i < 4; i++)
+                {
+                    auto& vert = *frame->mutable_vertices(tet.mIndices[i]);
+                    *vert.mutable_force() = ProtoConverter::Convert(glm::dvec3(force(3*i), force(3*i+1), force(3*i+2)));
+                }
+            }
 
             auto g_i = Calc_g_i(f);
             auto i_c = Calc_i_c(f);
@@ -309,16 +322,16 @@ namespace Deformation
         }
 
         // Apply additional per-node forces
-        for (int i = 0; i < group.mVertices.size(); i++)
-        {
-            // Gravity
-            globalB(3 * i + 1) += -9.8 * group.mVertices[i].mMass;
+        //for (int i = 0; i < group.mVertices.size(); i++)
+        //{
+        //    // Gravity
+        //    globalB(3 * i + 1) += -9.8 * group.mVertices[i].mMass;
 
-            // Collision forces
-            globalB(3 * i + 0) += group.mVertices[i].mForce.x;
-            globalB(3 * i + 1) += group.mVertices[i].mForce.y;
-            globalB(3 * i + 2) += group.mVertices[i].mForce.z;
-        }
+        //    // Collision forces
+        //    globalB(3 * i + 0) += group.mVertices[i].mForce.x;
+        //    globalB(3 * i + 1) += group.mVertices[i].mForce.y;
+        //    globalB(3 * i + 2) += group.mVertices[i].mForce.z;
+        //}
 
         std::cout << "globalA norm: " << globalA.norm() << std::endl;
         if (isnan(globalA.norm()))
@@ -337,11 +350,22 @@ namespace Deformation
         if (isnan(solver.error()))
             throw std::exception("Solver failed.");
 
+        std::cout << "GlobalX" << std::endl;
+        std::cout << globalX << std::endl;
+
         // Integrate
         for (int i = 0; i < group.mVertices.size(); i++)
         {
             auto& vertex = group.mVertices[i];
-            vertex.mVelocity += glm::dvec3(globalX(3 * i + 0), globalX(3 * i + 1), globalX(3 * i + 2));
+            auto deltaV = glm::dvec3(globalX(3 * i + 0), globalX(3 * i + 1), globalX(3 * i + 2));
+
+            //if (saveFrame)
+            //{
+            //    auto& vert = *frame->mutable_vertices(i);
+            //    *vert.mutable_force() = ProtoConverter::Convert(deltaV);
+            //}
+
+            vertex.mVelocity += deltaV;
             vertex.mPosition += (double)timestep * vertex.mVelocity;
         }
 
