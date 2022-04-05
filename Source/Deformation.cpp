@@ -114,6 +114,9 @@ namespace Deformation
                 std::cout << "Tetrahedra volume " << tetrahedra.mVolume << std::endl;
             }
 
+            if (tetrahedra.mRestVolume == -1)
+                tetrahedra.mRestVolume = tetrahedra.mVolume;
+
             tetrahedra.mMass = mDensity * tetrahedra.mVolume;
 
             for (int j = 0; j < 4; j++)

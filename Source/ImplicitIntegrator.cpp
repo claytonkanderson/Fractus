@@ -254,14 +254,14 @@ namespace Deformation
             auto dPsidx = dFdx.transpose() * Reshape3x3(dPsidF);
             Vec12 force = -tet.mRestVolume * dPsidx; // 12x1 atm
 
-            if (saveFrame)
-            {
-                for (int i = 0; i < 4; i++)
-                {
-                    auto& vert = *frame->mutable_vertices(tet.mIndices[i]);
-                    *vert.mutable_force() = ProtoConverter::Convert(glm::dvec3(force(3*i), force(3*i+1), force(3*i+2)));
-                }
-            }
+            //if (saveFrame)
+            //{
+            //    for (int i = 0; i < 4; i++)
+            //    {
+            //        auto& vert = *frame->mutable_vertices(tet.mIndices[i]);
+            //        *vert.mutable_force() = ProtoConverter::Convert(glm::dvec3(force(3*i), force(3*i+1), force(3*i+2)));
+            //    }
+            //}
 
             auto g_i = Calc_g_i(f);
             auto i_c = Calc_i_c(f);
@@ -326,19 +326,19 @@ namespace Deformation
         for (int i = 0; i < group.mVertices.size(); i++)
         {
             // Gravity
-            globalB(3 * i + 1) += -9.8 * group.mVertices[i].mMass;
+            //globalB(3 * i + 1) += -9.8 * group.mVertices[i].mMass;
 
             // Collision forces
-            globalB(3 * i + 0) += group.mVertices[i].mForce.x;
-            globalB(3 * i + 1) += group.mVertices[i].mForce.y;
-            globalB(3 * i + 2) += group.mVertices[i].mForce.z;
+            //globalB(3 * i + 0) += group.mVertices[i].mForce.x;
+            //globalB(3 * i + 1) += group.mVertices[i].mForce.y;
+            //globalB(3 * i + 2) += group.mVertices[i].mForce.z;
         }
 
-        std::cout << "globalA norm: " << globalA.norm() << std::endl;
+        //std::cout << "globalA norm: " << globalA.norm() << std::endl;
         if (isnan(globalA.norm()))
             throw std::exception("Nan detected.");
 
-        std::cout << "globalB norm: " << globalB.norm() << std::endl;
+        //std::cout << "globalB norm: " << globalB.norm() << std::endl;
         if (isnan(globalB.norm()))
             throw std::exception("Nan detected.");
 
@@ -346,13 +346,13 @@ namespace Deformation
         solver.compute(globalA);
         globalX = solver.solve(globalB);
 
-        std::cout << "Solver error : " << solver.error() << std::endl;
+        //std::cout << "Solver error : " << solver.error() << std::endl;
 
         if (isnan(solver.error()))
             throw std::exception("Solver failed.");
 
-        std::cout << "GlobalX" << std::endl;
-        std::cout << globalX << std::endl;
+        //std::cout << "GlobalX" << std::endl;
+        //std::cout << globalX << std::endl;
 
         // Integrate
         for (int i = 0; i < group.mVertices.size(); i++)
@@ -360,11 +360,11 @@ namespace Deformation
             auto& vertex = group.mVertices[i];
             auto deltaV = glm::dvec3(globalX(3 * i + 0), globalX(3 * i + 1), globalX(3 * i + 2));
 
-            //if (saveFrame)
-            //{
-            //    auto& vert = *frame->mutable_vertices(i);
-            //    *vert.mutable_force() = ProtoConverter::Convert(deltaV);
-            //}
+            if (saveFrame)
+            {
+                auto& vert = *frame->mutable_vertices(i);
+                *vert.mutable_force() = ProtoConverter::Convert(deltaV);
+            }
 
             vertex.mVelocity += deltaV;
             vertex.mPosition += (double)timestep * vertex.mVelocity;

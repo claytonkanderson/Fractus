@@ -265,7 +265,7 @@ const float positionScale = 0.1f;
 			for (int i = 0; i < numVertices; i++)
 				positions[3 * i + 1] = positions[3 * i + 1] - boundingBoxMin[1] + heightAboveZero;
 
-			mTimestep = 1e-4;
+			mTimestep = 1e-5;
 			mLambda = 0.0f;
 			mMu = 5.29e7f;
 			mPhi = 0.0f;
@@ -581,14 +581,15 @@ const float positionScale = 0.1f;
 			Initialize(positions.data(), 4, mMaxNumVertices, indices.data(), 1, mMaxNumTetrahedra, mLambda, mPsi, mMu, mPhi, mToughness, mDensity);
 			Deformation::TetraGroup* group = (Deformation::TetraGroup*)mData;
 
-			group->mVertices[3].mPosition -= glm::dvec3(0, 0.02f, 0);
+			mTimestep = 0.00001f;
+			group->mVertices[3].mPosition -= glm::dvec3(0, 0.002f, 0);
 
 			group->mSaveEveryXSteps = 1;
 
 			float maxEigenvalue = -1;
 			float maxEigenvalueTime = 0.0f;
 
-			for (int i = 0; i < 100; i++)
+			for (int i = 0; i < 1000; i++)
 			{
 				if (!Update(*group))
 					break;
@@ -741,6 +742,7 @@ Deformation::TestFractureManager::TestFractureManager(IronGames::SimulationSumma
 {
 	bool breakOnFailure = false;
 
+	// Search
 	mTestCases.push_back(new SimpleCaseThreeFractures(breakOnFailure));
 	mTestCases.push_back(new UpdateCaseTwoTetrahedra(breakOnFailure));
 	
