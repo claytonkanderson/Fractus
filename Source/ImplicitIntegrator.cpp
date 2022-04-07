@@ -15,6 +15,7 @@ namespace Deformation
     using Mat9x12 = Eigen::Matrix<FloatT, 9, 12>;
     using Mat9 = Eigen::Matrix<FloatT, 9, 9>;
     using Mat12 = Eigen::Matrix<FloatT, 12, 12>;
+    using Vec3 = Eigen::Matrix<FloatT, 3, 1>;
     using Vec9 = Eigen::Matrix<FloatT, 9, 1>;
     using Vec12 = Eigen::Matrix<FloatT, 12, 1>;
 
@@ -159,6 +160,15 @@ namespace Deformation
         return g_i;
     }
 
+    Mat3 Calc_dj_df(const Mat3& f)
+    {
+        Mat3 dj_df = Mat3::Zero();
+        dj_df.block(0, 0, 3, 1) = f.col(1).cross(f.col(2));
+        dj_df.block(0, 1, 3, 1) = f.col(2).cross(f.col(0));
+        dj_df.block(0, 2, 3, 1) = f.col(0).cross(f.col(1));
+        return dj_df;
+    }
+
     FloatT Calc_i_c(const Mat3& f)
     {
         auto frob = f.norm();
@@ -168,6 +178,40 @@ namespace Deformation
     Mat9 Calc_h_i()
     {
         return 2 * Mat9::Identity();
+    }
+
+    Mat3 Calc_f_hat(const Vec3& f_i)
+    {
+        Mat3 f_hat = Mat3::Zero();
+        f_hat(1, 0) = f_i(2);
+        f_hat(2, 0) = -f_i(1);
+        
+        f_hat(0, 1) = -f_i(2);
+        f_hat(2, 1) = -f_i(0);
+
+        f_hat(0, 2) = f_i(1);
+        f_hat(1, 2) = -f_i(0);
+
+        return f_hat;
+    }
+
+    Mat9 Calc_h_j(const Mat3& f)
+    {
+        Mat9 h_j = Mat9::Zero();
+        auto f0_hat = Calc_f_hat(f.col(0));
+        auto f1_hat = Calc_f_hat(f.col(1));
+        auto f2_hat = Calc_f_hat(f.col(2));
+
+        h_j.block(3, 0, 3, 3) = f2_hat;
+        h_j.block(6, 0, 3, 3) = -f1_hat;
+
+        h_j.block(0, 3, 3, 3) = -f2_hat;
+        h_j.block(6, 3, 3, 3) = f0_hat;
+
+        h_j.block(0, 6, 3, 3) = f1_hat;
+        h_j.block(3, 6, 3, 3) = -f0_hat;
+        
+        return h_j;
     }
 
     Mat9 Calc_D(const Mat3& f)
@@ -248,28 +292,19 @@ namespace Deformation
             auto ds = Calc_Ds(tet, group.mVertices, false);
             auto dmInv = Calc_DmInv(tet, group.mVertices);
             auto f = Calc_F(ds, dmInv);
-            auto e = Calc_E(f);
-            auto dFdx = Calc_dFdx(dmInv);
-            auto dPsidF = Calc_dPsiDf(f, e);
-            auto dPsidx = dFdx.transpose() * Reshape3x3(dPsidF);
-            Vec12 force = -tet.mRestVolume * dPsidx; // 12x1 atm
 
-            //if (saveFrame)
-            //{
-            //    for (int i = 0; i < 4; i++)
-            //    {
-            //        auto& vert = *frame->mutable_vertices(tet.mIndices[i]);
-            //        *vert.mutable_force() = ProtoConverter::Convert(glm::dvec3(force(3*i), force(3*i+1), force(3*i+2)));
-            //    }
-            //}
+            // Stable Neo-hookean potential
+			auto j = f.determinant();
+			auto dj_df = Calc_dj_df(f);
+			auto g_j = Reshape3x3(dj_df);
+			auto dPsi_dF = group.mMu * Reshape3x3(f) + (group.mLambda * (j - 1.0f) - group.mMu) * g_j;
+			auto dF_dx = Calc_dFdx(dmInv);
+			auto dPsi_dx = dF_dx.transpose() * dPsi_dF;
+			Vec12 force = -tet.mRestVolume * dPsi_dx; // 12x1 atm
 
-            auto g_i = Calc_g_i(f);
-            auto i_c = Calc_i_c(f);
-            auto h_i = Calc_h_i();
-            auto d = Calc_D(f);
-            auto h_2 = Calc_h_2(f, d);
-            auto vec_dPsi2_dF2 = Calc_vec_dPsi2_dF2(g_i, i_c, h_i, h_2, group.mMu, group.mLambda);
-            auto dfdx = Calc_dfdx(dFdx, vec_dPsi2_dF2, tet.mRestVolume);
+			auto h_j = Calc_h_j(f);
+			auto dPsi2_dF2 = group.mMu * Mat9::Identity() + (-group.mMu + group.mLambda * (j - 1.0f)) * h_j + group.mLambda * g_j * g_j.transpose();
+			auto dfdx = Calc_dfdx(dF_dx, dPsi2_dF2, tet.mRestVolume);
 
             // Contribution to globalA
             // 12 x 12 matrix df/dx
@@ -326,7 +361,7 @@ namespace Deformation
         for (int i = 0; i < group.mVertices.size(); i++)
         {
             // Gravity
-            //globalB(3 * i + 1) += -9.8 * group.mVertices[i].mMass;
+            globalB(3 * i + 1) += -9.8 * group.mVertices[i].mMass;
 
             // Collision forces
             //globalB(3 * i + 0) += group.mVertices[i].mForce.x;

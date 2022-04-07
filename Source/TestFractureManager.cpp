@@ -581,7 +581,7 @@ const float positionScale = 0.1f;
 			Initialize(positions.data(), 4, mMaxNumVertices, indices.data(), 1, mMaxNumTetrahedra, mLambda, mPsi, mMu, mPhi, mToughness, mDensity);
 			Deformation::TetraGroup* group = (Deformation::TetraGroup*)mData;
 
-			mTimestep = 0.00001f;
+			mTimestep = 0.001f;
 			group->mVertices[3].mPosition -= glm::dvec3(0, 0.002f, 0);
 
 			group->mSaveEveryXSteps = 1;
