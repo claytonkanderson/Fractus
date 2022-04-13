@@ -3,8 +3,11 @@
 #include "ProtoConverter.hpp"
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
+#include <Eigen/SparseLU>
+#include <Eigen/SVD>
 #include <Eigen/IterativeLinearSolvers>
 #include <iostream>
+#include <glm/gtc/constants.hpp>
 
 using Eigen::MatrixXd;
 
@@ -269,6 +272,70 @@ namespace Deformation
         return -restVol * dFdx.transpose() * vec_dPsi2_dF2 * dFdx;
     }
 
+    Mat3 Get_Q(int i, const std::array<FloatT, 3>& lambda, const std::array<FloatT, 3>& sigma, const Mat3& u, const Mat3& v_transpose)
+    {
+        auto z0 = sigma[0] * sigma[2] + sigma[1] * lambda[i];
+        auto z1 = sigma[1] * sigma[2] + sigma[0] * lambda[i];
+        auto z2 = lambda[i] * lambda[i] - sigma[2] * sigma[2];
+
+        Mat3 d0 = Mat3::Zero();
+        d0(0, 0) = 1;
+        d0 = u * d0 * v_transpose;
+
+        Mat3 d1 = Mat3::Zero();
+        d1(1, 1) = 1;
+        d1 = u * d1 * v_transpose;
+
+        Mat3 d2 = Mat3::Zero();
+        d2(2, 2) = 1;
+        d2 = u * d2 * v_transpose;
+
+        return z0 * d0 + z1 * d1 + z2 * d2;
+    }
+
+    Mat3 Get_Q(const Mat3 & u, const Mat3 & v_transpose, int i)
+    {
+        Mat3 q = Mat3::Zero();
+
+        if (i == 3)
+        {
+            q(0, 1) = -1;
+            q(1, 0) = 1;
+        }
+        else if (i == 4)
+        {
+            q(1, 2) = 1;
+            q(2, 1) = -1;
+        }
+        else if (i == 5)
+        {
+            q(0, 2) = 1;
+            q(2, 0) = -1;
+        }
+        else if (i == 6)
+        {
+            q(0, 1) = 1;
+            q(1, 0) = 1;
+        }
+        else if (i == 7)
+        {
+            q(1, 2) = 1;
+            q(2, 1) = 1;
+        }
+        else if (i == 8)
+        {
+            q(0, 2) = 1;
+            q(2, 0) = 1;
+        }
+
+        return 1 / sqrt(2.0f) * u * q * v_transpose;
+    }
+
+    FloatT Calc_Lambda(int i, FloatT I2, FloatT I3)
+    {
+        return 2 * sqrtf(I3 / 3.0f) * cosf(1.0f / 3.0f * (acosf(3*I3/I2*sqrtf(3/I2)) + 2*glm::pi<FloatT>()*(i-1)));
+    }
+
     void ImplicitUpdate(TetraGroup& group, float timestep, bool saveFrame, IronGames::SimulationFrame* frame)
     {
         size_t numVertices = group.mVertices.size();
@@ -304,6 +371,21 @@ namespace Deformation
 
 			auto h_j = Calc_h_j(f);
 			auto dPsi2_dF2 = group.mMu * Mat9::Identity() + (-group.mMu + group.mLambda * (j - 1.0f)) * h_j + group.mLambda * g_j * g_j.transpose();
+            
+            // TODO
+            {
+                Eigen::JacobiSVD<Mat3> svd_f(f);
+                svd_f.singularValues();
+                svd_f.matrixU();
+                svd_f.matrixV();
+
+                {
+                    Eigen::JacobiSVD<Mat9> svd(dPsi2_dF2);
+                    svd.singularValues();
+                }
+
+            }
+
 			auto dfdx = Calc_dfdx(dF_dx, dPsi2_dF2, tet.mRestVolume);
 
             // Contribution to globalA
@@ -361,7 +443,7 @@ namespace Deformation
         for (int i = 0; i < group.mVertices.size(); i++)
         {
             // Gravity
-            globalB(3 * i + 1) += -9.8 * group.mVertices[i].mMass;
+            globalB(3 * i + 1) += -9.8 * timestep * group.mVertices[i].mMass;
 
             // Collision forces
             //globalB(3 * i + 0) += group.mVertices[i].mForce.x;
@@ -369,25 +451,32 @@ namespace Deformation
             //globalB(3 * i + 2) += group.mVertices[i].mForce.z;
         }
 
-        //std::cout << "globalA norm: " << globalA.norm() << std::endl;
         if (isnan(globalA.norm()))
             throw std::exception("Nan detected.");
 
-        //std::cout << "globalB norm: " << globalB.norm() << std::endl;
         if (isnan(globalB.norm()))
             throw std::exception("Nan detected.");
 
-        Eigen::ConjugateGradient<Eigen::SparseMatrix<float>, Eigen::Lower | Eigen::Upper> solver;
-        solver.compute(globalA);
-        globalX = solver.solve(globalB);
+        // PCG Solver
+        //{
+        //    Eigen::ConjugateGradient<Eigen::SparseMatrix<float>, Eigen::Lower | Eigen::Upper> solver;
+        //    solver.compute(globalA);
+        //    globalX = solver.solve(globalB);
 
-        //std::cout << "Solver error : " << solver.error() << std::endl;
+        //    if (isnan(solver.error()))
+        //        throw std::exception("Solver failed.");
+        //}
+        // SparseLU Solver
+        {
+            Eigen::SparseLU<Eigen::SparseMatrix<float>, Eigen::COLAMDOrdering<int> >   solver;
+            solver.analyzePattern(globalA);
+            solver.factorize(globalA);
+            globalX = solver.solve(globalB);
 
-        if (isnan(solver.error()))
-            throw std::exception("Solver failed.");
+            if (isnan(globalX.norm()))
+                throw std::exception("Solver failed.");
+        }
 
-        //std::cout << "GlobalX" << std::endl;
-        //std::cout << globalX << std::endl;
 
         // Integrate
         for (int i = 0; i < group.mVertices.size(); i++)
@@ -404,9 +493,6 @@ namespace Deformation
             vertex.mVelocity += deltaV;
             vertex.mPosition += (double)timestep * vertex.mVelocity;
         }
-
-        //std::cout << "solution" << std::endl;
-        //std::cout << globalX << std::endl;
 
         // things to try:
         // - 'solveWithGuess' and providing the previous timestep's change in velocities as the guess?

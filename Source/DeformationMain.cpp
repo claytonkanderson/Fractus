@@ -18,7 +18,7 @@ namespace
 
 		Deformation::TestFractureManager testManager(&summaries);
 		//testManager.RunAllTestCases();
-		testManager.RunTestCase(testManager.GetIndexOfLastCase() - 1);
+		testManager.RunTestCase(testManager.GetIndexOfLastCase());
 
 		// write to file...
 		std::ofstream ofs("D:/UnityProjects/3D_Template/Assets/Resources/simulation.summary", std::ios_base::out | std::ios_base::binary);

@@ -265,7 +265,7 @@ const float positionScale = 0.1f;
 			for (int i = 0; i < numVertices; i++)
 				positions[3 * i + 1] = positions[3 * i + 1] - boundingBoxMin[1] + heightAboveZero;
 
-			mTimestep = 1e-5;
+			mTimestep = 1e-6;
 			mLambda = 0.0f;
 			mMu = 5.29e7f;
 			mPhi = 0.0f;
@@ -581,31 +581,22 @@ const float positionScale = 0.1f;
 			Initialize(positions.data(), 4, mMaxNumVertices, indices.data(), 1, mMaxNumTetrahedra, mLambda, mPsi, mMu, mPhi, mToughness, mDensity);
 			Deformation::TetraGroup* group = (Deformation::TetraGroup*)mData;
 
-			mTimestep = 0.001f;
+			mTimestep = 0.01f;
 			group->mVertices[3].mPosition -= glm::dvec3(0, 0.002f, 0);
 
 			group->mSaveEveryXSteps = 1;
 
-			float maxEigenvalue = -1;
-			float maxEigenvalueTime = 0.0f;
-
-			for (int i = 0; i < 1000; i++)
+			auto numSteps = 1000;
+			for (int i = 0; i < numSteps; i++)
 			{
 				if (!Update(*group))
 					break;
 
-				for (const auto& vertex : group->mVertices)
-				{
-					if (vertex.mLargestEigenvalue > maxEigenvalue)
-					{
-						maxEigenvalue = vertex.mLargestEigenvalue;
-						maxEigenvalueTime = i * mTimestep;
-					}
-				}
+				if (i % (numSteps / numSteps) == 0)
+					SaveFrame(summary, *group);
 			}
 
-			*summary = group->mSummary;
-			std::cout << "Max Eigenvalue : " << maxEigenvalue << " time " << maxEigenvalueTime << "s." << std::endl;
+			SaveFrame(summary, *group);
 		}
 	};
 
