@@ -587,7 +587,8 @@ const float positionScale = 0.1f;
 			group->mSaveEveryXSteps = 1;
 
 			auto numSteps = 1000;
-			for (int i = 0; i < numSteps; i++)
+			int i = 0;
+			for ( ; i < numSteps; i++)
 			{
 				if (!Update(*group))
 					break;
@@ -595,6 +596,8 @@ const float positionScale = 0.1f;
 				if (i % (numSteps / numSteps) == 0)
 					SaveFrame(summary, *group);
 			}
+
+			std::cout << "Finished " << i << " steps out of " << numSteps << "." << std::endl;
 
 			SaveFrame(summary, *group);
 		}

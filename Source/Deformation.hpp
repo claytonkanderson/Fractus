@@ -94,6 +94,7 @@ namespace Deformation
 		double mLambda = 1e7;
 		double mPsi = 100;
 		double mMu = 1;
+		double mPoissonRatio = 0.49;
 		double mPhi = 1;
 		double mDensity = 1;
 		double mToughness = 10000.0f;

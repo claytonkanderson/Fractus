@@ -6,6 +6,8 @@
 #include <Eigen/SparseLU>
 #include <Eigen/SVD>
 #include <Eigen/IterativeLinearSolvers>
+#include <Mathematics/SymmetricEigensolver3x3.h>
+
 #include <iostream>
 #include <glm/gtc/constants.hpp>
 
@@ -186,12 +188,15 @@ namespace Deformation
     Mat3 Calc_f_hat(const Vec3& f_i)
     {
         Mat3 f_hat = Mat3::Zero();
+        // col 0
         f_hat(1, 0) = f_i(2);
         f_hat(2, 0) = -f_i(1);
         
+        // col 1
         f_hat(0, 1) = -f_i(2);
-        f_hat(2, 1) = -f_i(0);
+        f_hat(2, 1) = f_i(0);
 
+        // col 2
         f_hat(0, 2) = f_i(1);
         f_hat(1, 2) = -f_i(0);
 
@@ -205,12 +210,15 @@ namespace Deformation
         auto f1_hat = Calc_f_hat(f.col(1));
         auto f2_hat = Calc_f_hat(f.col(2));
 
+        // col 0
         h_j.block(3, 0, 3, 3) = f2_hat;
         h_j.block(6, 0, 3, 3) = -f1_hat;
 
+        // col 1
         h_j.block(0, 3, 3, 3) = -f2_hat;
         h_j.block(6, 3, 3, 3) = f0_hat;
 
+        // col 2
         h_j.block(0, 6, 3, 3) = f1_hat;
         h_j.block(3, 6, 3, 3) = -f0_hat;
         
@@ -272,25 +280,13 @@ namespace Deformation
         return -restVol * dFdx.transpose() * vec_dPsi2_dF2 * dFdx;
     }
 
-    Mat3 Get_Q(int i, const std::array<FloatT, 3>& lambda, const std::array<FloatT, 3>& sigma, const Mat3& u, const Mat3& v_transpose)
+    Mat3 Get_Q(int i, const std::array<FloatT, 3>& epsilon, const std::array<FloatT, 3>& sigma, const Mat3& u, const Mat3& v_transpose)
     {
-        auto z0 = sigma[0] * sigma[2] + sigma[1] * lambda[i];
-        auto z1 = sigma[1] * sigma[2] + sigma[0] * lambda[i];
-        auto z2 = lambda[i] * lambda[i] - sigma[2] * sigma[2];
-
-        Mat3 d0 = Mat3::Zero();
-        d0(0, 0) = 1;
-        d0 = u * d0 * v_transpose;
-
-        Mat3 d1 = Mat3::Zero();
-        d1(1, 1) = 1;
-        d1 = u * d1 * v_transpose;
-
-        Mat3 d2 = Mat3::Zero();
-        d2(2, 2) = 1;
-        d2 = u * d2 * v_transpose;
-
-        return z0 * d0 + z1 * d1 + z2 * d2;
+        Mat3 d = Mat3::Zero();
+        d(0, 0) = sigma[0] * sigma[2] + sigma[1] * epsilon[i];
+        d(1, 1) = sigma[1] * sigma[2] + sigma[0] * epsilon[i];
+		d(2, 2) = epsilon[i] * epsilon[i] - sigma[2] * sigma[2];
+        return 1.0f / d.norm() * u * d * v_transpose;
     }
 
     Mat3 Get_Q(const Mat3 & u, const Mat3 & v_transpose, int i)
@@ -331,9 +327,9 @@ namespace Deformation
         return 1 / sqrt(2.0f) * u * q * v_transpose;
     }
 
-    FloatT Calc_Lambda(int i, FloatT I2, FloatT I3)
+    FloatT Calc_Epsilon(int i, FloatT I2, FloatT I3)
     {
-        return 2 * sqrtf(I3 / 3.0f) * cosf(1.0f / 3.0f * (acosf(3*I3/I2*sqrtf(3/I2)) + 2*glm::pi<FloatT>()*(i-1)));
+        return 2 * sqrtf(I2 / 3.0f) * cosf(1.0f / 3.0f * (acosf(3*I3/I2*sqrtf(3/I2)) + 2*glm::pi<FloatT>()*(i-1)));
     }
 
     void ImplicitUpdate(TetraGroup& group, float timestep, bool saveFrame, IronGames::SimulationFrame* frame)
@@ -370,20 +366,137 @@ namespace Deformation
 			Vec12 force = -tet.mRestVolume * dPsi_dx; // 12x1 atm
 
 			auto h_j = Calc_h_j(f);
-			auto dPsi2_dF2 = group.mMu * Mat9::Identity() + (-group.mMu + group.mLambda * (j - 1.0f)) * h_j + group.mLambda * g_j * g_j.transpose();
+            std::cout << "h_j" << std::endl;
+            std::cout << h_j << std::endl;
+            std::cout << "g_j * g_j^T" << std::endl;
+            std::cout << (g_j * g_j.transpose()) << std::endl;
+			auto dPsi2_dF2 = group.mMu * Mat9::Identity() + (group.mLambda * (j - 1.0f) - group.mMu) * h_j + group.mLambda * g_j * g_j.transpose();
             
             // TODO
             {
-                Eigen::JacobiSVD<Mat3> svd_f(f);
-                svd_f.singularValues();
-                svd_f.matrixU();
-                svd_f.matrixV();
+                std::cout << "f matrix" << std::endl;
+                std::cout << f << std::endl;
+                Eigen::JacobiSVD<Mat3> svd_f(f, Eigen::ComputeFullU | Eigen::ComputeFullV);
+                const auto & sigmas = svd_f.singularValues();
+                auto sigma_x = sigmas[0];
+                auto sigma_y = sigmas[1];
+                auto sigma_z = sigmas[2];
+                std::cout << "Sigmas" << std::endl;
+                std::cout << sigmas << std::endl;
+                const auto & u = svd_f.matrixU();
+                std::cout << "U" << std::endl;
+                std::cout << u << std::endl;
+                const auto & v = svd_f.matrixV();
+                std::cout << "V" << std::endl;
+                std::cout << v << std::endl;
+                auto I1 = sigma_x + sigma_y + sigma_z;
+                auto I2 = (f.transpose() * f).trace();
+                auto I3 = f.determinant();
+                
+                std::cout << "I2 " << I2 << std::endl;
+                std::cout << "I3 " << I3 << std::endl;
 
+                auto epsilon_0 = Calc_Epsilon(0, I2, I3);
+                auto epsilon_1 = Calc_Epsilon(1, I2, I3);
+                auto epsilon_2 = Calc_Epsilon(2, I2, I3);
+                
+                std::cout << "Trig epsilon values " << std::endl;
+                std::cout << epsilon_0 << std::endl;
+                std::cout << epsilon_1 << std::endl;
+				std::cout << epsilon_2 << std::endl;
+
+                auto q_0 = Get_Q(0, { epsilon_0, epsilon_1, epsilon_2 }, { sigma_x, sigma_y, sigma_z }, u, v);
+                auto q_1 = Get_Q(1, { epsilon_0, epsilon_1, epsilon_2 }, { sigma_x, sigma_y, sigma_z }, u, v);
+                auto q_2 = Get_Q(2, { epsilon_0, epsilon_1, epsilon_2 }, { sigma_x, sigma_y, sigma_z }, u, v);
+
+                std::cout << "Q_0" << std::endl;
+                std::cout << q_0 << std::endl;
+
+                std::cout << "Q_1" << std::endl;
+                std::cout << q_1 << std::endl;
+
+                std::cout << "Q_2" << std::endl;
+                std::cout << q_2 << std::endl;
+
+				const int32_t sortType = 0; // 0 indicates no sorting
+				const bool aggressive = false;
+				gte::SymmetricEigensolver3x3<FloatT> solver;
+				auto a00 = group.mMu + group.mLambda * I3 * I3 / sigma_x / sigma_x;
+				auto a11 = group.mMu + group.mLambda * I3 * I3 / sigma_y / sigma_y;
+				auto a22 = group.mMu + group.mLambda * I3 * I3 / sigma_z / sigma_z;
+				auto a01 = sigma_z * (group.mLambda * (2 * I3 - 1) - group.mMu);
+				auto a12 = sigma_x * (group.mLambda * (2 * I3 - 1) - group.mMu);
+				auto a02 = sigma_y * (group.mLambda * (2 * I3 - 1) - group.mMu);
+				std::array<FloatT, 3> eigenvalues;
+				std::array<std::array<FloatT, 3>, 3> eigenVectors;
+				solver(a00, a01, a02, a11, a12, a22, aggressive, sortType, eigenvalues, eigenVectors);
+				std::cout << "Scaling system eigenvalues " << std::endl;
+
+				auto lambda_0 = eigenvalues[0];
+				auto lambda_1 = eigenvalues[1];
+				auto lambda_2 = eigenvalues[2];
+
+                std::cout << "lambda_0 " << lambda_0 << std::endl;
+                std::cout << "lambda_1 " << lambda_1 << std::endl;
+                std::cout << "lambda_2 " << lambda_2 << std::endl;
+
+                auto zeta = group.mLambda * (I3 - 1.0f) - group.mMu;
+
+                auto lambda_3 = group.mMu + sigma_z * zeta;
+                auto lambda_4 = group.mMu + sigma_x * zeta;
+                auto lambda_5 = group.mMu + sigma_y * zeta;
+                auto lambda_6 = group.mMu - sigma_z * zeta;
+                auto lambda_7 = group.mMu - sigma_x * zeta;
+                auto lambda_8 = group.mMu - sigma_y * zeta;
+
+                std::cout << "lambda_3 " << lambda_3 << std::endl;
+                std::cout << "lambda_4 " << lambda_4 << std::endl;
+                std::cout << "lambda_5 " << lambda_5 << std::endl;
+                std::cout << "lambda_6 " << lambda_6 << std::endl;
+                std::cout << "lambda_7 " << lambda_7 << std::endl;
+                std::cout << "lambda_8 " << lambda_8 << std::endl;
+
+                auto dPsi2dF2 =
+                    lambda_0 * Reshape3x3(q_0) * Reshape3x3(q_0).transpose() +
+                    lambda_1 * Reshape3x3(q_1) * Reshape3x3(q_1).transpose() +
+                    lambda_2 * Reshape3x3(q_2) * Reshape3x3(q_2).transpose() +
+                    lambda_3 * Reshape3x3(Get_Q(u, v, 3)) * Reshape3x3(Get_Q(u, v, 3)).transpose() +
+                    lambda_4 * Reshape3x3(Get_Q(u, v, 4)) * Reshape3x3(Get_Q(u, v, 4)).transpose() +
+                    lambda_5 * Reshape3x3(Get_Q(u, v, 5)) * Reshape3x3(Get_Q(u, v, 5)).transpose() +
+                    lambda_6 * Reshape3x3(Get_Q(u, v, 6)) * Reshape3x3(Get_Q(u, v, 6)).transpose() +
+                    lambda_7 * Reshape3x3(Get_Q(u, v, 7)) * Reshape3x3(Get_Q(u, v, 7)).transpose() +
+                    lambda_8 * Reshape3x3(Get_Q(u, v, 8)) * Reshape3x3(Get_Q(u, v, 8)).transpose();
+
+                std::cout << "Regular lambas" << std::endl;
+                auto reg_lambdas = dPsi2_dF2.eigenvalues();
+                for (int i = 0; i < 9; i++)
                 {
-                    Eigen::JacobiSVD<Mat9> svd(dPsi2_dF2);
-                    svd.singularValues();
+                    std::cout << "reg lambda " << i << " : " << reg_lambdas[i] << std::endl;
                 }
 
+                {
+                    std::cout << "Eigendecomposition lambas" << std::endl;
+                    auto decomp_lambdas = dPsi2dF2.eigenvalues();
+                    for (int i = 0; i < 9; i++)
+                    {
+                        std::cout << "decomp lambda " << i << " : " << decomp_lambdas[i] << std::endl;
+                    }
+                }
+
+                std::cout << "Regular dPsi2dF2" << std::endl;
+                std::cout << dPsi2_dF2 << std::endl;
+
+                std::cout << "Eigendecomposition dPsi2dF2" << std::endl;
+                std::cout << dPsi2dF2 << std::endl;
+
+                std::cout << "Difference" << std::endl;
+                std::cout << dPsi2dF2 - dPsi2_dF2 << std::endl;
+                    std::cout << "done" << std::endl;
+
+                //{
+                //    Eigen::JacobiSVD<Mat9> svd(dPsi2_dF2);
+                //    svd.singularValues();
+                //}
             }
 
 			auto dfdx = Calc_dfdx(dF_dx, dPsi2_dF2, tet.mRestVolume);
@@ -458,24 +571,24 @@ namespace Deformation
             throw std::exception("Nan detected.");
 
         // PCG Solver
-        //{
-        //    Eigen::ConjugateGradient<Eigen::SparseMatrix<float>, Eigen::Lower | Eigen::Upper> solver;
-        //    solver.compute(globalA);
-        //    globalX = solver.solve(globalB);
-
-        //    if (isnan(solver.error()))
-        //        throw std::exception("Solver failed.");
-        //}
-        // SparseLU Solver
         {
-            Eigen::SparseLU<Eigen::SparseMatrix<float>, Eigen::COLAMDOrdering<int> >   solver;
-            solver.analyzePattern(globalA);
-            solver.factorize(globalA);
+            Eigen::ConjugateGradient<Eigen::SparseMatrix<float>, Eigen::Lower | Eigen::Upper> solver;
+            solver.compute(globalA);
             globalX = solver.solve(globalB);
 
-            if (isnan(globalX.norm()))
+            if (isnan(solver.error()))
                 throw std::exception("Solver failed.");
         }
+        // SparseLU Solver
+        //{
+        //    Eigen::SparseLU<Eigen::SparseMatrix<float>, Eigen::COLAMDOrdering<int> >   solver;
+        //    solver.analyzePattern(globalA);
+        //    solver.factorize(globalA);
+        //    globalX = solver.solve(globalB);
+
+        //    if (isnan(globalX.norm()))
+        //        throw std::exception("Solver failed.");
+        //}
 
 
         // Integrate

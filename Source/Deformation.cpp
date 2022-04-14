@@ -32,6 +32,8 @@ namespace Deformation
         mDensity = density;
         mToughness = toughness;
 
+        mPoissonRatio = mLambda / (2 * (mLambda + mMu));
+
         mSummary.set_lambda(mLambda);
         mSummary.set_psi(mPsi);
         mSummary.set_phi(mPhi);
