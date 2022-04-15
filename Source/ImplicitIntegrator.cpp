@@ -405,18 +405,9 @@ namespace Deformation
                 std::cout << epsilon_1 << std::endl;
 				std::cout << epsilon_2 << std::endl;
 
-                auto q_0 = Get_Q(0, { epsilon_0, epsilon_1, epsilon_2 }, { sigma_x, sigma_y, sigma_z }, u, v);
-                auto q_1 = Get_Q(1, { epsilon_0, epsilon_1, epsilon_2 }, { sigma_x, sigma_y, sigma_z }, u, v);
-                auto q_2 = Get_Q(2, { epsilon_0, epsilon_1, epsilon_2 }, { sigma_x, sigma_y, sigma_z }, u, v);
-
-                std::cout << "Q_0" << std::endl;
-                std::cout << q_0 << std::endl;
-
-                std::cout << "Q_1" << std::endl;
-                std::cout << q_1 << std::endl;
-
-                std::cout << "Q_2" << std::endl;
-                std::cout << q_2 << std::endl;
+                //auto q_0 = Get_Q(0, { epsilon_0, epsilon_1, epsilon_2 }, { sigma_x, sigma_y, sigma_z }, u, v);
+                //auto q_1 = Get_Q(1, { epsilon_0, epsilon_1, epsilon_2 }, { sigma_x, sigma_y, sigma_z }, u, v);
+                //auto q_2 = Get_Q(2, { epsilon_0, epsilon_1, epsilon_2 }, { sigma_x, sigma_y, sigma_z }, u, v);
 
 				const int32_t sortType = 0; // 0 indicates no sorting
 				const bool aggressive = false;
@@ -431,6 +422,23 @@ namespace Deformation
 				std::array<std::array<FloatT, 3>, 3> eigenVectors;
 				solver(a00, a01, a02, a11, a12, a22, aggressive, sortType, eigenvalues, eigenVectors);
 				std::cout << "Scaling system eigenvalues " << std::endl;
+
+                Vec3 q0_vec(eigenVectors[0][0], eigenVectors[0][1], eigenVectors[0][2]);
+                Vec3 q1_vec(eigenVectors[1][0], eigenVectors[1][1], eigenVectors[1][2]);
+                Vec3 q2_vec(eigenVectors[2][0], eigenVectors[2][1], eigenVectors[2][2]);
+
+                auto q_0 = u * q0_vec.asDiagonal() * v;
+                auto q_1 = u * q1_vec.asDiagonal() * v;
+                auto q_2 = u * q2_vec.asDiagonal() * v;
+
+                std::cout << "Q_0" << std::endl;
+                std::cout << q_0 << std::endl;
+
+                std::cout << "Q_1" << std::endl;
+                std::cout << q_1 << std::endl;
+
+                std::cout << "Q_2" << std::endl;
+                std::cout << q_2 << std::endl;
 
 				auto lambda_0 = eigenvalues[0];
 				auto lambda_1 = eigenvalues[1];
