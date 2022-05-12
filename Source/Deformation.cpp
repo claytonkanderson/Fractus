@@ -58,11 +58,24 @@ namespace Deformation
         // Calculate new positions and velocities based on the deformed position
         // - also includes gravity
         // - also includes collision forces
-        Deformation::ImplicitUpdate(*this, timestep, saveFrame, frame);
+        const float deltaVThreshold = 70;
+        const int maxNumTries = 20;
+
+        for (int i = 0; i < maxNumTries; i++)
+        {
+            if (Deformation::ImplicitUpdate(*this, timestep, saveFrame, frame, deltaVThreshold))
+                break;
+
+            timestep /= 2.0f;
+
+            if (i == maxNumTries - 1)
+                throw std::exception("Simulation unstable despite small timestep.");
+        }
+
         // Calculate separation tensor based on new deformed state
         CalculateSeparationTensor(saveFrame, frame);
         // Apply fracture based on separation tensor
-        Fracture();
+        //Fracture();
         // Apply ground response
         ApplyGroundCollision();
 
@@ -535,8 +548,8 @@ namespace Deformation
         {
             if (vertex.mPosition.y < 0)
             {
-                vertex.mPosition.y = -vertex.mPosition.y;
-                double elasticity = 0.9f;
+                vertex.mPosition.y = 0.0;
+                double elasticity = 0.4f;
                 double friction = 0.1f;
                 const auto& velocity = vertex.mVelocity;
                 vertex.mVelocity = (glm::dvec3((1 - friction) * velocity.x, -elasticity * velocity.y, (1 - friction) * velocity.z));
@@ -844,6 +857,62 @@ namespace Deformation
             center += 0.25 * vertices[id].mPosition;
 
         return center;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////
+
+    double Tetrahedra::GetMinDihedralAngle(const std::vector<Vertex>& vertices) const
+    {
+        // Angle between every pair of edges that shares a node
+        // All Edges:
+        // 01 = 0
+        // 02 = 1
+        // 03 = 2
+        // 12 = 3
+        // 13 = 4
+        // 23 = 5
+        //         edges[0] = GetEdgeId(mIndices[0], mIndices[1]);
+        //edges[1] = GetEdgeId(mIndices[0], mIndices[2]);
+        //edges[2] = GetEdgeId(mIndices[0], mIndices[3]);
+        //edges[3] = GetEdgeId(mIndices[1], mIndices[2]);
+        //edges[4] = GetEdgeId(mIndices[1], mIndices[3]);
+        //edges[5] = GetEdgeId(mIndices[2], mIndices[3]);
+        // 
+        // Edges that share a node:
+        // 01, 02 | 0, 1
+        // 01, 03 | 0, 2
+        // 01, 12 | 0, 3
+        // 01, 13 | 0, 4
+        // 02, 12 | 1, 3
+        // 02, 23 | 1, 5
+        // 03, 13 | 2, 4
+        // 03, 23 | 2, 5
+        // 12, 23 | 3, 5
+        // 13, 23 | 4, 5
+
+        auto angleFunc = [&](const auto & e1, const auto & e2) 
+        {
+            auto dir1 = vertices[e1.x].mPosition - vertices[e1.y].mPosition;
+            auto dir2 = vertices[e2.x].mPosition - vertices[e2.y].mPosition;
+            auto angle = glm::acos(glm::dot(dir1, dir2) / glm::length(dir1) / glm::length(dir2));
+
+            return glm::degrees(std::min(angle, glm::pi<float>() - angle));
+        };
+
+        std::vector<float> angles;
+
+        const auto & edges = GetEdges();
+        angles.push_back(angleFunc(edges[0], edges[1]));
+        angles.push_back(angleFunc(edges[0], edges[2]));
+        angles.push_back(angleFunc(edges[0], edges[3]));
+        angles.push_back(angleFunc(edges[0], edges[4]));
+        angles.push_back(angleFunc(edges[1], edges[3]));
+        angles.push_back(angleFunc(edges[1], edges[5]));
+        angles.push_back(angleFunc(edges[2], edges[4]));
+        angles.push_back(angleFunc(edges[2], edges[5]));
+        angles.push_back(angleFunc(edges[3], edges[5]));
+        angles.push_back(angleFunc(edges[4], edges[5]));
+        return *std::min_element(angles.begin(), angles.end());
     }
 
     ////////////////////////////////////////////////////////////////////////////////

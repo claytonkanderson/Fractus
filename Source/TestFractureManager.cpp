@@ -100,8 +100,9 @@ namespace Deformation
 		using TestCase::TestCase;
 
 	public:
-		void Run(IronGames::SimulationSummary* summary) override
+		void Run(IronGames::SimulationSummaries* summaries) override
 		{
+			auto summary = summaries->add_summaries();
 			std::vector<float> positions;
 			std::vector<int> indices;
 			GetTwoTetrahedraConfiguration(positions, indices);
@@ -142,12 +143,14 @@ namespace Deformation
 
 	public:
 
-		void Run(IronGames::SimulationSummary* summary) override
+		void Run(IronGames::SimulationSummaries* summaries) override
 		{
+			auto summary = summaries->add_summaries();
+
 			mMaxNumVertices = 20;
 			mMaxNumTetrahedra = 10;
 			mToughness = 100;
-
+			mTimestep = 0.03f;
 			std::vector<float> positions;
 			std::vector<int> indices;
 			GetTwoTetrahedraConfiguration(positions, indices, 1.0f);
@@ -158,20 +161,21 @@ namespace Deformation
 			Deformation::TetraGroup* group = (Deformation::TetraGroup*)mData;
 
 			for (auto& vert : group->mVertices)
-				vert.mVelocity += glm::vec3(0, -1, 0);
+				vert.mVelocity += glm::vec3(0, -16, 0);
 
 			group->mSaveEveryXSteps = 1;
 
 			float maxEigenvalue = -1;
 			float maxEigenvalueTime = 0.0f;
 
-			for (int i = 0; i < 6000; i++)
-			{
-				if (i == 3684)
-					std::cout << "Here" << std::endl;
+			SaveFrame(summary, *group);
 
+			for (int i = 0; i < 200; i++)
+			{
 				if (!Update(*group))
 					break;
+
+				SaveFrame(summary, *group);
 
 				for (const auto& vertex : group->mVertices)
 				{
@@ -183,7 +187,8 @@ namespace Deformation
 				}
 			}
 
-			*summary = group->mSummary;
+			SaveFrame(summary, *group);
+
 			std::cout << "Max Eigenvalue : " << maxEigenvalue << " time " << maxEigenvalueTime << "s." << std::endl;
 		}
 	};
@@ -193,16 +198,18 @@ namespace Deformation
 		using TestCase::TestCase;
 
 	public:
-		void Run(IronGames::SimulationSummary* summary) override
+		void Run(IronGames::SimulationSummaries* summaries) override
 		{
+			auto summary = summaries->add_summaries();
+
 			std::ifstream file;
-			file.open("D:/UnityProjects/3D_Template/Assets/Resources/Bowl.obj");
-			//file.open("D:/UnityProjects/3D_Template/Assets/Resources/BasicMace.obj");
+			//file.open("D:/UnityProjects/3D_Template/Assets/Resources/Bowl.obj");
+			file.open("D:/UnityProjects/3D_Template/Assets/Resources/BasicMace.obj");
 
 			std::vector<float> positions;
 			std::vector<int> indices;
 
-const float positionScale = 0.1f;
+const float positionScale = 10.0f;
 			const float heightAboveZero = 0.0001f;
 
 			glm::vec3 boundingBoxMin(0);
@@ -265,7 +272,8 @@ const float positionScale = 0.1f;
 			for (int i = 0; i < numVertices; i++)
 				positions[3 * i + 1] = positions[3 * i + 1] - boundingBoxMin[1] + heightAboveZero;
 
-			mTimestep = 1e-6;
+			mTimestep = 1e-4;
+			//mTimestep = 1e-3;
 			mLambda = 0.0f;
 			mMu = 5.29e7f;
 			mPhi = 0.0f;
@@ -274,6 +282,12 @@ const float positionScale = 0.1f;
 			mToughness = 73.6;
 			Initialize(positions.data(), numVertices, maxNumVertices, indices.data(), numTetrahedra, maxNumTetrahedra, mLambda, mPsi, mMu, mPhi, mToughness, mDensity);
 			Deformation::TetraGroup* group = (Deformation::TetraGroup*)mData;
+
+			//for (const auto& pair : group->mIdToTetrahedra)
+			//{
+			//	auto angle = pair.second.GetMinDihedralAngle(group->mVertices);
+			//	std::cout << "Min angle : " << angle << std::endl;
+			//}
 
 			std::cout << "Min Vertex Mass : " << group->GetMinVertexMass() << std::endl;
 			std::cout << "Max Vertex Mass : " << group->GetMaxVertexMass() << std::endl;
@@ -286,7 +300,7 @@ const float positionScale = 0.1f;
 
 			SaveFrame(summary, *group);
 
-			int numSteps = 1000;
+			int numSteps = 3000;
 			for (int i = 0; i < numSteps; i++)
 			{
 				if (!Update(*group))
@@ -326,8 +340,10 @@ const float positionScale = 0.1f;
 	{
 		using TestCase::TestCase;
 	public:
-		void Run(IronGames::SimulationSummary* summary) override
+		void Run(IronGames::SimulationSummaries* summaries) override
 		{
+			auto summary = summaries->add_summaries();
+
 			std::vector<float> positions;
 			std::vector<int> indices;
 			GetTwoTetrahedraConfiguration(positions, indices);
@@ -356,8 +372,10 @@ const float positionScale = 0.1f;
 	{
 		using TestCase::TestCase;
 	public:
-		void Run(IronGames::SimulationSummary* summary) override
+		void Run(IronGames::SimulationSummaries* summaries) override
 		{
+			auto summary = summaries->add_summaries();
+
 			std::vector<float> positions;
 			std::vector<int> indices;
 			GetTwoTetrahedraConfiguration(positions, indices);
@@ -386,8 +404,10 @@ const float positionScale = 0.1f;
 	{
 		using TestCase::TestCase;
 	public:
-		void Run(IronGames::SimulationSummary* summary) override
+		void Run(IronGames::SimulationSummaries* summaries) override
 		{
+			auto summary = summaries->add_summaries();
+
 			std::vector<float> positions;
 			std::vector<int> indices;
 			GetTwoTetrahedraConfiguration(positions, indices);
@@ -416,8 +436,10 @@ const float positionScale = 0.1f;
 	{
 		using TestCase::TestCase;
 	public:
-		void Run(IronGames::SimulationSummary* summary) override
+		void Run(IronGames::SimulationSummaries* summaries) override
 		{
+			auto summary = summaries->add_summaries();
+
 			std::vector<float> positions;
 			std::vector<int> indices;
 			GetTwoTetrahedraConfiguration(positions, indices);
@@ -443,8 +465,10 @@ const float positionScale = 0.1f;
 	{
 		using TestCase::TestCase;
 	public:
-		void Run(IronGames::SimulationSummary* summary) override
+		void Run(IronGames::SimulationSummaries* summaries) override
 		{
+			auto summary = summaries->add_summaries();
+
 			std::vector<float> positions;
 			std::vector<int> indices;
 			GetTwoTetrahedraConfiguration(positions, indices);
@@ -487,8 +511,10 @@ const float positionScale = 0.1f;
 	{
 		using TestCase::TestCase;
 	public:
-		void Run(IronGames::SimulationSummary* summary) override
+		void Run(IronGames::SimulationSummaries* summaries) override
 		{
+			auto summary = summaries->add_summaries();
+
 			std::vector<float> positions;
 			std::vector<int> indices;
 			GetSingleTetrahedraConfiguration(positions, indices);
@@ -528,8 +554,10 @@ const float positionScale = 0.1f;
 	{
 		using TestCase::TestCase;
 	public:
-		void Run(IronGames::SimulationSummary* summary) override
+		void Run(IronGames::SimulationSummaries* summaries) override
 		{
+			auto summary = summaries->add_summaries();
+
 			std::vector<float> positions;
 			std::vector<int> indices;
 			GetSingleTetrahedraConfiguration(positions, indices);
@@ -569,37 +597,50 @@ const float positionScale = 0.1f;
 	{
 		using TestCase::TestCase;
 	public:
-		void Run(IronGames::SimulationSummary* summary) override
+		void Run(IronGames::SimulationSummaries* summaries) override
 		{
 			float a = 2.0f;
-			std::vector<float> positions = { -a/2, 0, 0,
-											a/2, 0, 0,
-											0, 0, sqrt(3.0f) / 2.0f * a,
-											0, a/2, sqrt(3.0f) / 4.0f * a };
-			std::vector<int> indices = { 0,1,2,3 };
+			int numSims = 20;
+			float delta = a / 2 / numSims;
 
-			Initialize(positions.data(), 4, mMaxNumVertices, indices.data(), 1, mMaxNumTetrahedra, mLambda, mPsi, mMu, mPhi, mToughness, mDensity);
-			Deformation::TetraGroup* group = (Deformation::TetraGroup*)mData;
-
-			mTimestep = 0.01f;
-			group->mVertices[3].mPosition -= glm::dvec3(0, 0.002f, 0);
-
-			group->mSaveEveryXSteps = 1;
-
-			auto numSteps = 1000;
-			int i = 0;
-			for ( ; i < numSteps; i++)
+			for (int sim = 0; sim <= numSims; sim++)
 			{
-				if (!Update(*group))
-					break;
+				auto summary = summaries->add_summaries();
 
-				if (i % (numSteps / numSteps) == 0)
-					SaveFrame(summary, *group);
+				std::vector<float> positions = { -a / 2, 0, 0,
+												a / 2, 0, 0,
+												0, 0, sqrt(3.0f) / 2.0f * a,
+												0, a / 2, sqrt(3.0f) / 4.0f * a };
+				std::vector<int> indices = { 0,1,2,3 };
+
+				Initialize(positions.data(), 4, mMaxNumVertices, indices.data(), 1, mMaxNumTetrahedra, mLambda, mPsi, mMu, mPhi, mToughness, mDensity);
+				Deformation::TetraGroup* group = (Deformation::TetraGroup*)mData;
+
+				mTimestep = 0.01f;
+				//group->mVertices[3].mPosition -= glm::dvec3(0, 0.1f, 0);
+				group->mVertices[3].mPosition -= glm::dvec3(0, sim *delta, 0);
+
+				std::cout << "initial deformation amount : " << sim * delta << std::endl;
+
+				group->mSaveEveryXSteps = 1;
+
+				SaveFrame(summary, *group);
+
+				auto numSteps = 250;
+				int i = 0;
+				for (; i < numSteps; i++)
+				{
+					if (!Update(*group))
+						break;
+
+					if (i % (numSteps / numSteps) == 0)
+						SaveFrame(summary, *group);
+				}
+
+				std::cout << "Sim " << sim << " Finished " << i << " steps out of " << numSteps << "." << std::endl << std::endl;
+
+				SaveFrame(summary, *group);
 			}
-
-			std::cout << "Finished " << i << " steps out of " << numSteps << "." << std::endl;
-
-			SaveFrame(summary, *group);
 		}
 	};
 
@@ -607,8 +648,10 @@ const float positionScale = 0.1f;
 	{
 		using TestCase::TestCase;
 	public:
-		void Run(IronGames::SimulationSummary* summary) override
+		void Run(IronGames::SimulationSummaries* summaries) override
 		{
+			auto summary = summaries->add_summaries();
+
 			std::vector<float> positions = {
 				-0.5f, 0.0f, 1.0f,
 				0.5f, 0.0f, 1.0f,
@@ -659,8 +702,10 @@ const float positionScale = 0.1f;
 	{
 		using TestCase::TestCase;
 	public:
-		void Run(IronGames::SimulationSummary* summary) override
+		void Run(IronGames::SimulationSummaries* summaries) override
 		{
+			auto summary = summaries->add_summaries();
+
 			std::vector<float> positions = {
 				-0.5f, 0.0f, 1.0f,
 				0.5f, 0.0f, 1.0f,
@@ -682,26 +727,30 @@ const float positionScale = 0.1f;
 
 			group->mVertices[0].mVelocity += glm::vec3(0, 0, 1);
 			group->mSaveEveryXSteps = 1;
-
+			mTimestep = 0.000001f;
 			float maxEigenvalue = -1;
 			float maxEigenvalueTime = 0.0f;
+			SaveFrame(summary, *group);
 
 			for (int i = 0; i < 1000; i++)
 			{
 				if (!Update(*group))
 					break;
 
-				for (const auto& vertex : group->mVertices)
-				{
-					if (vertex.mLargestEigenvalue > maxEigenvalue)
-					{
-						maxEigenvalue = vertex.mLargestEigenvalue;
-						maxEigenvalueTime = i * mTimestep;
-					}
-				}
+				//for (const auto& vertex : group->mVertices)
+				//{
+				//	if (vertex.mLargestEigenvalue > maxEigenvalue)
+				//	{
+				//		maxEigenvalue = vertex.mLargestEigenvalue;
+				//		maxEigenvalueTime = i * mTimestep;
+				//	}
+				//}
+
+				SaveFrame(summary, *group);
 			}
 
-			*summary = group->mSummary;
+			SaveFrame(summary, *group);
+
 			std::cout << "Max Eigenvalue : " << maxEigenvalue << " time " << maxEigenvalueTime << "s." << std::endl;
 		}
 	};
@@ -786,7 +835,7 @@ void Deformation::TestFractureManager::RunAllTestCases()
 
 void Deformation::TestFractureManager::RunTestCase(int testNum)
 {
-	mTestCases[testNum]->Run(mSummaries->add_summaries());
+	mTestCases[testNum]->Run(mSummaries);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

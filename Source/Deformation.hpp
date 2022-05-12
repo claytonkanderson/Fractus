@@ -51,6 +51,7 @@ namespace Deformation
 		std::array<glm::ivec2, 6> GetEdges() const;
 		void ReplaceVertex(size_t oldVertexId, size_t newVertexId);
 		glm::dvec3 GetCentroid(const std::vector<Vertex> & vertices) const;
+		double GetMinDihedralAngle(const std::vector<Vertex>& vertices) const;
 
 	public:
 		double mMass = -1;

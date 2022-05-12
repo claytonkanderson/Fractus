@@ -15,8 +15,9 @@ using Eigen::MatrixXd;
 
 namespace Deformation
 {
-    using FloatT = float;
+    using FloatT = double;
     using Mat3 = Eigen::Matrix<FloatT, 3, 3>;
+    using Mat3x4 = Eigen::Matrix<FloatT, 3, 4>;
     using Mat9x12 = Eigen::Matrix<FloatT, 9, 12>;
     using Mat9 = Eigen::Matrix<FloatT, 9, 9>;
     using Mat12 = Eigen::Matrix<FloatT, 12, 12>;
@@ -84,6 +85,27 @@ namespace Deformation
         vec(7, 0) = m(1, 2);
         vec(8, 0) = m(2, 2);
 
+        return vec;
+    }
+
+    Vec12 Reshape3x4(const Mat3x4& m)
+    {
+        Vec12 vec = Vec12::Zero();
+        vec(0, 0) = m(0, 0);
+        vec(1, 0) = m(1, 0);
+        vec(2, 0) = m(2, 0);
+
+        vec(3, 0) = m(0, 1);
+        vec(4, 0) = m(1, 1);
+        vec(5, 0) = m(2, 1);
+
+        vec(6, 0) = m(0, 2);
+        vec(7, 0) = m(1, 2);
+        vec(8, 0) = m(2, 2);
+
+        vec(9, 0) = m(0, 3);
+        vec(10, 0) = m(1, 3);
+        vec(11, 0) = m(2, 3);
         return vec;
     }
 
@@ -168,9 +190,13 @@ namespace Deformation
     Mat3 Calc_dj_df(const Mat3& f)
     {
         Mat3 dj_df = Mat3::Zero();
-        dj_df.block(0, 0, 3, 1) = f.col(1).cross(f.col(2));
-        dj_df.block(0, 1, 3, 1) = f.col(2).cross(f.col(0));
-        dj_df.block(0, 2, 3, 1) = f.col(0).cross(f.col(1));
+        dj_df.col(0) = f.col(1).cross(f.col(2));
+        dj_df.col(1) = f.col(2).cross(f.col(0));
+        dj_df.col(2) = f.col(0).cross(f.col(1));
+
+        //dj_df.block(0, 0, 3, 1) = f.col(1).cross(f.col(2));
+        //dj_df.block(0, 1, 3, 1) = f.col(2).cross(f.col(0));
+        //dj_df.block(0, 2, 3, 1) = f.col(0).cross(f.col(1));
         return dj_df;
     }
 
@@ -275,7 +301,7 @@ namespace Deformation
         return lambda / 4.0f * (g_i * g_i.transpose()) + (-mu / 2.0f + lambda / 4.0f * (i_c - 3.0f)) * h_i + mu / 4.0f * h_2;
     }
 
-    Mat12 Calc_dfdx(const Mat9x12& dFdx, const Mat9 vec_dPsi2_dF2, FloatT restVol)
+    Mat12 Calc_dfdx(const Mat9x12& dFdx, const Mat9 & vec_dPsi2_dF2, FloatT restVol)
     {
         return -restVol * dFdx.transpose() * vec_dPsi2_dF2 * dFdx;
     }
@@ -289,42 +315,90 @@ namespace Deformation
         return 1.0f / d.norm() * u * d * v_transpose;
     }
 
-    Mat3 Get_Q(const Mat3 & u, const Mat3 & v_transpose, int i)
+    Mat3 Get_Q(const Mat3 & U, const Mat3 & V, int i)
     {
-        Mat3 q = Mat3::Zero();
+        //Mat3 q = Mat3::Zero();
+
+        //if (i == 3)
+        //{
+        //    q(0, 1) = -1;
+        //    q(1, 0) = 1;
+        //}
+        //else if (i == 4)
+        //{
+        //    q(1, 2) = 1;
+        //    q(2, 1) = -1;
+        //}
+        //else if (i == 5)
+        //{
+        //    q(0, 2) = 1;
+        //    q(2, 0) = -1;
+        //}
+        //else if (i == 6)
+        //{
+        //    q(0, 1) = 1;
+        //    q(1, 0) = 1;
+        //}
+        //else if (i == 7)
+        //{
+        //    q(1, 2) = 1;
+        //    q(2, 1) = 1;
+        //}
+        //else if (i == 8)
+        //{
+        //    q(0, 2) = 1;
+        //    q(2, 0) = 1;
+        //}
+
+        //return 1 / sqrt(2.0f) * u * q * v_transpose;
+
+        static const FloatT scale = 1.0 / std::sqrt(2.0);
+        const Mat3 sV = scale * V;
+
+        using M3 = Eigen::Matrix<FloatT, 3, 3, Eigen::ColMajor>;
+
+        M3 A;
+        A << sV(0, 2) * U(0, 1), sV(1, 2)* U(0, 1), sV(2, 2)* U(0, 1),
+            sV(0, 2)* U(1, 1), sV(1, 2)* U(1, 1), sV(2, 2)* U(1, 1),
+            sV(0, 2)* U(2, 1), sV(1, 2)* U(2, 1), sV(2, 2)* U(2, 1);
+
+        M3 B;
+        B << sV(0, 1) * U(0, 2), sV(1, 1)* U(0, 2), sV(2, 1)* U(0, 2),
+            sV(0, 1)* U(1, 2), sV(1, 1)* U(1, 2), sV(2, 1)* U(1, 2),
+            sV(0, 1)* U(2, 2), sV(1, 1)* U(2, 2), sV(2, 1)* U(2, 2);
+
+        M3 C;
+        C << sV(0, 2) * U(0, 0), sV(1, 2)* U(0, 0), sV(2, 2)* U(0, 0),
+            sV(0, 2)* U(1, 0), sV(1, 2)* U(1, 0), sV(2, 2)* U(1, 0),
+            sV(0, 2)* U(2, 0), sV(1, 2)* U(2, 0), sV(2, 2)* U(2, 0);
+
+        M3 D;
+        D << sV(0, 0) * U(0, 2), sV(1, 0)* U(0, 2), sV(2, 0)* U(0, 2),
+            sV(0, 0)* U(1, 2), sV(1, 0)* U(1, 2), sV(2, 0)* U(1, 2),
+            sV(0, 0)* U(2, 2), sV(1, 0)* U(2, 2), sV(2, 0)* U(2, 2);
+
+        M3 E;
+        E << sV(0, 1) * U(0, 0), sV(1, 1)* U(0, 0), sV(2, 1)* U(0, 0),
+            sV(0, 1)* U(1, 0), sV(1, 1)* U(1, 0), sV(2, 1)* U(1, 0),
+            sV(0, 1)* U(2, 0), sV(1, 1)* U(2, 0), sV(2, 1)* U(2, 0);
+
+        M3 F;
+        F << sV(0, 0) * U(0, 1), sV(1, 0)* U(0, 1), sV(2, 0)* U(0, 1),
+            sV(0, 0)* U(1, 1), sV(1, 0)* U(1, 1), sV(2, 0)* U(1, 1),
+            sV(0, 0)* U(2, 1), sV(1, 0)* U(2, 1), sV(2, 0)* U(2, 1);
 
         if (i == 3)
-        {
-            q(0, 1) = -1;
-            q(1, 0) = 1;
-        }
+            return B - A;
         else if (i == 4)
-        {
-            q(1, 2) = 1;
-            q(2, 1) = -1;
-        }
+            return D - C;
         else if (i == 5)
-        {
-            q(0, 2) = 1;
-            q(2, 0) = -1;
-        }
+            return F - E;
         else if (i == 6)
-        {
-            q(0, 1) = 1;
-            q(1, 0) = 1;
-        }
+            return A + B;
         else if (i == 7)
-        {
-            q(1, 2) = 1;
-            q(2, 1) = 1;
-        }
+            return C + D;
         else if (i == 8)
-        {
-            q(0, 2) = 1;
-            q(2, 0) = 1;
-        }
-
-        return 1 / sqrt(2.0f) * u * q * v_transpose;
+            return E + F;
     }
 
     FloatT Calc_Epsilon(int i, FloatT I2, FloatT I3)
@@ -332,7 +406,283 @@ namespace Deformation
         return 2 * sqrtf(I2 / 3.0f) * cosf(1.0f / 3.0f * (acosf(3*I3/I2*sqrtf(3/I2)) + 2*glm::pi<FloatT>()*(i-1)));
     }
 
-    void ImplicitUpdate(TetraGroup& group, float timestep, bool saveFrame, IronGames::SimulationFrame* frame)
+    void BuildTwistAndFlipEigenvectors(const Mat3& U, const Mat3& V, Mat9& Q)
+    {
+        static const FloatT scale = 1.0 / std::sqrt(2.0);
+        const Mat3 sV = scale * V;
+
+        using M3 = Eigen::Matrix<FloatT, 3, 3, Eigen::ColMajor>;
+
+        M3 A;
+        A << sV(0, 2) * U(0, 1), sV(1, 2)* U(0, 1), sV(2, 2)* U(0, 1),
+            sV(0, 2)* U(1, 1), sV(1, 2)* U(1, 1), sV(2, 2)* U(1, 1),
+            sV(0, 2)* U(2, 1), sV(1, 2)* U(2, 1), sV(2, 2)* U(2, 1);
+
+        M3 B;
+        B << sV(0, 1) * U(0, 2), sV(1, 1)* U(0, 2), sV(2, 1)* U(0, 2),
+            sV(0, 1)* U(1, 2), sV(1, 1)* U(1, 2), sV(2, 1)* U(1, 2),
+            sV(0, 1)* U(2, 2), sV(1, 1)* U(2, 2), sV(2, 1)* U(2, 2);
+
+        M3 C;
+        C << sV(0, 2) * U(0, 0), sV(1, 2)* U(0, 0), sV(2, 2)* U(0, 0),
+            sV(0, 2)* U(1, 0), sV(1, 2)* U(1, 0), sV(2, 2)* U(1, 0),
+            sV(0, 2)* U(2, 0), sV(1, 2)* U(2, 0), sV(2, 2)* U(2, 0);
+
+        M3 D;
+        D << sV(0, 0) * U(0, 2), sV(1, 0)* U(0, 2), sV(2, 0)* U(0, 2),
+            sV(0, 0)* U(1, 2), sV(1, 0)* U(1, 2), sV(2, 0)* U(1, 2),
+            sV(0, 0)* U(2, 2), sV(1, 0)* U(2, 2), sV(2, 0)* U(2, 2);
+
+        M3 E;
+        E << sV(0, 1) * U(0, 0), sV(1, 1)* U(0, 0), sV(2, 1)* U(0, 0),
+            sV(0, 1)* U(1, 0), sV(1, 1)* U(1, 0), sV(2, 1)* U(1, 0),
+            sV(0, 1)* U(2, 0), sV(1, 1)* U(2, 0), sV(2, 1)* U(2, 0);
+
+        M3 F;
+        F << sV(0, 0) * U(0, 1), sV(1, 0)* U(0, 1), sV(2, 0)* U(0, 1),
+            sV(0, 0)* U(1, 1), sV(1, 0)* U(1, 1), sV(2, 0)* U(1, 1),
+            sV(0, 0)* U(2, 1), sV(1, 0)* U(2, 1), sV(2, 0)* U(2, 1);
+
+        // Twist eigenvectors
+        //std::cout << "eigenvectors before mapping" << std::endl;
+        //std::cout << Q << std::endl;
+        //std::cout << "B-A" << std::endl;
+        //std::cout << B - A << std::endl;
+        Eigen::Map<M3>(Q.data()) = B - A;
+        //std::cout << "eigenvectors after single mapping" << std::endl;
+        //std::cout << Q << std::endl;
+        Eigen::Map<M3>(Q.data() + 9) = D - C;
+        Eigen::Map<M3>(Q.data() + 18) = F - E;
+
+        // Flip eigenvectors
+        Eigen::Map<M3>(Q.data() + 27) = A + B;
+        Eigen::Map<M3>(Q.data() + 36) = C + D;
+        Eigen::Map<M3>(Q.data() + 45) = E + F;
+    }
+
+    Mat9 CalcProjectedHessian(FloatT mu, FloatT lambda, const Mat3& F, const Mat3& U, const Mat3& V, const Vec3& S)
+    {
+        Vec9 eigenvalues;
+        Mat9 eigenvectors;
+
+        const FloatT J = F.determinant();
+
+        // Compute the twist and flip eigenvalues
+        {
+            // Twist eigenvalues
+            eigenvalues.segment<3>(0) = S;
+            // Flip eigenvalues
+            eigenvalues.segment<3>(3) = -S;
+            const FloatT evScale = lambda * (J - 1.0) - mu;
+            eigenvalues.segment<6>(0) *= evScale;
+            eigenvalues.segment<6>(0).array() += mu;
+        }
+
+        // Compute the twist and flip eigenvectors
+        BuildTwistAndFlipEigenvectors(U, V, eigenvectors);
+
+        // Compute the remaining three eigenvalues and eigenvectors
+        {
+            Mat3 A;
+            const FloatT s0s0 = S(0) * S(0);
+            const FloatT s1s1 = S(1) * S(1);
+            const FloatT s2s2 = S(2) * S(2);
+            A(0, 0) = mu + lambda * s1s1 * s2s2;
+            A(1, 1) = mu + lambda * s0s0 * s2s2;
+            A(2, 2) = mu + lambda * s0s0 * s1s1;
+            const FloatT evScale = lambda * (2.0 * J - 1.0) - mu;
+            A(0, 1) = evScale * S(2);
+            A(1, 0) = A(0, 1);
+            A(0, 2) = evScale * S(1);
+            A(2, 0) = A(0, 2);
+            A(1, 2) = evScale * S(0);
+            A(2, 1) = A(1, 2);
+
+            //std::cout << "A" << std::endl;
+            //std::cout << A << std::endl;
+
+            const Eigen::SelfAdjointEigenSolver<Mat3> Aeigs(A);
+            eigenvalues.segment<3>(6) = Aeigs.eigenvalues();
+
+   //         std::cout << "u" << std::endl;
+   //         std::cout << U << std::endl;
+
+   //         std::cout << "v" << std::endl;
+   //         std::cout << V << std::endl;
+
+   //         std::cout << "A eigs" << std::endl;
+   //         std::cout << Aeigs.eigenvalues() << std::endl;
+   //         std::cout << "Unrotated eig vectors" << std::endl;
+			//std::cout << Aeigs.eigenvectors() << std::endl;
+
+   //         std::cout << "Rotated eigen 0 matrix" << std::endl;
+   //         std::cout << U * Aeigs.eigenvectors().col(0).asDiagonal() * V.transpose() << std::endl;
+
+   //         std::cout << "eigenvectors before mapping" << std::endl;
+   //         std::cout << eigenvectors << std::endl;
+            Eigen::Map<Mat3>(eigenvectors.data() + 54) = U * Aeigs.eigenvectors().col(0).asDiagonal() * V.transpose();
+            //std::cout << "eigenvectors after single mapping" << std::endl;
+            //std::cout << eigenvectors << std::endl;
+            Eigen::Map<Mat3>(eigenvectors.data() + 63) = U * Aeigs.eigenvectors().col(1).asDiagonal() * V.transpose();
+            Eigen::Map<Mat3>(eigenvectors.data() + 72) = U * Aeigs.eigenvectors().col(2).asDiagonal() * V.transpose();
+        }
+
+        // Clamp the eigenvalues
+        for (int i = 0; i < 9; i++)
+        {
+            //std::cout << "lambda_" << i << " " << eigenvalues(i) << std::endl;
+
+            if (eigenvalues(i) < 0.0)
+            {
+                eigenvalues(i) = 0.0;
+                //eigenvalues(i) = -eigenvalues(i);
+
+            }
+        }
+        //std::cout << "eigenvalues" << std::endl;
+        //std::cout << eigenvalues << std::endl;
+
+        //std::cout << "eigenvectors" << std::endl;
+        //std::cout << eigenvectors << std::endl;
+
+        return eigenvectors * eigenvalues.asDiagonal() * eigenvectors.transpose();
+    }
+
+    Mat3x4 CalcBm(const std::array<size_t, 4>& vertIndices, const std::vector<Vertex>& vertices)
+    {
+        std::vector<Vec3> vertices_converted;
+        glm::ivec4 tetIndices({ vertIndices[0], vertIndices[1], vertIndices[2], vertIndices[3] });
+
+        for (int i = 0; i < 4; i++)
+        {
+            const auto& pos = vertices[tetIndices[i]].mMaterialCoordinates;
+            vertices_converted.push_back(Vec3(pos.x, pos.y, pos.z));
+        }
+
+        // TODO: Eliminate this class, it is just used to get the area normal
+        class Triangle final
+        {
+        public:
+            Triangle(const Vec3& v0, const Vec3& v1, const Vec3& v2)
+                : _x0(v0)
+                , _x1(v1)
+                , _x2(v2)
+            {}
+
+            // TODO: Make this a constructor
+            static Triangle GenerateFace(const int faceNum, const glm::ivec4& tet, const std::vector<Vec3>& verts)
+            {
+                assert(faceNum >= 0); assert(faceNum < 4);
+                if (faceNum == 0)
+                {
+                    return Triangle(verts[static_cast<unsigned long>(tet[0])], verts[static_cast<unsigned long>(tet[1])], verts[static_cast<unsigned long>(tet[3])]);
+                }
+                else if (faceNum == 1)
+                {
+                    return Triangle(verts[static_cast<unsigned long>(tet[0])], verts[static_cast<unsigned long>(tet[2])], verts[static_cast<unsigned long>(tet[1])]);
+                }
+                else if (faceNum == 2)
+                {
+                    return Triangle(verts[static_cast<unsigned long>(tet[3])], verts[static_cast<unsigned long>(tet[2])], verts[static_cast<unsigned long>(tet[0])]);
+                }
+                else if (faceNum == 3)
+                {
+                    return Triangle(verts[static_cast<unsigned long>(tet[1])], verts[static_cast<unsigned long>(tet[2])], verts[static_cast<unsigned long>(tet[3])]);
+                }
+                else
+                {
+                    std::cerr << "Error, impossible code path hit." << std::endl;
+                    std::exit(EXIT_FAILURE);
+                }
+            }
+
+            // TODO: Roll these into one computation
+            Vec3 normal() const
+            {
+                return ((_x1 - _x0).cross(_x2 - _x0)).normalized();
+            }
+            FloatT area() const
+            {
+                return 0.5 * ((_x1 - _x0).cross(_x2 - _x0)).norm();
+            }
+        private:
+            const Vec3& _x0;
+            const Vec3& _x1;
+            const Vec3& _x2;
+        };
+
+        Mat3x4 Bm;
+		const Triangle tri0 = Triangle::GenerateFace(0, tetIndices, vertices_converted);
+		const Triangle tri1 = Triangle::GenerateFace(1, tetIndices, vertices_converted);
+		const Triangle tri2 = Triangle::GenerateFace(2, tetIndices, vertices_converted);
+		const Triangle tri3 = Triangle::GenerateFace(3, tetIndices, vertices_converted);
+
+		// Calculate the area vectors
+		// v0 is incident on faces (0,1,2)
+		Bm.col(0) = tri0.normal() * tri0.area() + tri1.normal() * tri1.area() + tri2.normal() * tri2.area();
+		// v1 is incident on faces (0,1,3)
+		Bm.col(1) = tri0.normal() * tri0.area() + tri1.normal() * tri1.area() + tri3.normal() * tri3.area();
+		// v2 is incident on faces (1,2,3)
+		Bm.col(2) = tri1.normal() * tri1.area() + tri2.normal() * tri2.area() + tri3.normal() * tri3.area();
+		// v3 is incident on faces (0,2,3)
+		Bm.col(3) = tri0.normal() * tri0.area() + tri2.normal() * tri2.area() + tri3.normal() * tri3.area();
+		Bm /= -3.0;
+
+        return Bm;
+    }
+
+    Eigen::VectorXf ComputePerturbedForce(const TetraGroup& group, const Eigen::VectorXf& deltaX)
+    {
+        size_t numVertices = group.mVertices.size();
+        Eigen::VectorXf globalForce = Eigen::VectorXf::Zero(3 * numVertices);
+
+        for (const auto& pair : group.mIdToTetrahedra)
+        {
+            const auto& tet = pair.second;
+
+            auto ds = Calc_Ds(tet, group.mVertices, false);
+            auto dmInv = Calc_DmInv(tet, group.mVertices);
+            auto f = Calc_F(ds, dmInv);
+
+            auto j = f.determinant();
+            auto dj_df = Calc_dj_df(f);
+            auto g_j = Reshape3x3(dj_df);
+            Mat3 dPsi_dF = group.mMu * f + (group.mLambda * (j - 1.0f) - group.mMu) * dj_df;
+
+            auto dF_dx = Calc_dFdx(dmInv);
+            auto dPsi_dx = dF_dx.transpose() * Reshape3x3(dPsi_dF);
+            Vec12 force = -tet.mRestVolume * dPsi_dx; // 12x1 atm
+
+            Eigen::JacobiSVD<Mat3, Eigen::NoQRPreconditioner> svd_f(f, Eigen::ComputeFullU | Eigen::ComputeFullV);
+            auto sigmas = svd_f.singularValues();
+            auto u = svd_f.matrixU();
+            auto v = svd_f.matrixV();
+
+            if (u.determinant() < 0.0)
+            {
+                u.col(0) *= -1.0;
+                sigmas(0) *= -1.0;
+            }
+            if (v.determinant() < 0.0)
+            {
+                v.col(0) *= -1.0;
+                sigmas(0) *= -1.0;
+            }
+
+            // Contribution to globalB
+            for (size_t i = 0; i < 4; i++)
+            {
+                auto vert_i = tet.mIndices[i];
+                globalForce(3 * vert_i + 0) += force(3 * i + 0);
+                globalForce(3 * vert_i + 1) += force(3 * i + 1);
+                globalForce(3 * vert_i + 2) += force(3 * i + 2);
+            }
+        }
+
+        return globalForce;
+    }
+
+    bool ImplicitUpdate(TetraGroup& group, float timestep, bool saveFrame, IronGames::SimulationFrame* frame, float deltaVThreshold)
     {
         size_t numVertices = group.mVertices.size();
         Eigen::SparseMatrix<float> globalA(3* numVertices, 3* numVertices);
@@ -340,6 +690,13 @@ namespace Deformation
 		Eigen::VectorXf globalX = Eigen::VectorXf::Zero(3 * numVertices);
         Vec12 nodeVelocities = Vec12::Zero();
         Vec12 localB = Vec12::Zero();
+
+        Eigen::VectorXf globalForce = Eigen::VectorXf::Zero(3 * numVertices);
+        Eigen::VectorXf globalVelocities = Eigen::VectorXf::Zero(3 * numVertices);
+        Eigen::SparseMatrix<float> globalDfDx(3 * numVertices, 3 * numVertices);
+        Eigen::SparseMatrix<float> massMatrix(3 * numVertices, 3 * numVertices);
+
+        //std::cout << "timestep " << timestep << std::endl;
 
         for (size_t i = 0; i < group.mVertices.size(); i++)
         {
@@ -353,161 +710,64 @@ namespace Deformation
             const auto& tet = pair.second;
 
             auto ds = Calc_Ds(tet, group.mVertices, false);
+            //std::cout << "ds" << std::endl;
+            //std::cout << ds << std::endl;
             auto dmInv = Calc_DmInv(tet, group.mVertices);
+            //std::cout << "dmInv" << std::endl;
+            //std::cout << dmInv << std::endl;
             auto f = Calc_F(ds, dmInv);
+            //std::cout << "f" << std::endl;
+            //std::cout << f << std::endl;
 
             // Stable Neo-hookean potential
 			auto j = f.determinant();
-			auto dj_df = Calc_dj_df(f);
+			auto dj_df = Calc_dj_df(f); // SEEMS OK
+            //std::cout << "dj_df" << std::endl;
+            //std::cout << dj_df << std::endl;
 			auto g_j = Reshape3x3(dj_df);
-			auto dPsi_dF = group.mMu * Reshape3x3(f) + (group.mLambda * (j - 1.0f) - group.mMu) * g_j;
+            //auto dPsi_dF = group.mMu * Reshape3x3(f) + group.mLambda * (j - 1.0f - group.mMu/group.mLambda) * g_j;
+            Mat3 dPsi_dF = group.mMu * f + (group.mLambda * (j - 1.0f) - group.mMu) * dj_df;
+            //auto elementForce = dPsi_dF * CalcBm(tet.mIndices, group.mVertices);
+
 			auto dF_dx = Calc_dFdx(dmInv);
-			auto dPsi_dx = dF_dx.transpose() * dPsi_dF;
+            //std::cout << "dfdx" << std::endl;
+            //std::cout << dF_dx << std::endl;
+			auto dPsi_dx = dF_dx.transpose() * Reshape3x3(dPsi_dF);
 			Vec12 force = -tet.mRestVolume * dPsi_dx; // 12x1 atm
 
+            //std::cout << "Force" << std::endl;
+            //std::cout << force << std::endl;
+            //force = -Reshape3x4(elementForce); // 12x1 atm
+
 			auto h_j = Calc_h_j(f);
-            std::cout << "h_j" << std::endl;
-            std::cout << h_j << std::endl;
-            std::cout << "g_j * g_j^T" << std::endl;
-            std::cout << (g_j * g_j.transpose()) << std::endl;
-			auto dPsi2_dF2 = group.mMu * Mat9::Identity() + (group.mLambda * (j - 1.0f) - group.mMu) * h_j + group.mLambda * g_j * g_j.transpose();
+            //std::cout << "h_j" << std::endl;
+            //std::cout << h_j << std::endl;
+            //std::cout << "g_j * g_j^T" << std::endl;
+            //std::cout << (g_j * g_j.transpose()) << std::endl;
+			//Mat9 dPsi2_dF2 = group.mMu * Mat9::Identity() + group.mLambda * (j - 1.0f - group.mMu / group.mLambda) * h_j + group.mLambda * g_j * g_j.transpose();
             
-            // TODO
+            Eigen::JacobiSVD<Mat3, Eigen::NoQRPreconditioner> svd_f(f, Eigen::ComputeFullU | Eigen::ComputeFullV);
+            auto sigmas = svd_f.singularValues();
+            auto u = svd_f.matrixU();
+            auto v = svd_f.matrixV();
+
+            if (u.determinant() < 0.0)
             {
-                std::cout << "f matrix" << std::endl;
-                std::cout << f << std::endl;
-                Eigen::JacobiSVD<Mat3> svd_f(f, Eigen::ComputeFullU | Eigen::ComputeFullV);
-                const auto & sigmas = svd_f.singularValues();
-                auto sigma_x = sigmas[0];
-                auto sigma_y = sigmas[1];
-                auto sigma_z = sigmas[2];
-                std::cout << "Sigmas" << std::endl;
-                std::cout << sigmas << std::endl;
-                const auto & u = svd_f.matrixU();
-                std::cout << "U" << std::endl;
-                std::cout << u << std::endl;
-                const auto & v = svd_f.matrixV();
-                std::cout << "V" << std::endl;
-                std::cout << v << std::endl;
-                auto I1 = sigma_x + sigma_y + sigma_z;
-                auto I2 = (f.transpose() * f).trace();
-                auto I3 = f.determinant();
-                
-                std::cout << "I2 " << I2 << std::endl;
-                std::cout << "I3 " << I3 << std::endl;
-
-                auto epsilon_0 = Calc_Epsilon(0, I2, I3);
-                auto epsilon_1 = Calc_Epsilon(1, I2, I3);
-                auto epsilon_2 = Calc_Epsilon(2, I2, I3);
-                
-                std::cout << "Trig epsilon values " << std::endl;
-                std::cout << epsilon_0 << std::endl;
-                std::cout << epsilon_1 << std::endl;
-				std::cout << epsilon_2 << std::endl;
-
-                //auto q_0 = Get_Q(0, { epsilon_0, epsilon_1, epsilon_2 }, { sigma_x, sigma_y, sigma_z }, u, v);
-                //auto q_1 = Get_Q(1, { epsilon_0, epsilon_1, epsilon_2 }, { sigma_x, sigma_y, sigma_z }, u, v);
-                //auto q_2 = Get_Q(2, { epsilon_0, epsilon_1, epsilon_2 }, { sigma_x, sigma_y, sigma_z }, u, v);
-
-				const int32_t sortType = 0; // 0 indicates no sorting
-				const bool aggressive = false;
-				gte::SymmetricEigensolver3x3<FloatT> solver;
-				auto a00 = group.mMu + group.mLambda * I3 * I3 / sigma_x / sigma_x;
-				auto a11 = group.mMu + group.mLambda * I3 * I3 / sigma_y / sigma_y;
-				auto a22 = group.mMu + group.mLambda * I3 * I3 / sigma_z / sigma_z;
-				auto a01 = sigma_z * (group.mLambda * (2 * I3 - 1) - group.mMu);
-				auto a12 = sigma_x * (group.mLambda * (2 * I3 - 1) - group.mMu);
-				auto a02 = sigma_y * (group.mLambda * (2 * I3 - 1) - group.mMu);
-				std::array<FloatT, 3> eigenvalues;
-				std::array<std::array<FloatT, 3>, 3> eigenVectors;
-				solver(a00, a01, a02, a11, a12, a22, aggressive, sortType, eigenvalues, eigenVectors);
-				std::cout << "Scaling system eigenvalues " << std::endl;
-
-                Vec3 q0_vec(eigenVectors[0][0], eigenVectors[0][1], eigenVectors[0][2]);
-                Vec3 q1_vec(eigenVectors[1][0], eigenVectors[1][1], eigenVectors[1][2]);
-                Vec3 q2_vec(eigenVectors[2][0], eigenVectors[2][1], eigenVectors[2][2]);
-
-                auto q_0 = u * q0_vec.asDiagonal() * v;
-                auto q_1 = u * q1_vec.asDiagonal() * v;
-                auto q_2 = u * q2_vec.asDiagonal() * v;
-
-                std::cout << "Q_0" << std::endl;
-                std::cout << q_0 << std::endl;
-
-                std::cout << "Q_1" << std::endl;
-                std::cout << q_1 << std::endl;
-
-                std::cout << "Q_2" << std::endl;
-                std::cout << q_2 << std::endl;
-
-				auto lambda_0 = eigenvalues[0];
-				auto lambda_1 = eigenvalues[1];
-				auto lambda_2 = eigenvalues[2];
-
-                std::cout << "lambda_0 " << lambda_0 << std::endl;
-                std::cout << "lambda_1 " << lambda_1 << std::endl;
-                std::cout << "lambda_2 " << lambda_2 << std::endl;
-
-                auto zeta = group.mLambda * (I3 - 1.0f) - group.mMu;
-
-                auto lambda_3 = group.mMu + sigma_z * zeta;
-                auto lambda_4 = group.mMu + sigma_x * zeta;
-                auto lambda_5 = group.mMu + sigma_y * zeta;
-                auto lambda_6 = group.mMu - sigma_z * zeta;
-                auto lambda_7 = group.mMu - sigma_x * zeta;
-                auto lambda_8 = group.mMu - sigma_y * zeta;
-
-                std::cout << "lambda_3 " << lambda_3 << std::endl;
-                std::cout << "lambda_4 " << lambda_4 << std::endl;
-                std::cout << "lambda_5 " << lambda_5 << std::endl;
-                std::cout << "lambda_6 " << lambda_6 << std::endl;
-                std::cout << "lambda_7 " << lambda_7 << std::endl;
-                std::cout << "lambda_8 " << lambda_8 << std::endl;
-
-                auto dPsi2dF2 =
-                    lambda_0 * Reshape3x3(q_0) * Reshape3x3(q_0).transpose() +
-                    lambda_1 * Reshape3x3(q_1) * Reshape3x3(q_1).transpose() +
-                    lambda_2 * Reshape3x3(q_2) * Reshape3x3(q_2).transpose() +
-                    lambda_3 * Reshape3x3(Get_Q(u, v, 3)) * Reshape3x3(Get_Q(u, v, 3)).transpose() +
-                    lambda_4 * Reshape3x3(Get_Q(u, v, 4)) * Reshape3x3(Get_Q(u, v, 4)).transpose() +
-                    lambda_5 * Reshape3x3(Get_Q(u, v, 5)) * Reshape3x3(Get_Q(u, v, 5)).transpose() +
-                    lambda_6 * Reshape3x3(Get_Q(u, v, 6)) * Reshape3x3(Get_Q(u, v, 6)).transpose() +
-                    lambda_7 * Reshape3x3(Get_Q(u, v, 7)) * Reshape3x3(Get_Q(u, v, 7)).transpose() +
-                    lambda_8 * Reshape3x3(Get_Q(u, v, 8)) * Reshape3x3(Get_Q(u, v, 8)).transpose();
-
-                std::cout << "Regular lambas" << std::endl;
-                auto reg_lambdas = dPsi2_dF2.eigenvalues();
-                for (int i = 0; i < 9; i++)
-                {
-                    std::cout << "reg lambda " << i << " : " << reg_lambdas[i] << std::endl;
-                }
-
-                {
-                    std::cout << "Eigendecomposition lambas" << std::endl;
-                    auto decomp_lambdas = dPsi2dF2.eigenvalues();
-                    for (int i = 0; i < 9; i++)
-                    {
-                        std::cout << "decomp lambda " << i << " : " << decomp_lambdas[i] << std::endl;
-                    }
-                }
-
-                std::cout << "Regular dPsi2dF2" << std::endl;
-                std::cout << dPsi2_dF2 << std::endl;
-
-                std::cout << "Eigendecomposition dPsi2dF2" << std::endl;
-                std::cout << dPsi2dF2 << std::endl;
-
-                std::cout << "Difference" << std::endl;
-                std::cout << dPsi2dF2 - dPsi2_dF2 << std::endl;
-                    std::cout << "done" << std::endl;
-
-                //{
-                //    Eigen::JacobiSVD<Mat9> svd(dPsi2_dF2);
-                //    svd.singularValues();
-                //}
+                u.col(0) *= -1.0;
+                sigmas(0) *= -1.0;
+            }
+            if (v.determinant() < 0.0)
+            {
+                v.col(0) *= -1.0;
+                sigmas(0) *= -1.0;
             }
 
+            auto dPsi2_dF2 = CalcProjectedHessian(group.mMu, group.mLambda, f, u, v, sigmas);
+
 			auto dfdx = Calc_dfdx(dF_dx, dPsi2_dF2, tet.mRestVolume);
+
+            //std::cout << "dfdx" << std::endl;
+            //std::cout << dfdx << std::endl;
 
             // Contribution to globalA
             // 12 x 12 matrix df/dx
@@ -533,6 +793,7 @@ namespace Deformation
                         for (size_t sub_j = 0; sub_j < 3; sub_j++)
                         {
                             globalA.coeffRef(3 * vert_i + sub_i, 3 * vert_j + sub_j) -= timestep * timestep * dfdx(3 * i + sub_i, 3 * j + sub_j);
+                            globalDfDx.coeffRef(3 * vert_i + sub_i, 3 * vert_j + sub_j) += dfdx(3 * i + sub_i, 3 * j + sub_j);
                         }
                     }
                 }
@@ -557,6 +818,10 @@ namespace Deformation
                 globalB(3 * vert_i + 0) += localB(3 * i + 0);
                 globalB(3 * vert_i + 1) += localB(3 * i + 1);
                 globalB(3 * vert_i + 2) += localB(3 * i + 2);
+
+                globalForce(3 * vert_i + 0) += force(3 * i + 0);
+                globalForce(3 * vert_i + 1) += force(3 * i + 1);
+                globalForce(3 * vert_i + 2) += force(3 * i + 2);
             }
         }
 
@@ -578,15 +843,85 @@ namespace Deformation
         if (isnan(globalB.norm()))
             throw std::exception("Nan detected.");
 
+        //{
+        //    auto denseGlobalA = globalA.toDense();
+
+        //    Eigen::SelfAdjointEigenSolver<Eigen::MatrixXf> solver(denseGlobalA);
+        //    auto eigs = solver.eigenvalues();
+        //    auto minVal = 1000.0f;
+        //    for (int i = 0; i < eigs.size(); i++)
+        //        minVal = std::min(minVal, eigs[i]);
+
+        //    if (minVal < 0)
+        //    {
+        //        std::cout << "Timestep : " << timestep << std::endl;
+        //        std::cout << "Negative eig" << std::endl;
+        //    }
+        //}
+
+        //std::cout << "globalA" << std::endl;
+        //std::cout << globalA << std::endl;
+
+        //std::cout << "globalB" << std::endl;
+        //std::cout << globalB << std::endl;
+
         // PCG Solver
         {
             Eigen::ConjugateGradient<Eigen::SparseMatrix<float>, Eigen::Lower | Eigen::Upper> solver;
             solver.compute(globalA);
-            globalX = solver.solve(globalB);
 
+            globalX = solver.solve(globalB);
             if (isnan(solver.error()))
                 throw std::exception("Solver failed.");
+
+            //std::cout << "globalX" << std::endl;
+            //std::cout << globalX << std::endl;
+            //std::cout << "globalX inf norm: " << globalX.lpNorm<Eigen::Infinity>() << std::endl;
+            //if (globalX.lpNorm<Eigen::Infinity>() > deltaVThreshold)
+            //    return false;
+            // lets see, make the threshold value here 1
+
+            std::string solverInfo;
+            if (solver.info() == 0)
+                solverInfo = std::string("Success");
+            else if (solver.info() == 1)
+                solverInfo = std::string("Numerical issue");
+            else if (solver.info() == 2)
+                solverInfo = std::string("No convergence");
+            else if (solver.info() == 3)
+                solverInfo = std::string("Invalid input");
+
+            if (solver.info() != 0)
+				std::cout << "Solver info : " << solverInfo << std::endl;
         }
+
+        // Check error against nonlinear equation
+        {
+            for (int i = 0; i < numVertices; i++)
+            {
+                globalVelocities(3 * i + 0) = group.mVertices[i].mVelocity[0];
+                globalVelocities(3 * i + 1) = group.mVertices[i].mVelocity[1];
+                globalVelocities(3 * i + 2) = group.mVertices[i].mVelocity[2];
+                massMatrix.coeffRef(3 * i, 3 * i) = 1.0/group.mVertices[i].mMass;
+                massMatrix.coeffRef(3 * i + 1, 3 * i + 1) = 1.0/group.mVertices[i].mMass;
+                massMatrix.coeffRef(3 * i + 2, 3 * i + 2) = 1.0/group.mVertices[i].mMass;
+            }
+
+            // dv = h M^-1 (f0 + df/dx * dx)
+            auto dx = timestep * (globalVelocities + globalX);
+            auto perturbedForce = ComputePerturbedForce(group, dx);
+            auto residual = timestep * massMatrix * perturbedForce - globalX;
+            // this isn't the nonlinear eq. unfortunately, we'd need to evaluate the force with new position
+            // to get that
+            std::cout << "timestep: " << timestep << std::endl;
+            std::cout << "infinity error: " << residual.lpNorm<Eigen::Infinity>() << std::endl;
+            std::cout << "l2 error: " << residual.norm() << std::endl;
+            if (residual.lpNorm<Eigen::Infinity>() > 10.0)
+            {
+                return false;
+            }
+        }
+
         // SparseLU Solver
         //{
         //    Eigen::SparseLU<Eigen::SparseMatrix<float>, Eigen::COLAMDOrdering<int> >   solver;
@@ -597,7 +932,6 @@ namespace Deformation
         //    if (isnan(globalX.norm()))
         //        throw std::exception("Solver failed.");
         //}
-
 
         // Integrate
         for (int i = 0; i < group.mVertices.size(); i++)
@@ -614,6 +948,8 @@ namespace Deformation
             vertex.mVelocity += deltaV;
             vertex.mPosition += (double)timestep * vertex.mVelocity;
         }
+
+        return true;
 
         // things to try:
         // - 'solveWithGuess' and providing the previous timestep's change in velocities as the guess?

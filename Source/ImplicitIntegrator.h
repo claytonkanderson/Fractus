@@ -10,6 +10,6 @@ class TetraGroup;
 
 namespace Deformation
 {
-    void ImplicitUpdate(TetraGroup& group, float timestep, bool saveFrame, IronGames::SimulationFrame* frame);
+    bool ImplicitUpdate(TetraGroup& group, float timestep, bool saveFrame, IronGames::SimulationFrame* frame, float deltaVThreshold);
 }
 

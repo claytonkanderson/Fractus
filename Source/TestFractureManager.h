@@ -13,7 +13,7 @@ namespace Deformation
 		TestCase(bool breakOnFailure)
 			: mBreakOnFailure(breakOnFailure) {}
 
-		virtual void Run(IronGames::SimulationSummary* /*summary*/) {}
+		virtual void Run(IronGames::SimulationSummaries* /*summaries*/) {}
 		
 		bool Update(Deformation::TetraGroup& group);
 
