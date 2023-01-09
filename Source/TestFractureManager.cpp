@@ -272,9 +272,9 @@ const float positionScale = 10.0f;
 			for (int i = 0; i < numVertices; i++)
 				positions[3 * i + 1] = positions[3 * i + 1] - boundingBoxMin[1] + heightAboveZero;
 
-			mTimestep = 1e-4;
+			mTimestep = 1e-3;
 			//mTimestep = 1e-3;
-			mLambda = 0.0f;
+			mLambda = 2.65e6f;
 			mMu = 5.29e7f;
 			mPhi = 0.0f;
 			mPsi = 198.0f;
@@ -300,13 +300,13 @@ const float positionScale = 10.0f;
 
 			SaveFrame(summary, *group);
 
-			int numSteps = 3000;
+			int numSteps = 9000;
 			for (int i = 0; i < numSteps; i++)
 			{
 				if (!Update(*group))
 					break;
 
-				if (i % (numSteps/10) == 0)
+				if (i % (numSteps/100) == 0)
 				{
 					double minHeight = DBL_MAX;
 					for (const auto& vert : group->mVertices)

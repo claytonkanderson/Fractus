@@ -54,7 +54,7 @@ namespace Deformation
 
         ClearState(saveFrame, frame);
         // Apply collision forces from the current state
-        ConvexIntersection::ResolveCollisions(mVertices, mIdToTetrahedra);
+        //ConvexIntersection::ResolveCollisions(mVertices, mIdToTetrahedra);
         // Calculate new positions and velocities based on the deformed position
         // - also includes gravity
         // - also includes collision forces

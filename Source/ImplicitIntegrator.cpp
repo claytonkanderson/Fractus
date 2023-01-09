@@ -43,6 +43,21 @@ namespace Deformation
         return ds;
     }
 
+    Mat3 Calc_Ds(const std::array<glm::dvec3,4> & positions)
+    {
+        Mat3 ds = Mat3::Zero();
+
+        for (int row = 0; row < 3; row++)
+        {
+            for (int col = 1; col < 4; col++)
+            {
+				ds(row, col - 1) = positions[col][row] - positions[0][row];
+            }
+        }
+
+        return ds;
+    }
+
     Mat3 Calc_DmInv(const Deformation::Tetrahedra& tet, const std::vector<Vertex>& vertices)
     {
         auto mat = Calc_Ds(tet, vertices, true);
@@ -636,11 +651,19 @@ namespace Deformation
         size_t numVertices = group.mVertices.size();
         Eigen::VectorXf globalForce = Eigen::VectorXf::Zero(3 * numVertices);
 
+        std::array<glm::dvec3, 4> perturbedPositions;
+
         for (const auto& pair : group.mIdToTetrahedra)
         {
             const auto& tet = pair.second;
 
-            auto ds = Calc_Ds(tet, group.mVertices, false);
+            for (int i = 0; i < 4; i++)
+            {
+                auto id = tet.mIndices[i];
+                perturbedPositions[i] = group.mVertices[id].mPosition + glm::dvec3(deltaX[3*id], deltaX[3 * id + 1], deltaX[3 * id + 2]);
+            }
+
+            auto ds = Calc_Ds(perturbedPositions);
             auto dmInv = Calc_DmInv(tet, group.mVertices);
             auto f = Calc_F(ds, dmInv);
 
@@ -829,7 +852,7 @@ namespace Deformation
         for (int i = 0; i < group.mVertices.size(); i++)
         {
             // Gravity
-            globalB(3 * i + 1) += -9.8 * timestep * group.mVertices[i].mMass;
+            //globalB(3 * i + 1) += -9.8 * timestep * group.mVertices[i].mMass;
 
             // Collision forces
             //globalB(3 * i + 0) += group.mVertices[i].mForce.x;
@@ -911,8 +934,7 @@ namespace Deformation
             auto dx = timestep * (globalVelocities + globalX);
             auto perturbedForce = ComputePerturbedForce(group, dx);
             auto residual = timestep * massMatrix * perturbedForce - globalX;
-            // this isn't the nonlinear eq. unfortunately, we'd need to evaluate the force with new position
-            // to get that
+
             std::cout << "timestep: " << timestep << std::endl;
             std::cout << "infinity error: " << residual.lpNorm<Eigen::Infinity>() << std::endl;
             std::cout << "l2 error: " << residual.norm() << std::endl;
@@ -941,8 +963,9 @@ namespace Deformation
 
             if (saveFrame)
             {
+                auto force = glm::dvec3(globalForce(3 * i + 0), globalForce(3 * i + 1), globalForce(3 * i + 2));
                 auto& vert = *frame->mutable_vertices(i);
-                *vert.mutable_force() = ProtoConverter::Convert(deltaV);
+                *vert.mutable_force() = ProtoConverter::Convert(force);
             }
 
             vertex.mVelocity += deltaV;
